@@ -226,6 +226,8 @@
     <string name="liquid_glass">Liquid Glass</string>
     <string name="liquid_glass_subtitle">Cristal refractante real en la barra de navegación flotante. Solo Android 12+; usa más GPU.</string>
     <string name="liquid_glass_unavailable">Requiere Android 12 o posterior</string>
+    <string name="show_nav_labels">Mostrar etiquetas de pestañas</string>
+    <string name="show_nav_labels_subtitle">Nombres bajo los iconos en la barra inferior. Desactivado mantiene la barra más delgada</string>
     <string name="full_screen_cover_art">Portada a pantalla completa</string>
     <string name="animated_cover_art">Portada animada</string>
     <string name="synced_lyrics">Letras sincronizadas</string>
