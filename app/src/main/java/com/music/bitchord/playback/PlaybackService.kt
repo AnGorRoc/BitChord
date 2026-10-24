@@ -106,6 +106,7 @@ import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
+import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.NOTIFICATION_ART_PX
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.SearchFilter
@@ -167,6 +168,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.collect
@@ -7963,14 +7965,12 @@ class PlaybackService : MediaLibraryService() {
             }
         }
         scope.launch {
-            combine(
+            lyricsSettingChanges(
                 AppSettings.syncedLyrics,
                 AppSettings.lyricsSources,
                 AppSettings.lyricsSourceOrder,
                 AppSettings.prioritizeSyllableSync,
-            ) { synced, sources, order, prio ->
-                synced to sources
-            }.distinctUntilChanged().collect {
+            ).collect {
                 loadLyricsForCurrentTrack()
             }
         }
@@ -10474,3 +10474,17 @@ private open class FfmpegFallbackRenderersFactory(context: Context) : DefaultRen
         out.add(FfmpegAudioRenderer(eventHandler, eventListener, audioSink))
     }
 }
+
+/**
+ * Every lyric setting the service's lyrics depend on, emitting once per real
+ * change. The order and the syllable preference pick a different answer from
+ * the same providers, so each of them is a reload as much as the switch is.
+ */
+internal fun lyricsSettingChanges(
+    synced: Flow<Boolean>,
+    sources: Flow<Set<LyricsSource>>,
+    order: Flow<List<LyricsSource>>,
+    prioritizeSyllableSync: Flow<Boolean>,
+): Flow<List<Any>> = combine(synced, sources, order, prioritizeSyllableSync) { s, src, o, p ->
+    listOf(s, src, o, p)
+}.distinctUntilChanged()
