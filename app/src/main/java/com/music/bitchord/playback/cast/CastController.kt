@@ -13,6 +13,7 @@ import com.google.android.gms.common.GoogleApiAvailability
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
@@ -56,7 +57,11 @@ object CastController {
     private var castContext: CastContext? = null
     private var router: MediaRouter? = null
     private var selector: MediaRouteSelector? = null
-    private var started = false
+    // [ensureStarted] is documented as callable from anywhere, and the framework
+    // hands its answer back on a background thread, so these are read and written
+    // off the main thread as well as on it.
+    @Volatile private var started = false
+    @Volatile private var castExecutor: ExecutorService? = null
     private var playback: CastPlayback? = null
 
     /** The session whose volume is being followed, so it can be let go of. */
@@ -106,28 +111,42 @@ object CastController {
     }
 
     /**
-     * Brings the framework up, once. Safe to call from anywhere, any number of
-     * times; where Google Play Services is absent it settles on unsupported and
-     * the Cast row never appears.
+     * Brings the framework up. Safe to call from anywhere, any number of times.
+     *
+     * A start that fails does not close the door: Google Play Services being
+     * unavailable when the screen first asks is common — it is still updating,
+     * or is off until the user needs it — and a one-shot guard would leave
+     * casting dark for the rest of the process, with the row simply never
+     * appearing. So a failure resets the flag and the next call tries again.
      */
     fun ensureStarted(context: Context) {
         if (started) return
         started = true
         val app = context.applicationContext
         if (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(app) != ConnectionResult.SUCCESS) {
-            Log.i(TAG, "Play Services unavailable; casting disabled")
+            Log.i(TAG, "Play Services unavailable; casting stays off until the next call")
+            started = false
             return
         }
         try {
             // The task form, so the framework's start-up work is not on the
             // main thread of whichever screen happened to ask first.
-            CastContext.getSharedInstance(app, Executors.newSingleThreadExecutor())
+            // The executor is held: the framework keeps this one for the life of
+            // the process, so it has to be given back to it rather than dropped.
+            castExecutor = Executors.newSingleThreadExecutor()
+            CastContext.getSharedInstance(app, castExecutor!!)
                 .addOnSuccessListener { ctx -> onReady(app, ctx) }
                 .addOnFailureListener {
                     Log.w(TAG, "Cast framework unavailable", it)
+                    started = false
+                    castExecutor?.shutdown()
+                    castExecutor = null
                 }
         } catch (e: Exception) {
             Log.w(TAG, "Cast framework unavailable", e)
+            started = false
+            castExecutor?.shutdown()
+            castExecutor = null
         }
     }
 

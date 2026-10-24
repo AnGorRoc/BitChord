@@ -81,6 +81,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.guava.future
 import com.music.bitchord.playback.audio.DspChain
 import com.music.bitchord.playback.cast.CastController
+import com.music.bitchord.playback.cast.receiverCanOpen
 import com.music.bitchord.playback.cast.CastPlayback
 import com.music.bitchord.playback.cast.CastSink
 import com.music.bitchord.playback.cast.RemoteSpeaker
@@ -1912,6 +1913,12 @@ class PlaybackService : MediaLibraryService() {
      */
     private suspend fun resolveForCast(item: MediaItem): CastStream? = withContext(Dispatchers.IO) {
         val uri = item.localConfiguration?.uri ?: return@withContext null
+        // Asked of the scheme before the resolver is. A local track is known from
+        // its scheme and costs nothing to refuse; asking the resolver first meant
+        // asking YouTube to make sense of a MediaStore id, which took seconds to
+        // fail and left the receiver playing the track before for all of them.
+        // [receiverCanOpen] says which schemes those are, and why.
+        if (!receiverCanOpen(uri.scheme)) return@withContext null
         val resolver = streamResolver ?: return@withContext null
         // Ungated: the receiver plays items this player is not on.
         val resolved = DirectSourceGate.ungated { resolver.resolveDataSpec(DataSpec(uri)) }.uri
@@ -8917,11 +8924,17 @@ class PlaybackService : MediaLibraryService() {
             listeners.forEach { it.onEvents(this, events) }
         }
 
-        /** Back, on a receiver: restart past the first seconds, else the previous track. */
+        /**
+         * Back, on a receiver: restart past the first seconds, else the previous
+         * track. The receiver keeps the track before this one queued, so back is
+         * usually a jump there — instant, and with no reload behind it. When it
+         * has not got it (the top of the queue, or before the window caught up)
+         * the phone's player moves instead, as it does off a receiver.
+         */
         private fun castPrevious() {
             if (cast.positionMs > wrappedPlayer.maxSeekToPreviousPosition || !wrappedPlayer.hasPreviousMediaItem()) {
                 cast.seekTo(0L)
-            } else {
+            } else if (!cast.jumpToPrevious()) {
                 wrappedPlayer.seekToPreviousMediaItem()
             }
         }

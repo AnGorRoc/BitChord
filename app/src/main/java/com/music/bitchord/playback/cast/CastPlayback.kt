@@ -20,6 +20,8 @@ import com.google.android.gms.common.api.PendingResult
 import com.google.android.gms.common.api.Result
 import com.google.android.gms.common.images.WebImage
 import com.music.bitchord.R
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -31,6 +33,22 @@ import kotlin.coroutines.resume
 
 /** A stream the receiver can open by itself: a URL and what it holds. */
 class CastStream(val url: String, val mimeType: String)
+
+/**
+ * What came of preparing one track for a receiver.
+ *
+ * Refused and Stalled look the same from outside the receiver — nothing is
+ * playing — and want opposite things done about them. A refused track cannot be
+ * cast at all, so it is skipped and the listener is told. A stalled one probably
+ * can; it just took too long, so it is left for another attempt and the listener
+ * is told nothing, because being told "this track can't be cast" about a slow
+ * network is a lie they will believe.
+ */
+private sealed interface Prepared {
+    data class Ready(val item: MediaQueueItem) : Prepared
+    data object Refused : Prepared
+    data object Stalled : Prepared
+}
 
 /** Told when the receiver changes something the session player reports as its own. */
 interface CastSink {
@@ -112,12 +130,40 @@ class CastPlayback(
     private var requestedPositionMs = 0L
     private var requestedAt = 0L
 
+    /**
+     * Where the receiver was at the last status, and when we heard it. Its
+     * status arrives about every three seconds, so reporting that reading as
+     * the position makes the progress bar step in three-second jumps; carrying
+     * it forward from our own clock keeps it moving between updates.
+     */
+    private var anchorPositionMs = 0L
+    private var anchorAt = 0L
+
     private var loadGeneration = 0
     private var loadJob: Job? = null
     private var reconcileJob: Job? = null
     private var reconcileAgain = false
 
     private var lastItemId = MediaQueueItem.INVALID_ITEM_ID
+
+    /**
+     * The receiver item the phone had *before* handing it a new track, for as
+     * long as it has not yet moved off it.
+     *
+     * In that window every position the receiver reports belongs to the track it
+     * was playing before, and reporting them is what made the bar leap to a
+     * previous track's place the moment a receiver was picked. The change of item
+     * is what confirms the handover, and it has to be the item that was there
+     * before, since the new one cannot be known until the receiver says so.
+     *
+     * Null when no handover is outstanding. [MediaQueueItem.INVALID_ITEM_ID] is a
+     * value here, not the absence of one: on a first connect there is no previous
+     * track, and every reading is of something that is about to be replaced — but
+     * "nothing to move off" and "nothing to wait for" are not the same thing, and
+     * conflating them left the first connection of a session unguarded, which is
+     * exactly when the bar jumped.
+     */
+    private var awaitingSwitchFrom: Int? = null
 
     /** What the receiver was doing when its session started to end. */
     private var endPositionMs = 0L
@@ -142,17 +188,55 @@ class CastPlayback(
 
     override val positionMs: Long
         get() {
-            val live = client?.takeIf { !loading }?.approximateStreamPosition
-            val asked = requestedPositionMs
-            // A seek is asked of the receiver and answered a moment later; in
-            // between, its own clock still reads the old place and the bar would
-            // spring back to it.
-            return if (live == null || SystemClock.elapsedRealtime() - requestedAt < SEEK_GRACE_MS) {
-                asked
-            } else {
-                live.coerceAtLeast(0L)
+            val value = computePosition()
+            if (TRACE_CAST) {
+                if (positionReads++ % 4L == 0L) {
+                    Log.i(
+                        TAG,
+                        "[pos] $value | asked=$requestedPositionMs " +
+                            "live=${client?.takeIf { !loading }?.approximateStreamPosition} " +
+                            "anchor=$anchorPositionMs@$anchorAt | " +
+                            "play=${isPlaying} ready=$playWhenReady loading=$loading switch=$awaitingSwitchFrom",
+                    )
+                }
             }
+            return value
         }
+
+    private var positionReads = 0L
+
+    private fun computePosition(): Long {
+        val live = client?.takeIf { !loading }?.approximateStreamPosition
+        val asked = requestedPositionMs
+        // Handed a new track and it has not moved onto it yet: everything it
+        // reports is of the track before, so report what was asked for.
+        // Bounded, so a receiver that never moves on cannot freeze the bar.
+        val handover = awaitingSwitchFrom
+        if (handover != null && SystemClock.elapsedRealtime() - requestedAt < SWITCH_TIMEOUT_MS) {
+            return asked
+        }
+        // A seek is asked of the receiver and answered a moment later; in
+        // between, its own clock still reads the old place and the bar would
+        // spring back to it.
+        if (live == null || SystemClock.elapsedRealtime() - requestedAt < SEEK_GRACE_MS) {
+            return asked
+        }
+        if (!isPlaying || anchorAt == 0L) return live.coerceAtLeast(0L)
+        // Its status only lands every few seconds. Between updates the
+        // receiver keeps playing, so the place it reached is the last one it
+        // reported plus however long we have been running since. Waiting for
+        // the next update instead would step the bar in three-second jumps.
+        //
+        // The anchor has to be one we have actually taken. Straight after a
+        // session starts it is zeroed, and the first status is up to three
+        // seconds away: measuring from zero is measuring from the phone's
+        // boot, which carried the bar to the end of the track the moment a
+        // receiver was picked.
+        val since = SystemClock.elapsedRealtime() - anchorAt
+        val duration = durationMs
+        val extrapolated = anchorPositionMs + since
+        return if (duration != C.TIME_UNSET) extrapolated.coerceAtMost(duration) else extrapolated
+    }
 
     override val durationMs: Long
         get() = client?.streamDuration?.takeIf { it > 0 } ?: C.TIME_UNSET
@@ -186,6 +270,32 @@ class CastPlayback(
         sink?.onRemotePlaybackChanged()
     }
 
+    /**
+     * Back, on a receiver that still holds the track before this one: a jump
+     * rather than a reload, and so without the gap a reload costs. False when
+     * the receiver has not got it queued — at the top of the queue, or before
+     * the window has caught up — and the caller should move the phone instead.
+     */
+    override fun jumpToPrevious(): Boolean {
+        if (!active) return false
+        val remote = client ?: return false
+        val status = remote.mediaStatus ?: return false
+        val here = status.queueItems.indexOfFirst { it.itemId == status.currentItemId }
+        if (here <= 0) {
+            trace("back", "no previous item on the receiver's queue (index=$here); let the phone move instead")
+            return false
+        }
+        val behind = status.queueItems[here - 1]
+        trace("back", "jumping straight to ${behind.mediaId()} (itemId=${behind.itemId}), without reloading")
+        wantsPlay = true
+        finished = false
+        requestedPositionMs = 0L
+        requestedAt = SystemClock.elapsedRealtime()
+        remote.queueJumpToItem(behind.itemId, null)
+        sink?.onRemotePlaybackChanged()
+        return true
+    }
+
     // ---- session lifecycle --------------------------------------------------
 
     private val callback = object : RemoteMediaClient.Callback() {
@@ -213,6 +323,11 @@ class CastPlayback(
         remote.registerCallback(callback)
         active = true
         finished = false
+        // Take the clock from where the receiver says it is, before anything can
+        // ask. Without this the bar has no anchor until the first status arrives,
+        // and reporting a position from no anchor at all is worse than reporting
+        // the receiver's own.
+        anchorTo(remote)
 
         val player = localPlayer()
         if (player != null) {
@@ -285,6 +400,9 @@ class CastPlayback(
         loading = false
         wantsPlay = false
         finished = false
+        anchorPositionMs = 0L
+        anchorAt = 0L
+        awaitingSwitchFrom = null
         lastItemId = MediaQueueItem.INVALID_ITEM_ID
     }
 
@@ -336,12 +454,47 @@ class CastPlayback(
 
     // ---- the receiver moved -------------------------------------------------
 
+    /**
+     * Takes the receiver's clock as the anchor the position is carried forward
+     * from. Zero is left to mean "never anchored", which [positionMs] refuses to
+     * extrapolate from — measuring from zero would be measuring from the phone's
+     * boot.
+     */
+    private fun anchorTo(remote: RemoteMediaClient) {
+        anchorPositionMs = remote.approximateStreamPosition.coerceAtLeast(0L)
+        anchorAt = SystemClock.elapsedRealtime()
+    }
+
     private fun onStatus() {
         val remote = client ?: return
         val status = remote.mediaStatus ?: return
         val state = status.playerState
-        // Whatever the phone last asked for has been answered by now.
-        requestedAt = 0L
+        // The receiver has moved off the track it was on before: that is the
+        // handover. Until it does, a status is news about the old one, and
+        // clearing the grace on it let the bar report a place on a track that was
+        // no longer playing.
+        val handover = awaitingSwitchFrom
+        if (handover != null &&
+            status.currentItemId != MediaQueueItem.INVALID_ITEM_ID &&
+            status.currentItemId != handover
+        ) {
+            awaitingSwitchFrom = null
+        }
+        // Whatever the phone last asked for has been answered by now — but not
+        // while the receiver is still on the track it was on before this load,
+        // because that status is news about the old one, not about where we asked
+        // it to begin.
+        if (awaitingSwitchFrom == null) requestedAt = 0L
+        // Re-anchor the clock: this is the freshest word on where the receiver is.
+        anchorTo(remote)
+        trace(
+            "status",
+            "queue=${status.queueItems.size} " +
+                status.queueItems.mapIndexed { i, q ->
+                    val mark = if (q.itemId == status.currentItemId) ">>" else "  "
+                    "$mark$i:${q.mediaId() ?: "?"}"
+                }.joinToString(" | ") + "  state=$state",
+        )
 
         when (state) {
             MediaStatus.PLAYER_STATE_PLAYING -> {
@@ -368,6 +521,16 @@ class CastPlayback(
         val itemId = status.currentItemId
         if (itemId != MediaQueueItem.INVALID_ITEM_ID && itemId != lastItemId) {
             lastItemId = itemId
+            // The receiver has moved to a different track. Its position for the
+            // new one is reported before it has counted anywhere into it, so
+            // anchoring to that reading puts the bar back at the start of a track
+            // that was asked to begin further in. Where we asked it to begin is
+            // the better anchor, and it is this same reading that is stale.
+            if (status.playerState == MediaStatus.PLAYER_STATE_PLAYING &&
+                anchorPositionMs == 0L && requestedPositionMs > 0L
+            ) {
+                anchorPositionMs = requestedPositionMs
+            }
             val mediaId = status.getQueueItemById(itemId)?.mediaId()
             val player = localPlayer()
             if (mediaId != null && player != null && player.currentMediaItem?.mediaId != mediaId) {
@@ -409,6 +572,7 @@ class CastPlayback(
         requestedAt = SystemClock.elapsedRealtime()
         sink?.onRemotePlaybackChanged()
 
+        trace("load", "${item?.mediaId} at ${positionMs}ms (play=$play)")
         loadJob = scope.launch {
             try {
                 loadNow(item, positionMs, play, generation, remote)
@@ -426,17 +590,39 @@ class CastPlayback(
 
     private suspend fun loadNow(item: MediaItem?, positionMs: Long, play: Boolean, generation: Int, remote: RemoteMediaClient) {
         run {
-            val queueItem = item?.let { buildQueueItem(it, play) }
+            // Resolving a stream can involve the network, and a receiver that
+            // does not answer can go quiet indefinitely. Without a ceiling here
+            // the session sat in BUFFERING for minutes with nothing said to
+            // anyone: no progress, no error, no way back short of leaving.
+            val prepared = item?.let { timedBuild(it, play) }
             if (generation != loadGeneration || !active) return@run
-            if (queueItem == null) {
-                // Nothing to play, so nothing to wait for. The receiver is left
-                // as it was; only the phone's idea of it is corrected.
+            if (prepared !is Prepared.Ready) {
                 loading = false
-                wantsPlay = false
-                if (item != null) say(R.string.cast_track_unsupported)
+                // A stall is not a refusal. The track may well play — it only
+                // took too long to hand over — so nothing is skipped and nothing
+                // is said; the next attempt takes it again. Telling the listener
+                // "this track can't be cast" about a slow network is a lie they
+                // will believe, and skipping a track that was going to play is
+                // worse.
+                if (prepared is Prepared.Refused) {
+                    trace("load", "${item?.mediaId} refused by the receiver")
+                    say(R.string.cast_track_unsupported)
+                    // Carrying on — rather than going quiet and waiting for the
+                    // listener to notice — is the whole difference between a
+                    // track the receiver cannot take and a session that stops
+                    // there.
+                    //
+                    // Started here but not awaited: moving the phone's player
+                    // re-enters this function, which cancels the coroutine doing
+                    // the asking. Run from inside it, this cancelled the caller
+                    // halfway and the receiver was left playing the track before.
+                    scope.launch { skipToCastable() }
+                }
+                if (prepared !is Prepared.Refused) wantsPlay = false
                 sink?.onRemotePlaybackChanged()
                 return@run
             }
+            val queueItem = prepared.item
             val repeat = receiverRepeat(localPlayer()?.repeatMode ?: Player.REPEAT_MODE_OFF)
             val request = MediaLoadRequestData.Builder()
                 .setQueueData(
@@ -450,8 +636,16 @@ class CastPlayback(
                 .setAutoplay(play)
                 .setCurrentTime(positionMs)
                 .build()
-            val result = remote.load(request).awaitResult()
+            val result = remote.load(request).awaitResultOrNull("load")
             if (generation != loadGeneration || !active) return@run
+            if (result == null) {
+                // The receiver never answered. Left as it was rather than told
+                // to stop: it may well be playing, and loading=false is what
+                // takes the app out of the endless BUFFERING this used to be.
+                loading = false
+                sink?.onRemotePlaybackChanged()
+                return@run
+            }
             if (!result.status.isSuccess) {
                 Log.w(TAG, "load failed: ${result.status.statusCode}")
                 loading = false
@@ -460,11 +654,46 @@ class CastPlayback(
                 sink?.onRemotePlaybackChanged()
                 return@run
             }
+            trace("load", "receiver accepted ${item?.mediaId}")
+            // Read before the line below overwrites it. What the receiver was on
+            // before this load is the one to wait to see it move off; taking it
+            // afterwards captures the track it is already being told about, and
+            // the handover can then never be confirmed.
+            awaitingSwitchFrom = lastItemId
             lastItemId = remote.mediaStatus?.currentItemId ?: lastItemId
+            // The grace starts now, not when the load was asked for. Resolving a
+            // stream and getting the receiver to take it takes seconds, and by
+            // then the window in which we answer with the position we asked for
+            // instead of the receiver's has long closed — so the bar snapped to
+            // whatever the receiver was on before this load, which is the track
+            // it was playing when the phone turned up.
+            requestedAt = SystemClock.elapsedRealtime()
             loading = false
             sink?.onRemotePlaybackChanged()
             scheduleReconcile()
         }
+    }
+
+    /**
+     * Moves the phone's player past whatever the receiver cannot take, so a
+     * track it has no use for does not end the session. Walks forward to the
+     * first track a receiver could play; the phone's queue is the authority on
+     * what comes next, and this is it honouring that for the receiver's sake.
+     */
+    private fun skipToCastable() {
+        val player = localPlayer() ?: return
+        var i = player.currentMediaItemIndex.coerceAtLeast(0)
+        while (i + 1 < player.mediaItemCount) {
+            i++
+            val next = player.getMediaItemAt(i)
+            if (!castable(next)) continue
+            player.seekTo(i, 0L)
+            if (player.playbackState == Player.STATE_IDLE) player.prepare()
+            return
+        }
+        // Nothing further is castable: the receiver is not going to play anything
+        // more, and saying so is better than reporting it as playing.
+        finished = true
     }
 
     private fun scheduleReconcile() {
@@ -493,10 +722,52 @@ class CastPlayback(
     }
 
     /**
-     * Makes what the receiver has queued after the playing track match what the
-     * phone's queue says comes next — [AHEAD] tracks of it. The matching
+     * [buildQueueItem] under a ceiling, saying which of the two ways it came
+     * back empty it was. Resolving reaches the network and can stall; a track a
+     * receiver cannot open is refused outright and costs nothing. Logging the
+     * difference is what tells the two apart — an uncastable track and a stalled
+     * one look identical from the outside, and the first is fixed by skipping
+     * the track while the second needs the track retried.
+     */
+    private suspend fun timedBuild(item: MediaItem, autoplay: Boolean): Prepared {
+        if (!castable(item)) {
+            Log.i(TAG, "not castable: ${item.mediaId} (${item.localConfiguration?.uri?.scheme})")
+            return Prepared.Refused
+        }
+        val started = SystemClock.elapsedRealtime()
+        // withTimeoutOrNull answers null rather than throwing, so no catch for
+        // TimeoutCancellationException is reachable here and none is needed. It
+        // does cancel whatever it was waiting on, which is what is wanted here:
+        // a resolver still in flight when the listener has moved on has no
+        // business arriving later.
+        val built = withTimeoutOrNull(LOAD_TIMEOUT_MS) { buildQueueItem(item, autoplay) }
+        val took = SystemClock.elapsedRealtime() - started
+        return when {
+            built != null -> Prepared.Ready(built)
+            took >= LOAD_TIMEOUT_MS -> {
+                Log.w(TAG, "resolve stalled for ${item.mediaId} after ${took}ms; will try again")
+                Prepared.Stalled
+            }
+            else -> {
+                Log.w(TAG, "resolve gave nothing for ${item.mediaId} after ${took}ms")
+                Prepared.Refused
+            }
+        }
+    }
+
+    /**
+     * Makes what the receiver has queued match the phone's queue around the
+     * playing track — the track before it and [AHEAD] of it after. The matching
      * prefix is kept (it may already be buffering); the first track that
      * differs and everything after it is replaced.
+     *
+     * The window is kept this small on purpose. Reordering the phone's queue
+     * moves the whole "what comes next" list, so every track past the first
+     * mismatch is dropped and put back, one Cast round trip each — a wider
+     * window means more to re-add, and every re-add is a chance to fail. One
+     * ahead is all that gapless handoff needs: the next track is on the
+     * receiver before it is needed, and the phone has that track's whole
+     * running time to queue the one after it.
      */
     private suspend fun reconcileOnce() {
         val remote = client ?: return
@@ -509,28 +780,147 @@ class CastPlayback(
 
         val current = player.currentMediaItemIndex
         if (current == C.INDEX_UNSET) return
-        val wanted = ((current + 1)..minOf(current + AHEAD, player.mediaItemCount - 1))
-            .map { player.getMediaItemAt(it) }
+        val wanted = windowAhead(queueItemsOf(player), current, AHEAD, ::castable)
 
         var kept = 0
         while (kept < remoteAhead.size && kept < wanted.size && remoteAhead[kept].mediaId() == wanted[kept].mediaId) {
             kept++
         }
-        if (kept == remoteAhead.size && kept == wanted.size) return
+        trace(
+            "reconcile",
+            "index=$current window=${queue.size} (was=$here) " +
+                "want=${wanted.map { it.mediaId }} hold=${remoteAhead.map { it.mediaId() }} " +
+                "prefix=$kept remove=${remoteAhead.drop(kept).map { it.mediaId() }}",
+        )
+        // The track before is settled whatever happened up there: a queue edited behind
+        // the playing one leaves the tracks after it untouched, so the early-out
+        // below would skip this on exactly the edit it exists for.
+        if (kept != remoteAhead.size || kept != wanted.size) {
+            if (kept < remoteAhead.size) {
+                remote.queueRemoveItems(remoteAhead.drop(kept).map { it.itemId }.toIntArray(), null)
+                    .awaitResultOrNull("remove") ?: return
+            }
+            for (next in wanted.drop(kept)) {
+                // Not castable, or this one would not resolve: skip it and carry
+                // on. Breaking here would leave the receiver with whatever was
+                // queued before the bad track, which on a queue edited anywhere
+                // behind it means no next track at all — silence at the end of
+                // this one.
+                val queueItem = buildQueueItem(next, autoplay = true) ?: continue
+                if (!active) return
+                remote.queueInsertItems(arrayOf(queueItem), MediaQueueItem.INVALID_ITEM_ID, null)
+                    .awaitResultOrNull("insert") ?: return
+            }
+        }
 
-        if (kept < remoteAhead.size) {
-            remote.queueRemoveItems(remoteAhead.drop(kept).map { it.itemId }.toIntArray(), null).awaitResult()
-        }
-        for (next in wanted.drop(kept)) {
-            val queueItem = buildQueueItem(next, autoplay = true) ?: break
-            if (!active) return
-            remote.queueInsertItems(arrayOf(queueItem), MediaQueueItem.INVALID_ITEM_ID, null).awaitResult()
-        }
+        reconcileBehind(remote, player, queue, here)
     }
+
+    /**
+     * Keeps the one track before the playing one in step, so that back on a
+     * receiver is a jump rather than a reload. The window is read as "what comes
+     * after the current item", which leaves this one to be matched on its own:
+     * editing the queue further back does not move the current item, and without
+     * this the receiver would go on offering a track the phone no longer has
+     * before it.
+     *
+     * The playing item is never touched — removing it from a receiver's queue
+     * stops playback — so the one behind it is replaced in place, before it.
+     */
+    private suspend fun reconcileBehind(
+        remote: RemoteMediaClient,
+        player: Player,
+        queue: List<MediaQueueItem>,
+        here: Int,
+    ) {
+        val current = player.currentMediaItemIndex
+        if (current == C.INDEX_UNSET) return
+        // Read out of the snapshot while it is still the truth. Everything past
+        // this point awaits — a round trip to the receiver, then a URL to
+        // resolve — and the receiver moves its queue while we wait, so the
+        // snapshot is stale from here on and indexing into it ends the process.
+        // An id is safe to keep: it names an item, not a place.
+        val currentItemId = queue.getOrNull(here)?.itemId ?: return
+        val wantedBehind = windowBefore(queueItemsOf(player), current, ::castable)
+        val heldBehind = queue.getOrNull(here - 1)
+        trace(
+            "behind",
+            "index=$current want=${wantedBehind?.mediaId} hold=${heldBehind?.mediaId()} " +
+                if (heldBehind?.mediaId() == wantedBehind?.mediaId) "already there" else "changes",
+        )
+        if (heldBehind?.mediaId() == wantedBehind?.mediaId) return
+
+        heldBehind?.let { remote.queueRemoveItems(intArrayOf(it.itemId), null).awaitResultOrNull("remove-behind") }
+        if (!active) return
+        if (wantedBehind == null) return
+        val queueItem = buildQueueItem(wantedBehind, autoplay = false) ?: run {
+            trace("behind", "the previous track could not be prepared; leaving it as it is")
+            return
+        }
+        if (!active) return
+        // Asked to insert before an item that may have moved on while we were
+        // resolving: the receiver is asked what it holds now, not what it held
+        // when this began.
+        val stillThere = remote.mediaStatus?.queueItems.orEmpty().any { it.itemId == currentItemId }
+        if (!stillThere) {
+            trace("behind", "the receiver no longer holds that item before it; left for the next pass")
+            return
+        }
+        remote.queueInsertItems(arrayOf(queueItem), currentItemId, null).awaitResultOrNull("insert-behind")
+    }
+
+    /**
+     * Says what the receiver's queue is being asked to hold, and what it was
+     * asked to do.
+     *
+     * The Cast framework logs nothing about queue operations at any verbosity a
+     * release build keeps, which left the whole of this file's decision-making
+     * unverifiable from outside — a window of the wrong shape, or a back that
+     * reloads instead of jumping, look exactly like one that works until
+     * somebody stands in front of a speaker and notices. One line at each
+     * decision is enough to read the queue off the log afterwards.
+     */
+    private fun trace(op: String, detail: String) {
+        if (TRACE_CAST) Log.i(TAG, "[$op] $detail")
+    }
+
+/**
+ * Whether this track can reach a receiver at all.
+ *
+ * A receiver opens a URL by itself: it cannot resolve one of ours, cannot be
+ * sent the headers a resolver might have wanted, and cannot reach a file on this
+ * phone. So the question is asked of the scheme — of the one thing known without
+ * touching the network.
+ *
+ * The local ones are named, and everything else is left to the resolver to judge:
+ * a `bitchord://` address is how nearly every track here is spelled, and it is
+ * exactly the one a receiver cannot make sense of on its own — but the resolver
+ * turns it into a stream first, so it does reach one. Asking instead "is this
+ * http(s)?" refuses every track the app owns.
+ */
+private fun castable(item: MediaItem): Boolean {
+    val uri = item.localConfiguration?.uri ?: return false
+    return receiverCanOpen(uri.scheme)
+}
+
+/**
+ * The phone's queue as a list, so the window can be worked out with the plain
+ * functions a test can call. The player is the authority on the queue; this is
+ * only its contents.
+ */
+private fun queueItemsOf(player: Player): List<MediaItem> =
+    (0 until player.mediaItemCount).map { player.getMediaItemAt(it) }
 
     private suspend fun buildQueueItem(item: MediaItem, autoplay: Boolean): MediaQueueItem? {
         val stream = try {
             resolve(item)
+        } catch (e: CancellationException) {
+            // A cancelled resolve says this track was overtaken, not that a
+            // receiver cannot open it. Catching it as a failure used to tell
+            // the listener "this can't be cast" and then carry on — which left
+            // the receiver playing the track before, because nothing ever told
+            // it to move.
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "could not resolve ${item.mediaId} for casting", e)
             null
@@ -595,14 +985,60 @@ class CastPlayback(
             continuation.invokeOnCancellation { cancel() }
         }
 
+    /**
+     * [awaitResult] under a ceiling, for the calls that hold the receiver's queue
+     * open or the app in a loading state.
+     *
+     * Nothing on a Cast round trip is guaranteed to come back: a receiver that
+     * loses the network mid-request simply never answers, and a plain await
+     * waits on it for good. That is worse than slow here — the load leaves the
+     * session in BUFFERING, and a queue call holds the reconcile open so nothing
+     * after it runs either. So a call that does not answer in time is given up
+     * on and reported.
+     *
+     * Giving up cancels the request, which is the point: a receiver left with an
+     * answer arriving after the listener has moved on is worse than one that
+     * never answers. The next pass asks again.
+     */
+    private suspend fun <R : Result> PendingResult<R>.awaitResultOrNull(op: String): R? {
+        val result = withTimeoutOrNull(RPC_TIMEOUT_MS) { awaitResult() }
+        if (result == null) {
+            Log.w(TAG, "$op did not answer within ${RPC_TIMEOUT_MS}ms; the request was cancelled")
+            trace(op, "no answer; the request was cancelled and left for the next pass")
+        }
+        return result
+    }
+
     companion object {
         private const val TAG = "BitChordCast"
+
+        /**
+         * Whether every decision about the receiver's queue is said out loud.
+         *
+         * Off in a build that ships: it is one line per status the receiver
+         * sends, which is about every three seconds for as long as a session
+         * lasts, and none of it is about anything the listener asked. Turn it on
+         * when the queue is being worked on — the framework logs nothing about
+         * queue operations otherwise, and without this a window of the wrong
+         * shape looks exactly like a correct one right up until somebody is
+         * standing in front of a speaker.
+         */
+        private const val TRACE_CAST = false
         private const val KEY_MEDIA_ID = "mediaId"
 
         /** Tracks kept queued on the receiver after the playing one. */
-        private const val AHEAD = 3
+        private const val AHEAD = 1
         private const val RECONCILE_DELAY_MS = 300L
         private const val SEEK_GRACE_MS = 1_500L
+
+        /** Ceiling on resolving and loading one track, so a stall is an error and not a wait. */
+        private const val LOAD_TIMEOUT_MS = 15_000L
+
+        /** Ceiling on one queue round trip, so one that never answers cannot hold the queue open. */
+        private const val RPC_TIMEOUT_MS = 10_000L
+
+        /** How long a handover may go unconfirmed before the receiver's own reading is believed. */
+        private const val SWITCH_TIMEOUT_MS = 6_000L
 
         /**
          * What a stream is, for a receiver that is told rather than left to
