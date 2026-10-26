@@ -897,10 +897,15 @@ class CastPlayback(
  * exactly the one a receiver cannot make sense of on its own — but the resolver
  * turns it into a stream first, so it does reach one. Asking instead "is this
  * http(s)?" refuses every track the app owns.
+ * A downloaded track is the case that needs both: its URI is a file's, but the
+ * track behind it is still addressable, so it is cast through the address it
+ * would have had — see [castableTrack]. The window and the load path ask this
+ * same question, so a track skipped here is skipped there too, rather than the
+ * queue offering the receiver something the load would refuse.
  */
 private fun castable(item: MediaItem): Boolean {
     val uri = item.localConfiguration?.uri ?: return false
-    return receiverCanOpen(uri.scheme)
+    return castableTrack(uri.scheme, item.mediaId)
 }
 
 /**
