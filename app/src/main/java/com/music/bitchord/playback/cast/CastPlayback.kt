@@ -171,7 +171,8 @@ class CastPlayback(
     private var endWasPlaying = false
 
     override val isPlaying: Boolean
-        get() = active && !loading && client?.mediaStatus?.playerState == MediaStatus.PLAYER_STATE_PLAYING
+        get() = active && !loading && !finished &&
+            client?.mediaStatus?.playerState == MediaStatus.PLAYER_STATE_PLAYING
 
     override val playWhenReady: Boolean get() = wantsPlay
 
@@ -250,7 +251,23 @@ class CastPlayback(
         if (!active) return
         wantsPlay = true
         finished = false
-        client?.play()
+        val player = localPlayer()
+        val item = player?.currentMediaItem
+        val status = client?.mediaStatus
+        val receiverId = status?.getQueueItemById(status.currentItemId)?.mediaId()
+        // A receiver that was stopped is idle, and a play command to an idle
+        // receiver goes nowhere (it keeps its title and does nothing). So does
+        // one that is on a track the phone has left behind. Both are the way
+        // back from "nothing left that it could play" — see [skipToCastable] —
+        // and both want the track handed over again rather than a command that
+        // is silently dropped.
+        if (player != null && item != null && status != null &&
+            (status.playerState == MediaStatus.PLAYER_STATE_IDLE || receiverId != item.mediaId)
+        ) {
+            load(item, player.currentPosition.coerceAtLeast(0L), play = true)
+        } else {
+            client?.play()
+        }
         sink?.onRemotePlaybackChanged()
     }
 
@@ -498,9 +515,20 @@ class CastPlayback(
 
         when (state) {
             MediaStatus.PLAYER_STATE_PLAYING -> {
-                wantsPlay = true
                 loading = false
-                finished = false
+                // "Playing" is only news about this session while it is about
+                // the track the phone is on. Told to stop — because nothing it
+                // could play was left — a receiver keeps reporting PLAYING for
+                // the track it was already on, and taking that as a resume put
+                // the bar back on a track the phone had left behind: the app
+                // said the uncastable track was playing while the speaker was
+                // still on the previous one.
+                val phoneId = localPlayer()?.currentMediaItem?.mediaId
+                val receiverId = status.getQueueItemById(status.currentItemId)?.mediaId()
+                if (!finished || (phoneId != null && receiverId == phoneId)) {
+                    wantsPlay = true
+                    finished = false
+                }
             }
             MediaStatus.PLAYER_STATE_PAUSED -> {
                 wantsPlay = false
@@ -616,7 +644,7 @@ class CastPlayback(
                     // re-enters this function, which cancels the coroutine doing
                     // the asking. Run from inside it, this cancelled the caller
                     // halfway and the receiver was left playing the track before.
-                    scope.launch { skipToCastable() }
+                    scope.launch { skipToCastable(generation) }
                 }
                 if (prepared !is Prepared.Refused) wantsPlay = false
                 sink?.onRemotePlaybackChanged()
@@ -679,21 +707,40 @@ class CastPlayback(
      * track it has no use for does not end the session. Walks forward to the
      * first track a receiver could play; the phone's queue is the authority on
      * what comes next, and this is it honouring that for the receiver's sake.
+     *
+     * When there is no such track the receiver is told to stop, not merely
+     * marked finished here: left alone it goes on playing the track before this
+     * one, and its own PLAYING status then says a track the phone has already
+     * left behind is playing. [generation] is the load this skip belongs to, so
+     * a listener who picks another track while this runs is not overruled by a
+     * stop meant for the track they left.
      */
-    private fun skipToCastable() {
+    private fun skipToCastable(generation: Int) {
         val player = localPlayer() ?: return
-        var i = player.currentMediaItemIndex.coerceAtLeast(0)
-        while (i + 1 < player.mediaItemCount) {
-            i++
-            val next = player.getMediaItemAt(i)
-            if (!castable(next)) continue
-            player.seekTo(i, 0L)
+        if (generation != loadGeneration || !active) return
+        val next = nextUsableIndex(
+            queueItemsOf(player),
+            player.currentMediaItemIndex.coerceAtLeast(0),
+            ::castable,
+        )
+        if (next != null) {
+            player.seekTo(next, 0L)
             if (player.playbackState == Player.STATE_IDLE) player.prepare()
             return
         }
         // Nothing further is castable: the receiver is not going to play anything
         // more, and saying so is better than reporting it as playing.
+        if (generation != loadGeneration || !active) return
         finished = true
+        wantsPlay = false
+        loading = false
+        try {
+            client?.stop()
+        } catch (t: Throwable) {
+            // A receiver that has gone away is already stopped.
+            Log.w(TAG, "could not stop the receiver", t)
+        }
+        sink?.onRemotePlaybackChanged()
     }
 
     private fun scheduleReconcile() {

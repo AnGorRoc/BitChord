@@ -25,6 +25,23 @@ internal fun <T> windowBefore(items: List<T>, current: Int, isUsable: (T) -> Boo
         ?.takeIf(isUsable)
 
 /**
+ * The index of the first track after [current] that [isUsable] accepts, or null
+ * when there is nothing left a receiver could play.
+ *
+ * The difference between a skip and the end of the session: one moves the phone
+ * to the next track the receiver can open, the other says there is no such
+ * track. Both are only questions about the list, and the answer decides which
+ * of two very different things happens next — a new load, or a receiver told to
+ * stop.
+ */
+internal fun <T> nextUsableIndex(items: List<T>, current: Int, isUsable: (T) -> Boolean): Int? {
+    for (i in (current + 1) until items.size) {
+        if (isUsable(items[i])) return i
+    }
+    return null
+}
+
+/**
  * The [ahead] items after [current] that [isUsable] accepts.
  *
  * Skipping the ones it rejects is what keeps the window full: counting positions

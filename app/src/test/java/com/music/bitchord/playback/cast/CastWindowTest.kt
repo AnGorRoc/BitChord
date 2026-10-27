@@ -162,4 +162,39 @@ class CastWindowTest {
         val wanted = windowAhead(after, current, ahead = 1, isUsable)
         assertEquals(1, held.count { it !in wanted })
     }
+
+    // ---- what comes next, if anything ----------------------------------------
+
+    @Test
+    fun `the next usable track is the one after this`() {
+        assertEquals(1, nextUsableIndex(queue("a", "b", "c"), 0, isUsable))
+    }
+
+    @Test
+    fun `unusable tracks are stepped over, not stopped at`() {
+        val items = queue("a", "local:b", "c")
+        assertEquals(2, nextUsableIndex(items, 0, isUsable))
+    }
+
+    @Test
+    fun `nothing usable after this is null`() {
+        val items = queue("a", "local:b", "local:c")
+        assertNull(nextUsableIndex(items, 0, isUsable))
+    }
+
+    @Test
+    fun `at the end of the queue there is nothing next`() {
+        assertNull(nextUsableIndex(queue("a", "b"), 1, isUsable))
+    }
+
+    /**
+     * The refusal that C6 left playing: the track before is never the answer to
+     * "what can the receiver play next", or an uncastable track would send the
+     * session back to the track it came from instead of ending it.
+     */
+    @Test
+    fun `the track before is never the next one`() {
+        val items = queue("a", "local:b")
+        assertNull(nextUsableIndex(items, 1, isUsable))
+    }
 }
