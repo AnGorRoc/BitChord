@@ -5175,13 +5175,6 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /**
-     * The upgrade's opening worth fetching to align against: a little over
-     * [VersionAudioAligner.RENDITION_WINDOW_SECONDS] of audio at the bitrate
-     * the source stated, so a 24-bit/192 kHz master and a CD-quality FLAC
-     * each get the seconds they need and no more. Without a stated bitrate,
-     * the head Automix asks for.
-     */
-    /**
      * How much of an upgraded rendition's opening to fetch once it has swapped
      * in: enough for Automix, or — when the cache keeps this copy and
      * [AppSettings.improveCachedSongs] is on — everything up to where it
@@ -5197,6 +5190,13 @@ class PlaybackService : MediaLibraryService() {
         return maxOf(ANALYSIS_HEAD_BYTES, throughSwap.coerceAtMost(length))
     }
 
+    /**
+     * The upgrade's opening worth fetching to align against: a little over
+     * [VersionAudioAligner.RENDITION_WINDOW_SECONDS] of audio at the bitrate
+     * the source stated, so a 24-bit/192 kHz master and a CD-quality FLAC
+     * each get the seconds they need and no more. Without a stated bitrate,
+     * the head Automix asks for.
+     */
     private fun upgradeAlignmentHeadBytes(kbps: Int?): Long {
         val seconds = VersionAudioAligner.RENDITION_WINDOW_SECONDS + 1
         val wanted = kbps?.let { (it * 125L * seconds).toLong() } ?: ANALYSIS_HEAD_BYTES
