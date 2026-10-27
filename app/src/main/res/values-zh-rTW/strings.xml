@@ -224,6 +224,8 @@
     <string name="lossless_cache_limit_subtitle">與歌曲快取分開計算</string>
     <string name="improve_cached_songs">改善快取歌曲</string>
     <string name="improve_cached_songs_subtitle">使用 Wi-Fi 時，或行動數據音質允許時，換成更好的版本</string>
+    <string name="lossless_downgrade">必要時降低音質</string>
+    <string name="lossless_downgrade_subtitle">網路跟不上無損音質時</string>
     <string name="clear_song_cache">清除歌曲快取</string>
     <string name="clear_song_cache_subtitle">釋放已下載音訊佔用的空間</string>
     <string name="clear_image_cache">清除圖片快取</string>

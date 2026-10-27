@@ -570,6 +570,13 @@ object AppSettings {
     val improveCachedSongs = MutableStateFlow(true)
 
     /**
+     * Whether a lossless stream the connection can't keep up with is
+     * crossfaded down to a lossy copy before the audio cuts out. On by
+     * default; off keeps lossless whatever the buffering costs.
+     */
+    val losslessDowngrade = MutableStateFlow(true)
+
+    /**
      * Whether Library's "On device" shelf carries the Cached songs folder —
      * the YouTube and JioSaavn tracks the song cache is holding. Off by
      * default: the cache is an implementation detail most people never need
@@ -815,9 +822,27 @@ object AppSettings {
             } else {
                 audioQualityWifi.value
             }
-            val cap = streamCeilingOverride.value ?: return chosen
-            return if (chosen.ordinal > cap.ordinal) cap else chosen
+            val held = if (chosen == AudioQuality.LOSSLESS && isLosslessHeld) AudioQuality.HIGH else chosen
+            val cap = streamCeilingOverride.value ?: return held
+            return if (held.ordinal > cap.ordinal) cap else held
         }
+
+    /** See [holdLossless]. Never persisted: a new session asks the connection afresh. */
+    @Volatile
+    private var losslessHeldUntilNanos: Long? = null
+
+    /**
+     * Keeps [effectiveAudioQuality] below lossless for [ms]. The connection
+     * just failed to keep a lossless stream fed, and asking for lossless again
+     * on the next track would only stall that one too — see
+     * [losslessDowngrade].
+     */
+    fun holdLossless(ms: Long) {
+        losslessHeldUntilNanos = System.nanoTime() + ms * 1_000_000
+    }
+
+    val isLosslessHeld: Boolean
+        get() = losslessHeldUntilNanos?.let { System.nanoTime() - it < 0 } == true
 
     /**
      * Whether a download may start on the connection in hand.
@@ -964,6 +989,7 @@ object AppSettings {
         losslessCacheLimitBytes.value =
             clampLosslessCacheLimit(prefs.getLong(KEY_LOSSLESS_CACHE_LIMIT, DEFAULT_LOSSLESS_CACHE_LIMIT_BYTES))
         improveCachedSongs.value = prefs.getBoolean(KEY_IMPROVE_CACHED_SONGS, true)
+        losslessDowngrade.value = prefs.getBoolean(KEY_LOSSLESS_DOWNGRADE, true)
         showCacheFolder.value = prefs.getBoolean(KEY_SHOW_CACHE_FOLDER, false)
         lastfmEnabled.value = prefs.getBoolean(KEY_LASTFM_ENABLED, false)
         lastfmUsername.value = prefs.getString(KEY_LASTFM_USERNAME, "").orEmpty()
@@ -1581,6 +1607,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_IMPROVE_CACHED_SONGS, value).apply()
     }
 
+    fun setLosslessDowngrade(value: Boolean) {
+        losslessDowngrade.value = value
+        prefs.edit().putBoolean(KEY_LOSSLESS_DOWNGRADE, value).apply()
+    }
+
     fun setShowCacheFolder(value: Boolean) {
         showCacheFolder.value = value
         prefs.edit().putBoolean(KEY_SHOW_CACHE_FOLDER, value).apply()
@@ -2122,6 +2153,7 @@ object AppSettings {
     private const val KEY_LOSSLESS_CACHE_LEVEL = "lossless_cache_level"
     private const val KEY_LOSSLESS_CACHE_LIMIT = "lossless_cache_limit_bytes"
     private const val KEY_IMPROVE_CACHED_SONGS = "improve_cached_songs"
+    private const val KEY_LOSSLESS_DOWNGRADE = "lossless_downgrade"
     private const val KEY_REDUCE_ANIMATION = "reduce_animation"
     private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     private const val KEY_HIGH_PERFORMANCE_MODE = "high_performance_mode"

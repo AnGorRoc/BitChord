@@ -229,6 +229,8 @@
     <string name="lossless_cache_limit_subtitle">Getrennt vom Song-Cache</string>
     <string name="improve_cached_songs">Gecachte Songs verbessern</string>
     <string name="improve_cached_songs_subtitle">Mit WLAN durch eine bessere Kopie ersetzen, mit mobilen Daten nur wenn deren Qualität es erlaubt</string>
+    <string name="lossless_downgrade">Qualität bei Bedarf senken</string>
+    <string name="lossless_downgrade_subtitle">Wenn die Verbindung für verlustfrei nicht reicht</string>
     <string name="clear_song_cache">Song-Cache leeren</string>
     <string name="clear_song_cache_subtitle">Gibt den von heruntergeladenem Audio belegten Speicher frei</string>
     <string name="clear_image_cache">Bild-Cache leeren</string>

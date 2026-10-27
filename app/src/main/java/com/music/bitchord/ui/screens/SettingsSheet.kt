@@ -65,6 +65,7 @@ import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.MotionPhotosOff
+import androidx.compose.material.icons.rounded.NetworkCheck
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Draw
 import androidx.compose.material.icons.rounded.Person
@@ -203,6 +204,7 @@ fun SettingsScreen(
 
     val wifiQuality by AppSettings.audioQualityWifi.collectAsStateWithLifecycle()
     val cellularQuality by AppSettings.audioQualityCellular.collectAsStateWithLifecycle()
+    val losslessDowngrade by AppSettings.losslessDowngrade.collectAsStateWithLifecycle()
     val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
@@ -509,6 +511,25 @@ fun SettingsScreen(
                     badge = stringResource(R.string.in_use).takeIf { metered == true },
                     value = cellularQuality.localizedLabel(),
                     onClick = { picking = QualityTarget.CELLULAR },
+                )
+            }
+            val losslessDowngradeTitle = stringResource(R.string.lossless_downgrade)
+            row(losslessDowngradeTitle, "lossless", "buffering", "streaming quality") {
+                SettingsRow(
+                    icon = Icons.Rounded.NetworkCheck,
+                    title = losslessDowngradeTitle,
+                    subtitle = stringResource(R.string.lossless_downgrade_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = losslessDowngrade,
+                            onCheckedChange = AppSettings::setLosslessDowngrade,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setLosslessDowngrade(!losslessDowngrade) },
                 )
             }
             // Sits with the quality ceilings rather than with Playback: it

@@ -239,6 +239,8 @@
     <string name="lossless_cache_limit_subtitle">Отдельно от кэша треков</string>
     <string name="improve_cached_songs">Улучшать треки в кэше</string>
     <string name="improve_cached_songs_subtitle">Заменять лучшей копией по Wi-Fi или по мобильной сети, если её качество позволяет</string>
+    <string name="lossless_downgrade">Снижать качество при необходимости</string>
+    <string name="lossless_downgrade_subtitle">Когда соединение не тянет без потерь</string>
     <string name="clear_song_cache">Очистить кэш песен</string>
     <string name="clear_song_cache_subtitle">Освобождает место, занятое загруженным аудио</string>
     <string name="clear_image_cache">Очистить кэш изображений</string>

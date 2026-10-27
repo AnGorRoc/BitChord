@@ -1787,6 +1787,7 @@ class PlaybackService : MediaLibraryService() {
         exoPlayer.addAnalyticsListener(formatListener)
 
         reportProgress()
+        watchLosslessKeepingUp()
         watchDirectWindow()
 
         val controller = createCrossfadeController()
@@ -4510,6 +4511,111 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    /** See [checkLosslessKeepingUp]. */
+    private val stallWatch = LosslessStallWatch()
+
+    /** The item [stallWatch]'s samples are about, so a new track or stream starts it over. */
+    private var stallWatchFor: String? = null
+
+    /** The swap [lowerQualityToKeepUp] is running, so a second one can't stack on it. */
+    private var downgradeJob: Job? = null
+
+    /** Samples the playing stream once a second for [checkLosslessKeepingUp]. */
+    private fun watchLosslessKeepingUp() {
+        scope.launch {
+            while (isActive) {
+                delay(STALL_SAMPLE_MS)
+                checkLosslessKeepingUp()
+            }
+        }
+    }
+
+    /**
+     * Lowers the quality of a lossless stream the connection can't keep up
+     * with — see [LosslessStallWatch] for when — unless the listener turned
+     * that off ([AppSettings.losslessDowngrade]).
+     *
+     * Only for a fetched lossless stream with a YouTube upload to fall back
+     * to; a copy already on disk, a download or a local file never starves.
+     */
+    private fun checkLosslessKeepingUp() {
+        val player = player ?: return
+        val item = player.currentMediaItem
+        val uri = item?.localConfiguration?.uri
+        val about = item?.let { "${it.mediaId}|$uri" }
+        if (about != stallWatchFor) {
+            stallWatch.reset()
+            stallWatchFor = about
+        }
+        if (item == null || uri == null || !AppSettings.losslessDowngrade.value) return
+        val mediaId = item.mediaId
+        if (NerdStats.declaredFormat(mediaId)?.isLossless != true) return
+        if (QualityUpgrade.cacheTag(uri) == "original" || OriginalVersion.isPinned(mediaId)) return
+        if (downgradeJob?.isActive == true || versionSwapJob?.isActive == true || swappingMediaId != null) return
+        if (crossfade?.isTransitioning() == true || ListenTogether.state.value.inParty) return
+        if (AudioCache.isFullyCached(uri)) return
+        val duration = player.duration
+        val buffered = player.bufferedPosition
+        val position = player.currentPosition
+        val lower = stallWatch.sample(
+            nowMs = SystemClock.elapsedRealtime(),
+            positionMs = position,
+            aheadMs = buffered - position,
+            playing = player.isPlaying,
+            stalled = player.playbackState == Player.STATE_BUFFERING && player.playWhenReady,
+            loadedToEnd = duration > 0 && buffered >= duration - LOADED_TO_END_SLACK_MS,
+        )
+        if (lower) lowerQualityToKeepUp(item, uri.toString(), stalled = player.playbackState == Player.STATE_BUFFERING)
+    }
+
+    /**
+     * Crossfades the playing lossless stream down to the track's YouTube
+     * upload, aligned like an upgrade, and holds lossless back for a while so
+     * the next track doesn't stall the same way. The quality under the
+     * progress bar follows, since the stream it describes changed.
+     *
+     * Already stalled, there is no audio to fade from and nothing to align
+     * against, so it swaps straight in.
+     */
+    private fun lowerQualityToKeepUp(item: MediaItem, playingUri: String, stalled: Boolean) {
+        val mediaId = item.mediaId
+        val song = item.toSong()
+        if (!song.hasYouTubeOriginal() || song.localUri != null) return
+        TrackLog.w(
+            "BitChord",
+            "lossless for $mediaId isn't keeping up${if (stalled) " (stalled)" else ""}; lowering the quality",
+            about = mediaId,
+        )
+        AppSettings.holdLossless(LOSSLESS_HOLD_MS)
+        // Nothing climbs back up this track: it would only stall again.
+        if (upgradeFor == mediaId) upgradeJob?.cancel()
+        QualityUpgrade.forget(mediaId)
+        QualityUpgrade.refuseUpgrades(mediaId)
+        val target = song.toDirectYouTubeMediaItem()
+        val targetUri = target.localConfiguration?.uri?.toString() ?: return
+        downgradeJob = scope.launch {
+            val offsetMs = if (stalled) {
+                0L
+            } else {
+                measureUpgradeOffset(mediaId, playingUri, targetUri, YOUTUBE_KBPS, song.title)
+            }
+            val swap = withContext(Dispatchers.Main) {
+                if (player?.currentMediaItem?.mediaId != mediaId) return@withContext null
+                smoothSwapCurrentTrackVersion(
+                    targetMediaItem = target,
+                    presetOffsetMs = offsetMs,
+                    onSwapCommitted = {
+                        NerdStats.clearDeclared(mediaId)
+                        NerdStats.recordSource(mediaId, "YouTube")
+                        publishNerdStats()
+                        TrackLog.d("BitChord", "lowered $mediaId to YouTube with a ${offsetMs}ms shift", about = mediaId)
+                    },
+                )
+            }
+            swap?.join()
+        }
+    }
+
     /**
      * Goes looking for a better copy of the playing track because the listener
      * asked for one — the player menu's "Upgrade quality".
@@ -4742,7 +4848,13 @@ class PlaybackService : MediaLibraryService() {
         // Where the upgrade sits against the copy playing, so the crossfade
         // below joins the two on the same note. Measured now, while nothing
         // has been touched — see [measureUpgradeOffset].
-        val offsetMs = measureUpgradeOffset(mediaId, at.uri, upgradedUri, stream, at.item.mediaMetadata.title?.toString() ?: mediaId)
+        val offsetMs = measureUpgradeOffset(
+            mediaId,
+            at.uri,
+            upgradedUri,
+            stream.format.kbps,
+            at.item.mediaMetadata.title?.toString() ?: mediaId,
+        )
 
         // There used to be an unconditional five-second hold here, keyed off the
         // track's own position, so that an upgrade arriving with the first note
@@ -5150,13 +5262,13 @@ class PlaybackService : MediaLibraryService() {
         mediaId: String,
         playingUri: String,
         upgradedUri: String,
-        stream: SourceStream,
+        upgradedKbps: Int?,
         title: String,
     ): Long = withContext(Dispatchers.IO) {
         val playing = Uri.parse(playingUri)
         val upgraded = Uri.parse(upgradedUri)
         val measured = withTimeoutOrNull(UPGRADE_ALIGN_TIMEOUT_MS) {
-            AudioCache.warmRange(upgraded, 0, upgradeAlignmentHeadBytes(stream.format.kbps))
+            AudioCache.warmRange(upgraded, 0, upgradeAlignmentHeadBytes(upgradedKbps))
             val playingKey = AudioCache.cacheKeyOf(playing)
             val upgradedKey = AudioCache.cacheKeyOf(upgraded)
             val source = AudioCache.renditionsOf(playing).firstOrNull { it.key == playingKey }
@@ -9339,6 +9451,18 @@ class PlaybackService : MediaLibraryService() {
 
         /** Past the swap point, so the head fill overlaps what playback fetched. */
         const val UPGRADE_HEAD_MARGIN_BYTES = 1L * 1024 * 1024
+
+        /** How often [checkLosslessKeepingUp] samples the buffer. */
+        const val STALL_SAMPLE_MS = 1_000L
+
+        /** Buffered this close to the end counts as the whole track loaded. */
+        const val LOADED_TO_END_SLACK_MS = 1_000L
+
+        /** How long lossless stays off after a stream couldn't keep up. */
+        const val LOSSLESS_HOLD_MS = 10L * 60 * 1000
+
+        /** YouTube's Opus, for sizing the opening fetched to align a downgrade. */
+        const val YOUTUBE_KBPS = 160
 
         /**
          * How long an upgrade waits for its alignment before crossfading

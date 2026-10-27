@@ -248,6 +248,8 @@
     <string name="lossless_cache_limit_subtitle">แยกจากแคชเพลง</string>
     <string name="improve_cached_songs">ปรับปรุงเพลงในแคช</string>
     <string name="improve_cached_songs_subtitle">เปลี่ยนเป็นสำเนาที่ดีกว่าเมื่อใช้ Wi-Fi หรือเน็ตมือถือเมื่อคุณภาพที่ตั้งไว้อนุญาต</string>
+    <string name="lossless_downgrade">ลดคุณภาพเมื่อจำเป็น</string>
+    <string name="lossless_downgrade_subtitle">เมื่อการเชื่อมต่อไม่พอสำหรับแบบไม่สูญเสียคุณภาพ</string>
     <string name="clear_song_cache">ล้างแคชเพลง</string>
     <string name="clear_song_cache_subtitle">คืนพื้นที่ที่ใช้โดยเสียงที่ดาวน์โหลดไว้</string>
     <string name="clear_image_cache">ล้างแคชรูปภาพ</string>

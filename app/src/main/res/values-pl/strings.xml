@@ -227,6 +227,8 @@
     <string name="lossless_cache_limit_subtitle">Oddzielnie od pamięci utworów</string>
     <string name="improve_cached_songs">Ulepszaj zapisane utwory</string>
     <string name="improve_cached_songs_subtitle">Zastępuj lepszą kopią przez Wi-Fi lub danych komórkowych, gdy pozwala ich jakość</string>
+    <string name="lossless_downgrade">Obniżaj jakość w razie potrzeby</string>
+    <string name="lossless_downgrade_subtitle">Gdy połączenie nie nadąża za lossless</string>
     <string name="clear_song_cache">Wyczyść pamięć podręczną utworów</string>
     <string name="clear_song_cache_subtitle">Zwalnia miejsce zajmowane przez pobrane pliki audio</string>
     <string name="clear_image_cache">Wyczyść pamięć podręczną obrazów</string>
