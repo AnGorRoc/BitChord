@@ -20,11 +20,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import coil3.PlatformContext
+import coil3.SingletonImageLoader
 import coil3.compose.LocalPlatformContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import com.music.bitchord.data.canvas.CanvasArtwork
+import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import kotlin.math.abs
@@ -182,6 +184,26 @@ internal fun rememberPlayerArtwork(remoteArt: String?): PlayerArtwork {
         art.retry()
     }
     return art
+}
+
+/**
+ * Asks Coil for [remoteArt]'s covers ahead of the track they belong to, so the
+ * sleeve finds them in memory when the skip lands instead of a blank tile.
+ *
+ * Both rungs: the small one is what [SleeveStandIn] draws under the sleeve while
+ * the full cover is still on its way. The requests carry the same data and size
+ * [rememberPlayerArtwork] asks for, so the player reads these exact cache entries.
+ */
+@Composable
+internal fun PreloadArtwork(remoteArt: String?) {
+    val context = LocalPlatformContext.current
+    LaunchedEffect(remoteArt) {
+        if (remoteArt == null) return@LaunchedEffect
+        val loader = SingletonImageLoader.get(context)
+        listOf(CARD_ART_PX, ART_PX).forEach { px ->
+            loader.enqueue(ImageRequest.Builder(context).data(remoteArt.artworkAt(px)).size(px).build())
+        }
+    }
 }
 
 /**

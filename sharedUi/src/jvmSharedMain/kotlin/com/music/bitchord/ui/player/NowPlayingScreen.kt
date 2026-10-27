@@ -145,6 +145,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import androidx.compose.ui.draw.blur
 import com.music.bitchord.ui.components.ExplicitBadge
 import com.music.bitchord.ui.theme.HideStatusBar
 import com.music.bitchord.ui.theme.rememberScreenOrientation
@@ -164,7 +165,9 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.PlaybackSourceType
+import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.PLAYER_ART_PX
+import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.playback.BACK_RESTARTS_AFTER_MS
 import dev.chrisbanes.haze.HazeInputScale
@@ -178,6 +181,34 @@ import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
+
+/**
+ * The smaller copy of [remoteArt], blurred, under the sleeve until the full cover
+ * has drawn. It stands in for the blank tile while a cover that is not in memory
+ * yet is still on its way. Fades out as the full cover arrives, and is not
+ * composed once it has gone.
+ */
+@Composable
+private fun SleeveStandIn(remoteArt: String?, fullLoaded: Boolean) {
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val standInAlpha by animateFloatAsState(
+        targetValue = if (fullLoaded) 0f else 1f,
+        animationSpec = tween(durationMillis = 300),
+        label = "sleeveStandIn",
+    )
+    if (standInAlpha <= 0f) return
+    AsyncImage(
+        model = remoteArt?.artworkAt(CARD_ART_PX),
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer { alpha = standInAlpha }
+            // Blur only where the device does it cheaply, as the rest of the player
+            // does. Without it the small cover is still a closer stand-in than a tile.
+            .then(if (!reduceDynamicBlur && renderEffectBlurSupported) Modifier.blur(24.dp) else Modifier),
+    )
+}
 
 /** Collapsed-header geometry, shared by the layout and its animation. */
 /**
@@ -1270,6 +1301,9 @@ fun NowPlayingScreen(
     // never fires again. Keyed on the cover there is nothing to reset: the
     // bitmap really is still loaded, so the state stays true.
     val art = rememberPlayerArtwork(remoteArt)
+    // The next track's cover goes out ahead of it, so a skip lands on a sleeve
+    // whose picture is already in memory.
+    PreloadArtwork(rememberRemoteArtworkUrl(queue.getOrNull(queueIndex + 1)))
     // Sticky, unlike [PlayerArtwork.loaded]: the banner is the shape of the player rather
     // than a property of the track in it. Waiting on each new cover would
     // collapse the banner into a card and blow it back out on every skip —
@@ -3143,6 +3177,8 @@ fun NowPlayingScreen(
                                     )
                                 }
                             }
+                            // Under the full cover, so it only shows while that is missing.
+                            if (!canvasRendered) SleeveStandIn(remoteArt, fullLoaded = art.loaded)
                             AsyncImage(
                                 // Decode at the sleeve's *expanded* size, always.
                                 // Coil otherwise sizes the decode to however large
