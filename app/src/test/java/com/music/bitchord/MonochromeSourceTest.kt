@@ -1,8 +1,8 @@
 package com.music.bitchord
 
-import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.permits
+import com.music.bitchord.data.sources.MonochromeGate
 import com.music.bitchord.data.sources.MonochromeSource
 import com.music.bitchord.data.sources.SkipPace
 import com.music.bitchord.data.sources.SourceConfig
@@ -48,6 +48,7 @@ class MonochromeSourceTest {
 
     @Before
     fun setUp() {
+        MonochromeGate.shared.reset()
         server = MockWebServer()
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
@@ -62,6 +63,7 @@ class MonochromeSourceTest {
     @After
     fun tearDown() {
         SkipPace.shared.reset()
+        MonochromeGate.shared.reset()
         runCatching { server.shutdown() }
     }
 
@@ -271,6 +273,9 @@ class MonochromeSourceTest {
     }
 
     // ── Rate limiting ─────────────────────────────────────────────────────
+    //
+    // The waiting itself is MonochromeGate's, tested on its own clock in
+    // MonochromeGateTest. These pin down what the source does with a refusal.
 
     /**
      * A 429 is the server asking to be left alone, not an answer about the
@@ -286,20 +291,21 @@ class MonochromeSourceTest {
         assertEquals(1, seen.size)
     }
 
+    /** Once the circuit has closed the same track is asked again, so the refusal wasn't kept. */
     @Test
     fun `a throttled probe is not remembered`() = runBlocking {
         script(throttled("1"), partial(flacHead(rate = 44_100, bits = 16)))
         val source = source()
 
         refused { source.stream("1", StreamRequest.Lossless) }
-        Thread.sleep(1_100)
+        MonochromeGate.shared.reset()
 
         assertNotNull(source.stream("1", StreamRequest.Lossless))
     }
 
-    /** Inside the window nothing is asked at all, however short the wait. */
+    /** The gate sits in the shared client, so every probe after a refusal is held back with it. */
     @Test
-    fun `a probe inside the window fails without a request`() = runBlocking {
+    fun `a probe while the circuit is open fails without a request`() = runBlocking {
         script(throttled("1"), partial(flacHead(rate = 44_100, bits = 16)))
         val source = source()
 
@@ -309,56 +315,25 @@ class MonochromeSourceTest {
         assertEquals(1, seen.size)
     }
 
+    /** A refused search is a miss; the file circuit is not its business. */
     @Test
-    fun `a 429 states what the server said about its limits`() = runBlocking {
-        script(throttled("1").setHeader("X-RateLimit-Remaining", "0"))
-        val logged = java.util.Collections.synchronizedList(mutableListOf<String>())
-        TrackLog.echo = { _, _, message, _ -> logged += message }
-        try {
-            refused { source().stream("1", StreamRequest.Lossless) }
-        } finally {
-            TrackLog.echo = null
-        }
-        assertTrue(logged.toString(), logged.any { "X-RateLimit-Remaining=0" in it && "Retry-After=1" in it })
-    }
-
-    /**
-     * The limit is the server's, so a track that draws a long wait holds back
-     * the ones behind it too, and none of them sits waiting on it.
-     */
-    @Test
-    fun `a long wait is not sat through and holds back the next probe`() = runBlocking {
-        script(throttled("60"), partial(flacHead(rate = 44_100, bits = 16)))
-        val source = source()
-
-        val started = System.currentTimeMillis()
-        refused { source.stream("1", StreamRequest.Lossless) }
-        refused { source.stream("2", StreamRequest.Lossless) }
-
-        assertEquals(1, seen.size)
-        assertTrue(System.currentTimeMillis() - started < 2_000)
-    }
-
-    @Test
-    fun `a throttled search is asked again after the wait`() = runBlocking {
+    fun `a throttled search is a miss and is not asked again`() = runBlocking {
         script(throttled("1"), json(SEARCH_ANSWER))
 
-        val songs = source().search("daft punk get lucky", limit = 10)
-
-        assertEquals(2, songs.size)
-        assertEquals(2, seen.size)
+        assertTrue(source().search("daft punk get lucky", limit = 10).isEmpty())
+        assertEquals(1, seen.size)
     }
 
     /** What a lookup that found nothing is told about why, so it isn't taken as a no. */
     @Test
-    fun `a throttle is noted for a lookup that was running through it`() = runBlocking {
+    fun `a refusal is noted for a lookup that was running through it`() = runBlocking {
         script(throttled("1"))
         val before = System.currentTimeMillis()
 
         refused { source().stream("1", StreamRequest.Lossless) }
 
-        assertTrue(MonochromeSource.throttledSince(before))
-        assertFalse(MonochromeSource.throttledSince(System.currentTimeMillis() + 60_000))
+        assertTrue(MonochromeGate.shared.refusedSince(before))
+        assertFalse(MonochromeGate.shared.refusedSince(System.currentTimeMillis() + 60_000))
     }
 
     /** Never more than two files being opened at once, however many tracks ask. */
@@ -384,46 +359,15 @@ class MonochromeSourceTest {
         assertTrue("peak was ${peak.get()}", peak.get() <= MonochromeSource.MAX_PARALLEL_PROBES)
     }
 
-    /** A block that lasts is given longer each time, and one answer starts it over. */
     /** The server limits the files and the search separately, and so does this. */
     @Test
-    fun `files refused for a long while don't hold back the search`() = runBlocking {
+    fun `files refused don't hold back the search`() = runBlocking {
         route("/track/1", throttled("60"))
         route("/search/tracks", json(SEARCH_ANSWER))
         val source = source()
 
         refused { source.stream("1", StreamRequest.Lossless) }
         assertEquals(2, source.search("daft punk get lucky", limit = 10).size)
-    }
-
-    @Test
-    fun `the wait doubles while the server keeps refusing`() {
-        assertEquals(1_000L, MonochromeSource.backoffMs(1))
-        assertEquals(2_000L, MonochromeSource.backoffMs(2))
-        assertEquals(8_000L, MonochromeSource.backoffMs(4))
-        assertEquals(MonochromeSource.MAX_RETRY_MS, MonochromeSource.backoffMs(9))
-    }
-
-    @Test
-    fun `a refusal with no Retry-After lengthens the next wait`() = runBlocking {
-        script(throttled("x"), throttled("x"), partial(flacHead(rate = 44_100, bits = 16)))
-        val source = source()
-
-        refused { source.stream("1", StreamRequest.Lossless) }
-        Thread.sleep(1_100)
-        refused { source.stream("1", StreamRequest.Lossless) }
-
-        // Two in a row: the second asked for 2s, which is left standing.
-        assertTrue(MonochromeSource.quietForMs() in 1_000L..2_000L)
-    }
-
-    @Test
-    fun `Retry-After is believed within bounds, and a date is not read`() {
-        assertEquals(2_000L, MonochromeSource.retryAfterMs("2"))
-        assertEquals(500L, MonochromeSource.retryAfterMs("0"))
-        assertEquals(MonochromeSource.MAX_RETRY_MS, MonochromeSource.retryAfterMs("3600"))
-        assertEquals(MonochromeSource.DEFAULT_RETRY_MS, MonochromeSource.retryAfterMs(null))
-        assertEquals(MonochromeSource.DEFAULT_RETRY_MS, MonochromeSource.retryAfterMs("Wed, 21 Oct 2026 07:28:00 GMT"))
     }
 
     // ── Skipping ──────────────────────────────────────────────────────────

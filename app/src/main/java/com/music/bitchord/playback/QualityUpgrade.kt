@@ -4,7 +4,7 @@ import android.net.Uri
 import android.util.Log
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.NerdStats
-import com.music.bitchord.data.sources.MonochromeSource
+import com.music.bitchord.data.sources.MonochromeGate
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.StreamFormat
@@ -305,10 +305,25 @@ object QualityUpgrade {
      * held for another try rather than recorded in [asked]; starts the hold
      * when it should.
      */
+    /**
+     * An upgrade that was found but refused on its way to the listener — the
+     * audition's open turned away by Monochrome since [startedAtMs]. Held for
+     * another look once the circuit closes, rather than left in [asked] with
+     * the FLAC it had already found.
+     *
+     * @return whether it was held.
+     */
+    fun holdIfRefused(mediaId: String, startedAtMs: Long): Boolean {
+        if (!heldByThrottle(mediaId, startedAtMs)) return false
+        asked -= mediaId
+        TrackLog.d(TAG, "upgrade for $mediaId was refused by the server; trying again shortly", about = mediaId)
+        return true
+    }
+
     private fun heldByThrottle(mediaId: String, startedAtMs: Long): Boolean {
-        if (!MonochromeSource.throttledSince(startedAtMs)) return false
+        if (!MonochromeGate.shared.refusedSince(startedAtMs)) return false
         if (holds.merge(mediaId, 1, Int::plus)!! > MAX_THROTTLED_HOLDS) return false
-        heldUntil[mediaId] = System.currentTimeMillis() + maxOf(THROTTLED_HOLD_MS, MonochromeSource.quietForMs() + THROTTLED_HOLD_SLACK_MS)
+        heldUntil[mediaId] = System.currentTimeMillis() + maxOf(THROTTLED_HOLD_MS, MonochromeGate.shared.remainingMs() + THROTTLED_HOLD_SLACK_MS)
         return true
     }
 

@@ -137,6 +137,8 @@ object Http {
         .dispatcher(Dispatcher().apply { maxRequestsPerHost = 16 })
         .connectionPool(ConnectionPool(16, 5, TimeUnit.MINUTES))
         .addInterceptor(webDavInterceptor)
+        // Every caller of Monochrome's files, gated as one — see MonochromeGate.
+        .addInterceptor(com.music.bitchord.data.sources.MonochromeGate.shared)
         .apply { if (USAGE_LOGGING_ENABLED) addNetworkInterceptor(usageInterceptor) }
         .build()
 }

@@ -809,12 +809,11 @@ object SourceResolver {
     /**
      * Whether [source] has asked to be left alone for now, for the lookups
      * that can wait — a warm-up and a second look — to leave it out of. Only
-     * the live resolve still asks it then, and that fails without a request.
-     * Spending the server's patience on a song not yet playing is what had the
-     * one that was refused.
+     * the live resolve still asks it then, and [MonochromeGate] answers that
+     * without a request.
      */
     private fun resting(source: MusicSource): Boolean =
-        source.kind == SourceKind.MONOCHROME && MonochromeSource.holdingOff()
+        source.kind == SourceKind.MONOCHROME && MonochromeGate.shared.turnsAway()
 
     /**
      * The sources ranked above [configId], in order.

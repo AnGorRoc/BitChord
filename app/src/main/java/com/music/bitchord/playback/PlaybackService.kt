@@ -54,6 +54,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TransferListener
 import androidx.media3.exoplayer.upstream.BandwidthMeter
@@ -110,6 +111,7 @@ import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.QueueTier
+import com.music.bitchord.data.sources.MonochromeGate
 import com.music.bitchord.data.sources.SkipPace
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.download.Downloads
@@ -181,6 +183,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import java.util.Locale
 import java.util.UUID
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 
 /** Session command used by both the player UI and the media notification. */
@@ -3794,10 +3797,17 @@ class PlaybackService : MediaLibraryService() {
      * the answer cannot change — it is the type it uses to say exactly that.
      * Everything else keeps the default behaviour, which is right: a shaped
      * response or a dropped connection is worth another go.
+     *
+     * The other exception is Monochrome turning a file away, see
+     * [isMonochromeRefusal]. Retried on Media3's schedule it was six more
+     * refusals in nine seconds, every one of them inside the episode the first
+     * had already reported; failing at once lets the track fall back to the
+     * next source while the lossless copy waits for the circuit to close.
      */
     private class PermanentAwareLoadErrorPolicy : DefaultLoadErrorHandlingPolicy() {
         override fun getRetryDelayMsFor(loadErrorInfo: LoadErrorHandlingPolicy.LoadErrorInfo): Long {
             if (isPermanent(loadErrorInfo.exception)) return C.TIME_UNSET
+            if (isMonochromeRefusal(loadErrorInfo.exception)) return C.TIME_UNSET
             return super.getRetryDelayMsFor(loadErrorInfo)
         }
 
@@ -3816,6 +3826,7 @@ class PlaybackService : MediaLibraryService() {
             const val CAUSE_DEPTH = 8
         }
     }
+
 
     /** Counts every byte a player reads, cache or network, progressive or DASH. */
     private class CountingBandwidthMeter(private val delegate: BandwidthMeter) : BandwidthMeter by delegate {
@@ -4086,9 +4097,13 @@ class PlaybackService : MediaLibraryService() {
         val mediaId = item.mediaId
 
         QualityUpgrade.forget(mediaId)
-        QualityUpgrade.refuseUpgrades(mediaId)
+        // A refusal from Monochrome is about the server, not this stream: the
+        // same FLAC plays once the circuit closes, so the second look is left
+        // free to bring it back rather than refused for the rest of the song.
+        val refusedForNow = isMonochromeRefusal(error)
+        if (!refusedForNow) QualityUpgrade.refuseUpgrades(mediaId)
         videoId?.let {
-            StreamChoice.refuseSubstitutes(it)
+            if (!refusedForNow) StreamChoice.refuseSubstitutes(it)
             StreamChoice.forget(it)
         }
         NerdStats.clearDeclared(mediaId)
@@ -4866,6 +4881,7 @@ class PlaybackService : MediaLibraryService() {
         // reaches its bytes through the same resolving data source the real one
         // does, and that is where a marked URI is turned back into a stream.
         QualityUpgrade.force(mediaId, stream)
+        val auditionStartedAtMs = System.currentTimeMillis()
         val warmedThrough = auditionUpgrade(mediaId, at, upgradedUri, stream, alreadyFilled)
         if (warmedThrough == null) {
             // Nothing was cut, so there is nothing to put back: the listener
@@ -4877,6 +4893,9 @@ class PlaybackService : MediaLibraryService() {
             // to prove itself.
             QualityUpgrade.forget(mediaId)
             withContext(Dispatchers.IO) { AudioCache.discardRendition(Uri.parse(upgradedUri)) }
+            // Turned away by Monochrome rather than found wanting: the same
+            // FLAC is worth another try once the circuit closes.
+            QualityUpgrade.holdIfRefused(mediaId, auditionStartedAtMs)
             return
         }
 
@@ -9648,4 +9667,22 @@ private open class FfmpegFallbackRenderersFactory(context: Context) : DefaultRen
         )
         out.add(FfmpegAudioRenderer(eventHandler, eventListener, audioSink))
     }
+}
+
+/**
+ * Whether [error] is Monochrome's file endpoint answering 429 — the
+ * server's own, or [MonochromeGate]'s while its circuit is open. Never a
+ * statement about the track: the same file plays once the episode passes.
+ */
+private fun isMonochromeRefusal(error: Throwable?): Boolean {
+    var cause = error
+    var depth = 0
+    while (cause != null && depth++ < 8) {
+        if (cause is HttpDataSource.InvalidResponseCodeException && cause.responseCode == 429) {
+            val url = cause.dataSpec.uri.toString().toHttpUrlOrNull()
+            return url != null && MonochromeGate.shared.gates(url)
+        }
+        cause = cause.cause?.takeIf { it !== cause }
+    }
+    return false
 }
