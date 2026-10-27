@@ -155,7 +155,18 @@ class MonochromeSourceTest {
         assertEquals(44_100, stream.format.sampleRateHz)
         assertNull(stream.format.kbps)
         assertTrue(stream.headers.isEmpty())
-        assertTrue(stream.url.endsWith("/track/158233189067153408?mime=audio/flac"))
+        // The size from the probe's Content-Range, so the player can read it in
+        // bounded ranges rather than one read the server cuts at thirty seconds.
+        assertTrue(stream.url, stream.url.endsWith("/track/158233189067153408?mime=audio/flac&clen=51478920"))
+    }
+
+    @Test
+    fun `a file whose size wasn't stated carries none`() = runBlocking {
+        route("/track/1", partial(LIVE_FLAC_HEAD).removeHeader("Content-Range"))
+
+        val url = source().stream("1", StreamRequest.Lossless)!!.url
+
+        assertTrue(url, url.endsWith("/track/1?mime=audio/flac"))
     }
 
     /**

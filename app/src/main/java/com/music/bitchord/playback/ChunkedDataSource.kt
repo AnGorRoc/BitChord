@@ -11,7 +11,9 @@ import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.TransferListener
 import com.music.bitchord.data.innertube.PlayerClient
 import com.music.bitchord.data.innertube.StreamResolver
+import com.music.bitchord.data.sources.MonochromeGate
 import java.io.InterruptedIOException
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
  * Fetches a stream as a run of bounded ranges instead of one open-ended read.
@@ -64,7 +66,9 @@ class ChunkedDataSource(
     /**
      * The total size has to be known up front, or there is no way to say where
      * the last range ends. Every progressive googlevideo URL carries it as
-     * `clen`, which costs nothing to read; anything else is forwarded as-is.
+     * `clen`, which costs nothing to read, and so does a Monochrome file once
+     * its head has been read — see [MonochromeSource.stream][com.music.bitchord.data.sources.MonochromeSource].
+     * Anything else is forwarded as-is.
      */
     override fun open(dataSpec: DataSpec): Long {
         baseSpec = dataSpec
@@ -74,8 +78,8 @@ class ChunkedDataSource(
         if (total == null) {
             passthrough = true
             chunkOpen = true
-            // Reported, not just thrown. Nothing but googlevideo carries `clen`,
-            // so every module stream comes through this branch — and this was
+            // Reported, not just thrown. Only googlevideo and Monochrome carry
+            // `clen`, so every module stream comes through this branch — and this was
             // the one open in the app whose refusal was neither logged nor
             // handed anywhere. A dead Tidal URL surfaced as a bare
             // ExoPlaybackException with not one line naming the server that
@@ -102,9 +106,21 @@ class ChunkedDataSource(
             minOf(total, position + dataSpec.length)
         }
         bytesRemaining = (end - position).coerceAtLeast(0L)
-        rangeBytes = minOf(chunkBytes, PlayerClient.rangeBytesFor(dataSpec.uri.toString()))
+        rangeBytes = rangeBytesFor(dataSpec.uri.toString())
         if (bytesRemaining > 0) openChunk()
         return bytesRemaining
+    }
+
+    /**
+     * How much to ask for at a time. googlevideo's is [chunkBytes], narrowed
+     * per client. Monochrome's is [MONOCHROME_RANGE_BYTES]: a range there is
+     * not paced, so the size only has to stay clear of the server cutting a
+     * response at thirty seconds, and bigger ranges are fewer requests.
+     */
+    private fun rangeBytesFor(url: String): Long {
+        val parsed = url.toHttpUrlOrNull()
+        if (parsed != null && MonochromeGate.shared.gates(parsed)) return MONOCHROME_RANGE_BYTES
+        return minOf(chunkBytes, PlayerClient.rangeBytesFor(url))
     }
 
     private fun openChunk() {
@@ -198,6 +214,12 @@ class ChunkedDataSource(
 
         /** Enough to ride out a truncated range, not enough to hang on a dead one. */
         const val MAX_EMPTY_RANGES = 3
+
+        /**
+         * About fifteen seconds at the slowest rate measured from the server
+         * (560 kB/s), half its thirty-second cut.
+         */
+        const val MONOCHROME_RANGE_BYTES = 8L * 1024 * 1024
     }
 
     /** Wraps [upstream]'s sources so everything opened through it is ranged. */

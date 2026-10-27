@@ -169,7 +169,13 @@ class MonochromeSource(
             // `mime` is ignored by the server and read by Cast, which is told
             // a file's type from its URL and would otherwise announce this
             // extensionless one as MP4 — see CastPlayback.mimeTypeOf.
-            url = "${trackUrl(trackId)}?mime=audio/flac",
+            //
+            // `clen` is ignored by the server too, and read by ChunkedDataSource
+            // as the size to split into bounded ranges. The server cuts any
+            // response at about thirty seconds — measured on two whole files
+            // that stopped at 30.4 s and 30.9 s — so the player's one long
+            // open-ended read was being dropped mid-song.
+            url = "${trackUrl(trackId)}?mime=audio/flac" + probe.totalBytes?.let { "&clen=$it" }.orEmpty(),
             format = format,
         )
     }
