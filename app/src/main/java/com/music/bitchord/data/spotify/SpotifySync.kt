@@ -4,6 +4,7 @@ import com.music.bitchord.data.model.Song
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -11,21 +12,73 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicInteger
+
+/** Why a playlist, or the whole run, could not be imported. */
+enum class SyncErrorKind { SIGNED_OUT, NETWORK, OTHER }
+
+/**
+ * What a failure means to the person: an expired sign-in (Spotify answering
+ * 401/403, or no token to send) is theirs to fix, a dropped connection passes.
+ */
+fun syncErrorKind(e: Throwable): SyncErrorKind {
+    val message = e.message.orEmpty()
+    return when {
+        message.contains("sign-in expired", ignoreCase = true) ||
+            message.contains("(401)") || message.contains("(403)") -> SyncErrorKind.SIGNED_OUT
+        e is IOException -> SyncErrorKind.NETWORK
+        else -> SyncErrorKind.OTHER
+    }
+}
+
+/** A playlist that did not make it, and why. */
+data class SyncFailure(
+    val playlist: SpotifyPlaylist,
+    val kind: SyncErrorKind,
+    val detail: String,
+)
 
 /** Where the copy of the Spotify library stands. */
 sealed interface SpotifySyncState {
     data object Idle : SpotifySyncState
 
-    /** Playlist [index] of [total] is being read and matched. */
-    data class Running(val index: Int, val total: Int, val playlist: String) : SpotifySyncState
+    /**
+     * Playlist number [index] (1-based) of [total] is under way. [songsTotal]
+     * is 0 while its tracks are still being read, after which [songsDone] of
+     * them have been matched. [failures] are the playlists already given up on.
+     */
+    data class Running(
+        val index: Int,
+        val total: Int,
+        val playlist: SpotifyPlaylist,
+        val songsDone: Int,
+        val songsTotal: Int,
+        val failures: List<SyncFailure>,
+    ) : SpotifySyncState {
+        /** How far through the whole run, 0 to 1. */
+        val fraction: Float
+            get() {
+                val inPlaylist = if (songsTotal > 0) songsDone.toFloat() / songsTotal else 0f
+                return ((index - 1) + inPlaylist) / total
+            }
+    }
 
-    /** The last run finished: [added] songs new to this device, [unmatched] with no YouTube Music version. */
-    data class Done(val playlists: Int, val added: Int, val unmatched: Int) : SpotifySyncState
+    /** The run ended: [imported] playlists saved, [added] songs new to this device, [unmatched] with no YouTube Music version. */
+    data class Finished(
+        val imported: Int,
+        val added: Int,
+        val unmatched: Int,
+        val failures: List<SyncFailure>,
+        val cancelled: Boolean,
+    ) : SpotifySyncState
 
-    data class Failed(val message: String) : SpotifySyncState
+    /** The run could not go on at all, as when the sign-in has expired. */
+    data class Aborted(val kind: SyncErrorKind, val detail: String) : SpotifySyncState
 }
 
 /**
@@ -36,12 +89,17 @@ sealed interface SpotifySyncState {
  * Re-running is cheap and is how new songs arrive — a song already matched is
  * reused from the copy, so only what Spotify gained is looked up. The work runs
  * in its own scope, so leaving the Spotify page does not stop it.
+ *
+ * One playlist failing does not stop the rest: it is recorded and offered for
+ * [retryFailed]. Only a lost sign-in ends the run, since every later playlist
+ * would fail the same way.
  */
 object SpotifySync {
     /** How many Spotify tracks are looked up on YouTube Music at once. */
     private const val MATCH_PARALLELISM = 6
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var job: Job? = null
 
     private val _state = MutableStateFlow<SpotifySyncState>(SpotifySyncState.Idle)
     val state: StateFlow<SpotifySyncState> = _state.asStateFlow()
@@ -49,34 +107,66 @@ object SpotifySync {
     val running: Boolean get() = _state.value is SpotifySyncState.Running
 
     /** Mirrors [playlists] in the background; ignored while a run is already going. */
+    @Synchronized
     fun start(playlists: List<SpotifyPlaylist>) {
         if (running || playlists.isEmpty()) return
-        _state.value = SpotifySyncState.Running(0, playlists.size, playlists.first().name)
-        scope.launch {
-            var added = 0
-            var unmatched = 0
-            try {
-                playlists.forEachIndexed { index, playlist ->
-                    _state.value = SpotifySyncState.Running(index + 1, playlists.size, playlist.name)
-                    val result = syncPlaylist(playlist)
-                    added += result.added
-                    unmatched += result.unmatched
-                }
-                _state.value = SpotifySyncState.Done(playlists.size, added, unmatched)
-            } catch (e: CancellationException) {
-                _state.value = SpotifySyncState.Idle
-                throw e
-            } catch (e: Exception) {
-                _state.value = SpotifySyncState.Failed(e.message.orEmpty())
-            }
-        }
+        _state.value = SpotifySyncState.Running(1, playlists.size, playlists.first(), 0, 0, emptyList())
+        job = scope.launch { run(playlists) }
     }
 
-    fun clearResult() {
+    /** Stops the run; playlists already saved stay. */
+    fun cancel() {
+        job?.cancel()
+    }
+
+    /** Tries again just the playlists the last run gave up on. */
+    fun retryFailed() {
+        val failed = (_state.value as? SpotifySyncState.Finished)?.failures?.map { it.playlist }.orEmpty()
+        if (failed.isNotEmpty()) start(failed)
+    }
+
+    /** Puts the result away once it has been read. */
+    fun dismiss() {
         if (!running) _state.value = SpotifySyncState.Idle
     }
 
-    fun isImported(spotifyId: String): Boolean = LocalPlaylistStore.findBySpotifyId(spotifyId) != null
+    private suspend fun run(playlists: List<SpotifyPlaylist>) {
+        var imported = 0
+        var added = 0
+        var unmatched = 0
+        val failures = mutableListOf<SyncFailure>()
+        try {
+            playlists.forEachIndexed { index, playlist ->
+                _state.value = SpotifySyncState.Running(
+                    index = index + 1,
+                    total = playlists.size,
+                    playlist = playlist,
+                    songsDone = 0,
+                    songsTotal = 0,
+                    failures = failures.toList(),
+                )
+                try {
+                    val result = syncPlaylist(playlist)
+                    imported++
+                    added += result.added
+                    unmatched += result.unmatched
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    val kind = syncErrorKind(e)
+                    if (kind == SyncErrorKind.SIGNED_OUT) {
+                        _state.value = SpotifySyncState.Aborted(kind, e.message.orEmpty())
+                        return
+                    }
+                    failures += SyncFailure(playlist, kind, e.message.orEmpty())
+                }
+            }
+            _state.value = SpotifySyncState.Finished(imported, added, unmatched, failures.toList(), cancelled = false)
+        } catch (e: CancellationException) {
+            _state.value = SpotifySyncState.Finished(imported, added, unmatched, failures.toList(), cancelled = true)
+            throw e
+        }
+    }
 
     private class Result(val added: Int, val unmatched: Int)
 
@@ -85,14 +175,18 @@ object SpotifySync {
         val known = LocalPlaylistStore.findBySpotifyId(playlist.id)
             ?.let { local -> local.spotifyTrackIds.zip(local.songs).toMap() }
             .orEmpty()
+        publishProgress(playlist, 0, tracks.size)
+        val done = AtomicInteger(0)
         val gate = Semaphore(MATCH_PARALLELISM)
         val matched: List<Song?> = coroutineScope {
             tracks.map { track ->
                 async {
-                    known[track.id] ?: gate.withPermit {
+                    val song = known[track.id] ?: gate.withPermit {
                         runCatching { SpotifyImporter.matchTrack(track) }.getOrNull()
                             ?.let { it.copy(thumbnailUrl = it.thumbnailUrl ?: track.imageUrl) }
                     }
+                    publishProgress(playlist, done.incrementAndGet(), tracks.size)
+                    song
                 }
             }.awaitAll()
         }
@@ -107,5 +201,15 @@ object SpotifySync {
             added = kept.count { tracks[it].id !in known },
             unmatched = tracks.size - kept.size,
         )
+    }
+
+    private fun publishProgress(playlist: SpotifyPlaylist, done: Int, total: Int) {
+        _state.update { state ->
+            if (state is SpotifySyncState.Running && state.playlist.id == playlist.id) {
+                state.copy(songsDone = maxOf(state.songsDone, done), songsTotal = total)
+            } else {
+                state
+            }
+        }
     }
 }
