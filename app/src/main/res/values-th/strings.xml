@@ -1238,8 +1238,8 @@
     <string name="lossless_output_permission">ตรวจสอบตัวแปลงสัญญาณ Bluetooth</string>
     <string name="lossless_output_permission_detail">อนุญาตอุปกรณ์ใกล้เคียงเพื่อให้หูฟัง LDAC หรือ LHDC ปลดล็อกส่วนเสริมแบบ lossless</string>
     <string name="cached_songs">เพลงในแคช</string>
-    <string name="cached_songs_subtitle">เพลงจาก YouTube และ JioSaavn ในแคชเพลง</string>
-    <string name="cached_songs_empty">ยังไม่มีเพลงในแคช เพลงที่คุณเล่นจาก YouTube หรือ JioSaavn จะแสดงที่นี่</string>
+    <string name="cached_songs_subtitle">เพลงจาก YouTube, Monochrome และ JioSaavn ในแคชเพลง</string>
+    <string name="cached_songs_empty">ยังไม่มีเพลงในแคช เพลงที่คุณเล่นจาก YouTube, Monochrome หรือ JioSaavn จะแสดงที่นี่</string>
     <string name="cached_song_partial">บางส่วน</string>
     <string name="remove_from_cache">นำออกจากแคช</string>
     <string name="cached_song_remove">นำออก</string>

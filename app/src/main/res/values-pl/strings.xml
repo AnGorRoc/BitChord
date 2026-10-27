@@ -1295,8 +1295,8 @@
     <string name="lossless_output_permission">Sprawdź kodek Bluetooth</string>
     <string name="lossless_output_permission_detail">Zezwól na Urządzenia w pobliżu, by słuchawki LDAC lub LHDC odblokowały dodatki bezstratne</string>
     <string name="cached_songs">Utwory w pamięci podręcznej</string>
-    <string name="cached_songs_subtitle">Utwory z YouTube i JioSaavn w pamięci podręcznej utworów</string>
-    <string name="cached_songs_empty">Brak utworów w pamięci podręcznej. Utwory odtwarzane z YouTube lub JioSaavn pojawią się tutaj.</string>
+    <string name="cached_songs_subtitle">Utwory z YouTube, Monochrome i JioSaavn w pamięci podręcznej utworów</string>
+    <string name="cached_songs_empty">Brak utworów w pamięci podręcznej. Utwory odtwarzane z YouTube, Monochrome lub JioSaavn pojawią się tutaj.</string>
     <string name="cached_song_partial">Częściowo</string>
     <string name="remove_from_cache">Usuń z pamięci podręcznej</string>
     <string name="cached_song_remove">Usuń</string>

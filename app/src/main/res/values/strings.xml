@@ -1142,8 +1142,8 @@
     <string name="lossless_output_permission_denied_detail">Tap to open Settings and allow Nearby devices — without it we can’t read your Bluetooth codec</string>
     <string name="lossless_output_permission_detail">Allow Nearby devices so LDAC, LHDC or Samsung UHQ headphones can unlock lossless-only addons</string>
     <string name="cached_songs">Cached songs</string>
-    <string name="cached_songs_subtitle">Songs from YouTube and JioSaavn in the song cache</string>
-    <string name="cached_songs_empty">No cached songs yet. Songs you play from YouTube or JioSaavn will show up here.</string>
+    <string name="cached_songs_subtitle">Songs from YouTube, Monochrome and JioSaavn in the song cache</string>
+    <string name="cached_songs_empty">No cached songs yet. Songs you play from YouTube, Monochrome or JioSaavn will show up here.</string>
     <string name="cached_song_partial">Partial</string>
     <string name="remove_from_cache">Remove from cache</string>
     <string name="remove_from_history">Remove from history</string>

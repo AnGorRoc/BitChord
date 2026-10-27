@@ -1256,8 +1256,8 @@
     <string name="lossless_output_permission">Vérifier le codec Bluetooth</string>
     <string name="lossless_output_permission_detail">Autorisez Appareils à proximité pour qu\'un casque LDAC ou LHDC débloque les modules sans perte</string>
     <string name="cached_songs">Titres en cache</string>
-    <string name="cached_songs_subtitle">Titres de YouTube et JioSaavn dans le cache audio</string>
-    <string name="cached_songs_empty">Aucun titre en cache pour l’instant. Les titres lus depuis YouTube ou JioSaavn apparaîtront ici.</string>
+    <string name="cached_songs_subtitle">Titres de YouTube, Monochrome et JioSaavn dans le cache audio</string>
+    <string name="cached_songs_empty">Aucun titre en cache pour l’instant. Les titres lus depuis YouTube, Monochrome ou JioSaavn apparaîtront ici.</string>
     <string name="cached_song_partial">Partiel</string>
     <string name="remove_from_cache">Retirer du cache</string>
     <string name="cached_song_remove">Retirer</string>

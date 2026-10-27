@@ -1172,8 +1172,8 @@
     <string name="lossless_output_permission">Kiểm tra codec Bluetooth</string>
     <string name="lossless_output_permission_detail">Cho phép Thiết bị lân cận để tai nghe LDAC hoặc LHDC mở khóa addon lossless</string>
     <string name="cached_songs">Bài hát đã lưu bộ nhớ đệm</string>
-    <string name="cached_songs_subtitle">Bài hát từ YouTube và JioSaavn trong bộ nhớ đệm</string>
-    <string name="cached_songs_empty">Chưa có bài hát nào trong bộ nhớ đệm. Bài hát bạn phát từ YouTube hoặc JioSaavn sẽ hiện ở đây.</string>
+    <string name="cached_songs_subtitle">Bài hát từ YouTube, Monochrome và JioSaavn trong bộ nhớ đệm</string>
+    <string name="cached_songs_empty">Chưa có bài hát nào trong bộ nhớ đệm. Bài hát bạn phát từ YouTube, Monochrome hoặc JioSaavn sẽ hiện ở đây.</string>
     <string name="cached_song_partial">Một phần</string>
     <string name="remove_from_cache">Xóa khỏi bộ nhớ đệm</string>
     <string name="cached_song_remove">Xóa</string>

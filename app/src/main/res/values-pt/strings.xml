@@ -1260,8 +1260,8 @@
     <string name="lossless_output_permission">Verificar codec Bluetooth</string>
     <string name="lossless_output_permission_detail">Permita Dispositivos por perto para que fones LDAC ou LHDC liberem os complementos sem perdas</string>
     <string name="cached_songs">Músicas em cache</string>
-    <string name="cached_songs_subtitle">Músicas do YouTube e JioSaavn no cache de músicas</string>
-    <string name="cached_songs_empty">Ainda não há músicas em cache. As músicas que você tocar do YouTube ou JioSaavn aparecerão aqui.</string>
+    <string name="cached_songs_subtitle">Músicas do YouTube, Monochrome e JioSaavn no cache de músicas</string>
+    <string name="cached_songs_empty">Ainda não há músicas em cache. As músicas que você tocar do YouTube, Monochrome ou JioSaavn aparecerão aqui.</string>
     <string name="cached_song_partial">Parcial</string>
     <string name="remove_from_cache">Remover do cache</string>
     <string name="cached_song_remove">Remover</string>

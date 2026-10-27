@@ -1287,8 +1287,8 @@
     <string name="lossless_output_permission">Проверить Bluetooth-кодек</string>
     <string name="lossless_output_permission_detail">Разрешите доступ к устройствам поблизости, чтобы наушники LDAC или LHDC открыли аддоны без потерь</string>
     <string name="cached_songs">Кэшированные треки</string>
-    <string name="cached_songs_subtitle">Треки из YouTube и JioSaavn в кэше треков</string>
-    <string name="cached_songs_empty">Кэшированных треков пока нет. Здесь появятся треки, которые вы слушаете из YouTube или JioSaavn.</string>
+    <string name="cached_songs_subtitle">Треки из YouTube, Monochrome и JioSaavn в кэше треков</string>
+    <string name="cached_songs_empty">Кэшированных треков пока нет. Здесь появятся треки, которые вы слушаете из YouTube, Monochrome или JioSaavn.</string>
     <string name="cached_song_partial">Частично</string>
     <string name="remove_from_cache">Удалить из кеша</string>
     <string name="cached_song_remove">Удалить</string>

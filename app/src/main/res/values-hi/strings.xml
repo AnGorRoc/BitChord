@@ -1255,8 +1255,8 @@
     <string name="lossless_output_permission">Bluetooth कोडेक जाँचें</string>
     <string name="lossless_output_permission_detail">आस-पास के डिवाइस की अनुमति दें ताकि LDAC या LHDC हेडफ़ोन लॉसलेस ऐड-ऑन खोल सकें</string>
     <string name="cached_songs">कैश किए गए गाने</string>
-    <string name="cached_songs_subtitle">सॉन्ग कैश में YouTube और JioSaavn के गाने</string>
-    <string name="cached_songs_empty">अभी कोई कैश किया गया गाना नहीं है। YouTube या JioSaavn से चलाए गए गाने यहाँ दिखेंगे।</string>
+    <string name="cached_songs_subtitle">सॉन्ग कैश में YouTube, Monochrome और JioSaavn के गाने</string>
+    <string name="cached_songs_empty">अभी कोई कैश किया गया गाना नहीं है। YouTube, Monochrome या JioSaavn से चलाए गए गाने यहाँ दिखेंगे।</string>
     <string name="cached_song_partial">आंशिक</string>
     <string name="remove_from_cache">कैश से हटाएँ</string>
     <string name="cached_song_remove">हटाएँ</string>

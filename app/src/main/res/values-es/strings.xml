@@ -1227,8 +1227,8 @@
     <string name="lossless_output_permission">Comprobar códec Bluetooth</string>
     <string name="lossless_output_permission_detail">Permite Dispositivos cercanos para que los auriculares LDAC o LHDC desbloqueen los complementos sin pérdida</string>
     <string name="cached_songs">Canciones en caché</string>
-    <string name="cached_songs_subtitle">Canciones de YouTube y JioSaavn en la caché de canciones</string>
-    <string name="cached_songs_empty">Aún no hay canciones en caché. Las canciones que reproduzcas desde YouTube o JioSaavn aparecerán aquí.</string>
+    <string name="cached_songs_subtitle">Canciones de YouTube, Monochrome y JioSaavn en la caché de canciones</string>
+    <string name="cached_songs_empty">Aún no hay canciones en caché. Las canciones que reproduzcas desde YouTube, Monochrome o JioSaavn aparecerán aquí.</string>
     <string name="cached_song_partial">Parcial</string>
     <string name="remove_from_cache">Quitar de la caché</string>
     <string name="cached_song_remove">Quitar</string>

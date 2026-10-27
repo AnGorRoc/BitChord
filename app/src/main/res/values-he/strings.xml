@@ -1260,8 +1260,8 @@
     <string name="lossless_output_permission">בדיקת קודק Bluetooth</string>
     <string name="lossless_output_permission_detail">אפשרו מכשירים בקרבת מקום כדי שאוזניות LDAC או LHDC יפתחו תוספים ללא אובדן</string>
     <string name="cached_songs">שירים במטמון</string>
-    <string name="cached_songs_subtitle">שירים מ-YouTube ומ-JioSaavn במטמון השירים</string>
-    <string name="cached_songs_empty">אין עדיין שירים במטמון. שירים שתנגן מ-YouTube או מ-JioSaavn יופיעו כאן.</string>
+    <string name="cached_songs_subtitle">שירים מ-YouTube, מ-Monochrome ומ-JioSaavn במטמון השירים</string>
+    <string name="cached_songs_empty">אין עדיין שירים במטמון. שירים שתנגן מ-YouTube, מ-Monochrome או מ-JioSaavn יופיעו כאן.</string>
     <string name="cached_song_partial">חלקי</string>
     <string name="remove_from_cache">הסרה מהמטמון</string>
     <string name="cached_song_remove">הסרה</string>

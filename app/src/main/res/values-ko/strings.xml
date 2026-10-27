@@ -1118,8 +1118,8 @@
     <string name="lossless_output_permission_denied_detail">눌러서 설정을 열고 근처 기기 권한을 허용하세요. 권한 없이는 블루투스 코덱 정보를 읽을 수 없습니다</string>
     <string name="lossless_output_permission_detail">근처 기기 권한을 허용하고 LDAC 또는 LHDC 헤드폰에서 무손실 전용 애드온을 이용하세요</string>
     <string name="cached_songs">캐시된 음악</string>
-    <string name="cached_songs_subtitle">YouTube와 JioSaavn에서 가져와 캐시로 저장한 음악</string>
-    <string name="cached_songs_empty">아직 캐시된 음악이 없습니다. YouTube나 JioSaavn에서 음악을 재생하면 여기에 나타납니다.</string>
+    <string name="cached_songs_subtitle">YouTube, Monochrome, JioSaavn에서 가져와 캐시로 저장한 음악</string>
+    <string name="cached_songs_empty">아직 캐시된 음악이 없습니다. YouTube, Monochrome, JioSaavn에서 음악을 재생하면 여기에 나타납니다.</string>
     <string name="show_cache_folder">캐시된 음악 폴더 표시</string>
     <string name="show_cache_folder_subtitle">YouTube와 JioSaavn에서 가져와 캐시로 저장한 음악이 든 \'캐시된 음악\' 폴더를 라이브러리에 추가합니다</string>
     <string name="song_cache_unlimited">무제한</string>

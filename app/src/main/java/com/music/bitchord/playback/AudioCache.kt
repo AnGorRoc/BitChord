@@ -531,14 +531,15 @@ object AudioCache {
     }
 
     /**
-     * Whether [key]'s bytes came from YouTube or JioSaavn — the copies kept
-     * past playback, see [Origin]. An addon's file is dropped once the queue
-     * moves past it, but until then may sit under `#alt` as an Atmos or
-     * lossless rendition nothing ranked above YouTube would serve.
+     * Whether [key]'s bytes came from YouTube, Monochrome or JioSaavn — the
+     * copies kept past playback, see [Origin]. An addon's file is dropped once
+     * the queue moves past it, but until then may sit under `#alt` as an Atmos
+     * or lossless rendition nothing ranked above YouTube would serve.
      */
     private fun isKeptOrigin(key: String): Boolean = runCatching {
         val origin = cache.getContentMetadata(key).get(META_ORIGIN, null as String?)
-        origin == Origin.YOUTUBE.name || origin == Origin.JIOSAAVN.name
+        origin != null && origin != Origin.OTHER.name &&
+            runCatching { Origin.valueOf(origin) }.isSuccess
     }.getOrDefault(false)
 
     /** Whether every byte of the entry [key] is on disk. */
@@ -584,13 +585,15 @@ object AudioCache {
      * Which kind of server a cache entry's bytes came from, as recorded by
      * [recordServed].
      *
-     * Only [YOUTUBE] and [JIOSAAVN] are kept on disk once a track stops
-     * playing — they are what the player reaches first, before any addon
-     * has answered, so they are the copies worth having instantly next time.
-     * Everything else — an addon's or a module's stream, a lossless upgrade
-     * from one of them — is [OTHER]: cached while it plays, so seeking and
-     * Automix's analysis work exactly as before, then dropped by
-     * [dropForeignEntries].
+     * Only the built-in sources — [YOUTUBE], [MONOCHROME] and [JIOSAAVN] —
+     * are kept on disk once a track stops playing: they are what the player
+     * reaches first, before any addon has answered, so they are the copies
+     * worth having instantly next time. A Monochrome FLAC is the one most
+     * worth keeping, being 20-50 MB to fetch again; it ages out under the same
+     * size cap as the rest. Everything else — an addon's or a module's
+     * stream, a lossless upgrade from one of them — is [OTHER]: cached while
+     * it plays, so seeking and Automix's analysis work exactly as before, then
+     * dropped by [dropForeignEntries].
      *
      * The origin alone is not what the Cached songs folder shows. An entry is
      * listed only once the player has actually played the track from it
@@ -599,7 +602,7 @@ object AudioCache {
      * while the track plays from JioSaavn or an addon, and not for read-ahead
      * of a track the queue never reached.
      */
-    enum class Origin { YOUTUBE, JIOSAAVN, OTHER }
+    enum class Origin { YOUTUBE, MONOCHROME, JIOSAAVN, OTHER }
 
     /** One track in the Cached songs folder. */
     data class CachedSong(
@@ -760,16 +763,18 @@ object AudioCache {
     /**
      * Whose file [servedUrl] is.
      *
-     * The host settles it for the two kinds that are kept: YouTube only ever
-     * hands out googlevideo URLs and JioSaavn its own CDN. The source that was
-     * chosen is the fallback, for a JioSaavn URL on a host this doesn't know
-     * — read in the same order the resolver answers in: an upgrade's stream,
-     * then a source-backed track's own source, then the choice already
-     * serving the track. Anything not positively one of the two is [Origin.OTHER].
+     * The host settles it for the kinds that are kept: YouTube only ever
+     * hands out googlevideo URLs, Monochrome its own streamer and JioSaavn its
+     * own CDN. The source that was chosen is the fallback, for a URL on a host
+     * this doesn't know — read in the same order the resolver answers in: an
+     * upgrade's stream, then a source-backed track's own source, then the
+     * choice already serving the track. Anything not positively one of those
+     * is [Origin.OTHER].
      */
     private fun originOf(uri: Uri, mediaId: String, servedUrl: String): Origin {
         val host = runCatching { Uri.parse(servedUrl).host }.getOrNull()?.lowercase(Locale.ROOT).orEmpty()
         if (host.endsWith("googlevideo.com") || host.endsWith("youtube.com")) return Origin.YOUTUBE
+        if (host.endsWith("monochrome.st")) return Origin.MONOCHROME
         if (host.endsWith("saavncdn.com") || host.endsWith("jiosaavn.com")) return Origin.JIOSAAVN
         val upgrade = QualityUpgrade.forcedStream(uri)
         val configId = when {
@@ -778,7 +783,11 @@ object AudioCache {
             else -> StreamChoice.of(mediaId)?.sourceConfigId
         }
         val kind = configId?.let { SourceRegistry.config(it)?.kind }
-        return if (kind == SourceKind.JIOSAAVN) Origin.JIOSAAVN else Origin.OTHER
+        return when (kind) {
+            SourceKind.MONOCHROME -> Origin.MONOCHROME
+            SourceKind.JIOSAAVN -> Origin.JIOSAAVN
+            else -> Origin.OTHER
+        }
     }
 
     /** Writes what the folder shows about a track into [mutations]. */
@@ -1060,6 +1069,7 @@ object AudioCache {
     private val Origin.label: String
         get() = when (this) {
             Origin.YOUTUBE -> SourceKind.YOUTUBE.label
+            Origin.MONOCHROME -> SourceKind.MONOCHROME.label
             Origin.JIOSAAVN -> SourceKind.JIOSAAVN.label
             Origin.OTHER -> "Addon"
         }

@@ -1212,8 +1212,8 @@
     <string name="lossless_output_permission">Bluetooth kodeğini kontrol et</string>
     <string name="lossless_output_permission_detail">LDAC veya LHDC kulaklıkların kayıpsız eklentileri açabilmesi için Yakındaki cihazlar iznini verin</string>
     <string name="cached_songs">Önbellekteki şarkılar</string>
-    <string name="cached_songs_subtitle">Şarkı önbelleğindeki YouTube ve JioSaavn şarkıları</string>
-    <string name="cached_songs_empty">Henüz önbellekte şarkı yok. YouTube veya JioSaavn üzerinden çaldığın şarkılar burada görünecek.</string>
+    <string name="cached_songs_subtitle">Şarkı önbelleğindeki YouTube, Monochrome ve JioSaavn şarkıları</string>
+    <string name="cached_songs_empty">Henüz önbellekte şarkı yok. YouTube, Monochrome veya JioSaavn üzerinden çaldığın şarkılar burada görünecek.</string>
     <string name="cached_song_partial">Kısmi</string>
     <string name="remove_from_cache">Önbellekten kaldır</string>
     <string name="cached_song_remove">Kaldır</string>

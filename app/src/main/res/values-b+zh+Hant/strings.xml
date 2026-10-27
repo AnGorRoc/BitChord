@@ -1231,8 +1231,8 @@
     <string name="lossless_output_permission">檢查藍芽編解碼器</string>
     <string name="lossless_output_permission_detail">允許“附近的裝置”許可權，LDAC 或 LHDC 耳機即可解鎖僅限無損的外掛</string>
     <string name="cached_songs">已快取的歌曲</string>
-    <string name="cached_songs_subtitle">歌曲快取中的 YouTube 和 JioSaavn 歌曲</string>
-    <string name="cached_songs_empty">還沒有已快取的歌曲。你從 YouTube 或 JioSaavn 播放的歌曲會顯示在這裡。</string>
+    <string name="cached_songs_subtitle">歌曲快取中的 YouTube、Monochrome 和 JioSaavn 歌曲</string>
+    <string name="cached_songs_empty">還沒有已快取的歌曲。你從 YouTube、Monochrome 或 JioSaavn 播放的歌曲會顯示在這裡。</string>
     <string name="cached_song_partial">部分</string>
     <string name="remove_from_cache">從快取中移除</string>
     <string name="cached_song_remove">移除</string>

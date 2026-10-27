@@ -1194,8 +1194,8 @@
     <string name="lossless_output_permission">Controlla codec Bluetooth</string>
     <string name="lossless_output_permission_detail">Consenti Dispositivi nelle vicinanze perché le cuffie LDAC o LHDC sblocchino i componenti lossless</string>
     <string name="cached_songs">Brani in cache</string>
-    <string name="cached_songs_subtitle">Brani di YouTube e JioSaavn nella cache dei brani</string>
-    <string name="cached_songs_empty">Ancora nessun brano in cache. I brani che riproduci da YouTube o JioSaavn appariranno qui.</string>
+    <string name="cached_songs_subtitle">Brani di YouTube, Monochrome e JioSaavn nella cache dei brani</string>
+    <string name="cached_songs_empty">Ancora nessun brano in cache. I brani che riproduci da YouTube, Monochrome o JioSaavn appariranno qui.</string>
     <string name="cached_song_partial">Parziale</string>
     <string name="remove_from_cache">Rimuovi dalla cache</string>
     <string name="cached_song_remove">Rimuovi</string>
