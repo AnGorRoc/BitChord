@@ -4,6 +4,7 @@ import android.net.Uri
 import android.util.Log
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.NerdStats
+import com.music.bitchord.data.sources.MonochromeSource
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.StreamFormat
@@ -64,6 +65,12 @@ object QualityUpgrade {
 
     /** What a revert tags its rendition with — see [Song.toDirectYouTubeMediaItem]. */
     private const val ORIGINAL = "original"
+
+    /** How long a throttled second look waits before it is made again. */
+    private const val THROTTLED_HOLD_MS = 15_000L
+
+    /** How often one track's second look may be held for that before it stands. */
+    private const val MAX_THROTTLED_HOLDS = 3
 
     /**
      * A track playing on less than was asked for.
@@ -278,6 +285,30 @@ object QualityUpgrade {
     private val asked = java.util.Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
 
     /**
+     * When a second look that was turned away for asking too often may be made
+     * again, and how many times that has happened to the track.
+     *
+     * Neither is an answer, so neither goes in [asked]: a track whose look
+     * found nothing only because the server was busy stayed on YouTube for the
+     * rest of the song. Bounded by [MAX_THROTTLED_HOLDS], after which the
+     * silence is taken as the answer.
+     */
+    private val heldUntil = ConcurrentHashMap<String, Long>()
+    private val holds = ConcurrentHashMap<String, Int>()
+
+    /**
+     * Whether a look that began at [startedAtMs] and found nothing should be
+     * held for another try rather than recorded in [asked]; starts the hold
+     * when it should.
+     */
+    private fun heldByThrottle(mediaId: String, startedAtMs: Long): Boolean {
+        if (!MonochromeSource.throttledSince(startedAtMs)) return false
+        if (holds.merge(mediaId, 1, Int::plus)!! > MAX_THROTTLED_HOLDS) return false
+        heldUntil[mediaId] = System.currentTimeMillis() + THROTTLED_HOLD_MS
+        return true
+    }
+
+    /**
      * Whether [mediaId] is worth *evaluating* for a second look, given that
      * nothing has resolved it.
      *
@@ -296,6 +327,7 @@ object QualityUpgrade {
         // overruled — see [askByHand].
         if (mediaId !in handAsked && uri.getQueryParameter(MARKER) != null) return false
         if (mediaId in asked || mediaId in refused || pending.containsKey(mediaId)) return false
+        if ((heldUntil[mediaId] ?: 0L) > System.currentTimeMillis()) return false
         // Direct Source Stream never swaps on its own. Asking by hand still
         // works: that is the listener overruling the copy, not a background hunt.
         if (mediaId !in handAsked && DirectSourceGate.isActive()) return false
@@ -439,6 +471,7 @@ object QualityUpgrade {
 
     suspend fun lookAgain(mediaId: String, playingDurationSec: Int?): SourceStream? {
         val waiting = pending[mediaId] ?: return null
+        val startedAtMs = System.currentTimeMillis()
         var found: SourceStream? = null
         /**
          * Whether the search got as far as an answer, as opposed to being
@@ -522,7 +555,14 @@ object QualityUpgrade {
                 // [adoptUnresolved] offer the same track again at the next
                 // progress sample.
                 pending.remove(mediaId)
-                asked += mediaId
+                if (found == null && heldByThrottle(mediaId, startedAtMs)) {
+                    // Monochrome turned the lookup away for being asked too
+                    // often, which says nothing about the track. Not a verdict:
+                    // it is asked again once the server has had its quiet.
+                    TrackLog.d(TAG, "second look for $mediaId was throttled; trying again shortly", about = mediaId)
+                } else {
+                    asked += mediaId
+                }
             }
             // Otherwise the search was cancelled — the queue moved on while it
             // was still running — and *nothing was learned*. The track is left
@@ -739,6 +779,8 @@ object QualityUpgrade {
         (pending.keys + followUps.keys + forced.keys + shelved.keys + auditioning).forEach(::forget)
         asked.clear()
         refused.clear()
+        heldUntil.clear()
+        holds.clear()
     }
 
     // ── Handing the stream to the player ────────────────────────────────────

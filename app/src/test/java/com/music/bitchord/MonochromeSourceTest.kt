@@ -8,6 +8,8 @@ import com.music.bitchord.data.sources.SourceHealth
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.StreamRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -305,6 +307,51 @@ class MonochromeSourceTest {
 
         assertEquals(1, seen.size)
         assertTrue(System.currentTimeMillis() - started < 2_000)
+    }
+
+    @Test
+    fun `a throttled search is asked again after the wait`() = runBlocking {
+        script(throttled("1"), json(SEARCH_ANSWER))
+
+        val songs = source().search("daft punk get lucky", limit = 10)
+
+        assertEquals(2, songs.size)
+        assertEquals(2, seen.size)
+    }
+
+    /** What a lookup that found nothing is told about why, so it isn't taken as a no. */
+    @Test
+    fun `a throttle is noted for a lookup that was running through it`() = runBlocking {
+        script(throttled("1"), throttled("1"))
+        val before = System.currentTimeMillis()
+
+        assertNull(source().stream("1", StreamRequest.Lossless))
+
+        assertTrue(MonochromeSource.throttledSince(before))
+        assertFalse(MonochromeSource.throttledSince(System.currentTimeMillis() + 60_000))
+    }
+
+    /** Never more than two files being opened at once, however many tracks ask. */
+    @Test
+    fun `probes are opened two at a time`() = runBlocking {
+        val open = java.util.concurrent.atomic.AtomicInteger()
+        val peak = java.util.concurrent.atomic.AtomicInteger()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                synchronized(seen) { seen += request }
+                peak.accumulateAndGet(open.incrementAndGet(), ::maxOf)
+                Thread.sleep(150)
+                open.decrementAndGet()
+                return partial(flacHead(rate = 44_100, bits = 16))
+            }
+        }
+        val source = source()
+
+        (1..6).map { id -> async(Dispatchers.IO) { source.stream("$id", StreamRequest.Lossless) } }
+            .forEach { it.await() }
+
+        assertEquals(6, seen.size)
+        assertTrue("peak was ${peak.get()}", peak.get() <= MonochromeSource.MAX_PARALLEL_PROBES)
     }
 
     @Test

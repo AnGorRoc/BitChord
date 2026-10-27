@@ -9,6 +9,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -111,7 +113,7 @@ class MonochromeSource(
             key = url,
             describe = { "▶ Monochrome search \"$query\"" },
         ) {
-            runCatching { rowsOf(fetchJson(url)) }
+            runCatching { rowsOf(politely { fetchJson(url) }) }
         }.getOrElse {
             TrackLog.w(TAG, "Monochrome search failed for \"$query\": ${it.message}")
             return emptyList()
@@ -178,25 +180,41 @@ class MonochromeSource(
     private class Throttled(val waitMs: Long) : IOException("HTTP 429")
 
     /**
-     * [probeOnce], waiting out the server's quiet window first and asking once
-     * more if it still answers with a 429.
+     * Opens at most [MAX_PARALLEL_PROBES] files at once. A song opens up to
+     * three candidates and the next track is warmed alongside, which is the
+     * burst that draws the limit in the first place.
+     */
+    private val probeGate = Semaphore(MAX_PARALLEL_PROBES)
+
+    /** [probeOnce], within the limits [politely] keeps. */
+    private suspend fun probe(trackId: String): Probe? =
+        politely { probeGate.withPermit { probeOnce(trackId) } }
+
+    /**
+     * [call], after waiting out the server's quiet window, and asked once more
+     * if it still answers with a 429. Shared by the search and the probe,
+     * since the limit is the server's and not either one's.
      *
      * A wait longer than [MAX_QUIET_WAIT_MS] is not sat through: the live
      * resolve is blocked on this and the next source is always there to fall
-     * back to, so it fails at once. The window is still kept, so the probes
+     * back to, so it fails at once. The window is still kept, so the calls
      * behind this one don't ask either. Fails like any other error afterwards,
      * which isn't remembered, and the next look at the track asks again.
      */
-    private suspend fun probe(trackId: String): Probe? {
+    private suspend fun <T> politely(call: suspend () -> T): T {
         var retried = false
         while (true) {
             val quietFor = quietUntilMs - System.currentTimeMillis()
-            if (quietFor > MAX_QUIET_WAIT_MS) throw IOException("HTTP 429, asked to wait ${quietFor / 1000}s")
+            if (quietFor > MAX_QUIET_WAIT_MS) {
+                lastThrottledAtMs = System.currentTimeMillis()
+                throw IOException("HTTP 429, asked to wait ${quietFor / 1000}s")
+            }
             if (quietFor > 0) delay(quietFor)
             try {
-                return probeOnce(trackId)
+                return call()
             } catch (throttled: Throttled) {
-                quietUntilMs = maxOf(quietUntilMs, System.currentTimeMillis() + throttled.waitMs)
+                lastThrottledAtMs = System.currentTimeMillis()
+                quietUntilMs = maxOf(quietUntilMs, lastThrottledAtMs + throttled.waitMs)
                 if (retried) throw throttled
                 retried = true
             }
@@ -248,6 +266,7 @@ class MonochromeSource(
             .header("User-Agent", USER_AGENT)
             .build()
         searchClient.newCall(request).execute().use { response ->
+            if (response.code == 429) throw Throttled(retryAfterMs(response.header("Retry-After")))
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             return response.body?.string() ?: throw IOException("Empty body")
         }
@@ -295,8 +314,21 @@ class MonochromeSource(
         /** The most of a stated `Retry-After` that is believed. */
         const val MAX_RETRY_MS = 30_000L
 
-        /** The longest a probe sits waiting for the quiet window to pass. */
+        /** The longest a call sits waiting for the quiet window to pass. */
         const val MAX_QUIET_WAIT_MS = 3_000L
+
+        /** Files opened at once; see [probeGate]. */
+        const val MAX_PARALLEL_PROBES = 2
+
+        @Volatile
+        private var lastThrottledAtMs = 0L
+
+        /**
+         * Whether Monochrome turned a call away for being asked too often at
+         * or after [sinceMs]. A lookup that found nothing meanwhile learned
+         * nothing about the track, only about the server.
+         */
+        fun throttledSince(sinceMs: Long): Boolean = lastThrottledAtMs >= sinceMs
 
         /**
          * How long a 429 asked to be left alone: the `Retry-After` seconds when
