@@ -1165,26 +1165,26 @@ internal fun ShelfListRow(
     modifier: Modifier = Modifier,
     isPinned: Boolean = false,
 ) {
-    val shape = if (item.browseId?.startsWith("UC") == true) CircleShape else RoundedCornerShape(8.dp)
+    val shape = if (item.browseId?.startsWith("UC") == true) CircleShape else RoundedCornerShape(LIST_COVER_RADIUS)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
             .contextClick(onLongPress)
-            .padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
+            .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AsyncImage(
-            model = item.thumbnailUrl.artworkAt(ROW_ART_PX),
+            model = item.thumbnailUrl.artworkAt(LIST_COVER_ART_PX),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .size(52.dp)
+                .size(LIST_COVER_SIZE)
                 .clip(shape)
                 .thumbnailBorder(shape)
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         )
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (isPinned) {
@@ -1229,13 +1229,13 @@ internal fun NewShelfListRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
+            .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(52.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .size(LIST_COVER_SIZE)
+                .clip(RoundedCornerShape(LIST_COVER_RADIUS))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
@@ -1244,18 +1244,18 @@ internal fun NewShelfListRow(
                     painter = painterResource(logo),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.size(26.dp),
+                    modifier = Modifier.size(30.dp),
                 )
             } else {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(28.dp),
                 )
             }
         }
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 text = label,
@@ -1274,3 +1274,8 @@ internal fun NewShelfListRow(
         }
     }
 }
+
+/** The Library's list style: a cover about as big as Spotify's, so it reads at a glance. */
+private val LIST_COVER_SIZE = 64.dp
+private val LIST_COVER_RADIUS = 8.dp
+private const val LIST_COVER_ART_PX = 256
