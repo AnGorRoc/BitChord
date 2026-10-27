@@ -1284,13 +1284,8 @@
     <string name="spotify_import_title">Importar playlist de Spotify</string>
     <string name="spotify_import_unmatched">%1$d canciones no se encontraron en YouTube Music</string>
     <string name="spotify_library_subtitle">Tus playlists de Spotify</string>
-    <string name="spotify_sync_title">Importar de Spotify</string>
+    <string name="spotify_sync_menu">Importar playlists</string>
     <string name="spotify_sync_description">Elige las playlists que copiar a este dispositivo. Las canciones se emparejan en YouTube Music.</string>
-    <string name="spotify_sync_selected_count">%1$d de %2$d seleccionadas</string>
-    <string name="spotify_sync_select_none">Quitar</string>
-    <string name="spotify_sync_import_selected">Importar (%1$d)</string>
-    <string name="spotify_sync_hide">Ocultar</string>
-    <string name="spotify_sync_running">Importando tu biblioteca</string>
     <string name="spotify_sync_step_reading">Playlist %1$d de %2$d · Leyendo canciones…</string>
     <string name="spotify_sync_step_matching">Playlist %1$d de %2$d · Emparejando %3$d de %4$d canciones</string>
     <string name="spotify_sync_cancel">Cancelar</string>

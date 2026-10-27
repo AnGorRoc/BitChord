@@ -70,6 +70,7 @@ import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.Upgrade
@@ -164,7 +165,6 @@ import com.music.bitchord.ui.components.AccountProfileSelector
 import com.music.bitchord.ui.navigation.AppDestination
 import com.music.bitchord.ui.navigation.AppRoute
 import com.music.bitchord.ui.components.SpotifyImportAlert
-import com.music.bitchord.ui.components.SpotifyLibraryImportAlert
 import com.music.bitchord.ui.screens.WearOsScreen
 import com.music.bitchord.ui.screens.AccountAndScrobblingScreen
 import com.music.bitchord.ui.screens.DiscordDialog
@@ -186,6 +186,7 @@ import com.music.bitchord.ui.screens.SourcesScreen
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.ui.screens.SpotifyCanvasAuthScreen
 import com.music.bitchord.ui.screens.SpotifyLibraryScreen
+import com.music.bitchord.ui.screens.SpotifyLibraryState
 import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.LinkRequest
@@ -678,8 +679,12 @@ private fun BitChordApp(
     var offlinePlaylistTarget by remember { mutableStateOf<Song?>(null) }
     var creatingOfflinePlaylist by remember { mutableStateOf(false) }
     var showSpotifyImportDialog by remember { mutableStateOf(false) }
-    // The Spotify page's playlists while its import chooser is open.
-    var spotifyLibraryImport by remember { mutableStateOf<List<com.music.bitchord.data.spotify.SpotifyPlaylist>?>(null) }
+    // The Spotify page's playlists and its import selection, here so the top
+    // bar's "…" can start the selection on the page.
+    val spotifyLibraryState = remember { SpotifyLibraryState() }
+    var spotifyMenuOpen by remember { mutableStateOf(false) }
+    val spotifySyncRunning = com.music.bitchord.data.spotify.SpotifySync.state
+        .collectAsStateWithLifecycle().value is com.music.bitchord.data.spotify.SpotifySyncState.Running
     // Which album or playlist the collection menu is open on, or null when it
     // is shut. One slot for every surface that can open it — the shelves on
     // three tabs, the search rows, the artist page's carousels, the release
@@ -2918,6 +2923,7 @@ private fun BitChordApp(
                             )
                         } else if (pageRoute == AppRoute.Spotify) {
                             SpotifyLibraryScreen(
+                                state = spotifyLibraryState,
                                 onOpenPlaylist = { playlist ->
                                     viewModel.openDetail(
                                         browseId = SPOTIFY_PAGE_PREFIX + playlist.id,
@@ -2929,7 +2935,6 @@ private fun BitChordApp(
                                 },
                                 onOpenLogin = { showSpotifyLogin = true },
                                 onOpenTokenSetup = { showSpotifyCanvasAuth = true },
-                                onOpenImport = { spotifyLibraryImport = it },
                                 contentPadding = listPadding,
                             )
                         } else if (pageRoute == AppRoute.Discord) {
@@ -3723,6 +3728,36 @@ private fun BitChordApp(
                         }
                     } else null,
                     actions = {
+                        // The Spotify page's "…", as a release page has one: what
+                        // can be done with the whole list. Gone while the list is
+                        // being picked from or imported — the bar on the page has
+                        // that in hand.
+                        if (route == AppRoute.Spotify && spotifyLibraryState.playlists.isNotEmpty() &&
+                            !spotifyLibraryState.selecting && !spotifySyncRunning
+                        ) {
+                            Box {
+                                IconButton(onClick = { spotifyMenuOpen = true }) {
+                                    Icon(
+                                        Icons.Rounded.MoreHoriz,
+                                        contentDescription = stringResource(R.string.more),
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = spotifyMenuOpen,
+                                    onDismissRequest = { spotifyMenuOpen = false },
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.spotify_sync_menu)) },
+                                        leadingIcon = { Icon(Icons.Rounded.Download, contentDescription = null) },
+                                        onClick = {
+                                            spotifyMenuOpen = false
+                                            spotifyLibraryState.startSelecting()
+                                        },
+                                    )
+                                }
+                            }
+                        }
                         // This is intentionally scoped to Listen together: the
                         // round-trip time is meaningful while coordinating a
                         // party, but would be noise in the rest of the app.
@@ -4823,16 +4858,6 @@ private fun BitChordApp(
                     },
                 )
             }
-        }
-
-        spotifyLibraryImport?.let { spotifyPlaylists ->
-            BackHandler { spotifyLibraryImport = null }
-            SpotifyLibraryImportAlert(
-                hazeState = hazeState,
-                playlists = spotifyPlaylists,
-                onSignIn = { showSpotifyLogin = true },
-                onDismiss = { spotifyLibraryImport = null },
-            )
         }
 
         if (showSpotifyImportDialog) {

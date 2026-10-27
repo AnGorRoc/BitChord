@@ -1200,13 +1200,8 @@
     <string name="spotify_import_language_preference" translatable="false">Language preference</string>
     <string name="spotify_import_language_hint" translatable="false">e.g. Punjabi, Marathi, Korean…</string>
     <string name="spotify_library_subtitle">Your Spotify playlists</string>
-    <string name="spotify_sync_title">Import from Spotify</string>
+    <string name="spotify_sync_menu">Import playlists</string>
     <string name="spotify_sync_description">Choose the playlists to copy to this device. Songs are matched on YouTube Music.</string>
-    <string name="spotify_sync_selected_count">%1$d of %2$d selected</string>
-    <string name="spotify_sync_select_none">Clear</string>
-    <string name="spotify_sync_import_selected">Import (%1$d)</string>
-    <string name="spotify_sync_hide">Hide</string>
-    <string name="spotify_sync_running">Importing your library</string>
     <string name="spotify_sync_step_reading">Playlist %1$d of %2$d · Reading songs…</string>
     <string name="spotify_sync_step_matching">Playlist %1$d of %2$d · Matching %3$d of %4$d songs</string>
     <string name="spotify_sync_cancel">Cancel</string>
