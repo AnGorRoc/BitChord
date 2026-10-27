@@ -31,6 +31,7 @@ import com.music.bitchord.data.settings.LosslessTier
 import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
+import com.music.bitchord.data.sources.MonochromeGate
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.TrackMatcher
@@ -53,6 +54,7 @@ import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.coroutineContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
  * On-disk cache of the audio itself, and the read-ahead that fills it.
@@ -1439,11 +1441,16 @@ object AudioCache {
                 // outranks YouTube and read-ahead is the only writer, or a
                 // source has been pinned and every writer now resolves to it.
                 val cacheBytes = (!substitutable || warmed != null) && !pinnedToYouTube
+                // A Monochrome file gets its head only, as the official client
+                // does: the rest is 30-50 MB the player reads itself when the
+                // track starts, and a whole-file pull alongside the playing
+                // track's own reads doubled what was asked of the server.
+                val headOnly = warmed?.url?.toHttpUrlOrNull()?.let(MonochromeGate.shared::gates) == true
                 if (cacheBytes) {
                     launch(TrackLog.about(next)) {
                         delay(PREFETCH_DELAY_MS)
                         fetch(next, 0, PRELOAD_BYTES)
-                        fetchWhole(next)
+                        if (!headOnly) fetchWhole(next)
                     }
                 }
                 launch {

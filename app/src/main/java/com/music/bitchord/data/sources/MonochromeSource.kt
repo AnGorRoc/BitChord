@@ -286,8 +286,12 @@ class MonochromeSource(
 
         const val SEARCH_TTL_MS = 10 * 60 * 1000L
 
-        /** The file behind an id doesn't change, but a fresh check now and then is cheap. */
-        const val PROBE_TTL_MS = 30 * 60 * 1000L
+        /**
+         * The file behind an id doesn't change. A day is long enough that a
+         * song played twice in a session reads its head once, and short
+         * enough that a re-mastered upload is noticed eventually.
+         */
+        const val PROBE_TTL_MS = 24 * 60 * 60 * 1000L
 
         /** Files opened at once; see [probeGate]. */
         const val MAX_PARALLEL_PROBES = 2
