@@ -4520,6 +4520,12 @@ class PlaybackService : MediaLibraryService() {
     /** The swap [lowerQualityToKeepUp] is running, so a second one can't stack on it. */
     private var downgradeJob: Job? = null
 
+    /** The wait before lossless is tried again after a downgrade — see [LosslessRetryPlan]. */
+    private val losslessRetry = LosslessRetryPlan()
+
+    /** The pending retry from [lowerQualityToKeepUp]; replaced by the next downgrade. */
+    private var losslessRetryJob: Job? = null
+
     /** Samples the playing stream once a second for [checkLosslessKeepingUp]. */
     private fun watchLosslessKeepingUp() {
         scope.launch {
@@ -4586,12 +4592,19 @@ class PlaybackService : MediaLibraryService() {
             "lossless for $mediaId isn't keeping up${if (stalled) " (stalled)" else ""}; lowering the quality",
             about = mediaId,
         )
-        AppSettings.holdLossless(LOSSLESS_HOLD_MS)
-        // Nothing climbs back up this track: it would only stall again.
+        // Lossless is tried again after a wait that grows with each failure —
+        // see [LosslessRetryPlan]. The same wait holds lossless back for the next
+        // track, so both start from the same moment.
+        val retryIn = losslessRetry.nextDelayMs()
+        AppSettings.holdLossless(retryIn)
         if (upgradeFor == mediaId) upgradeJob?.cancel()
         QualityUpgrade.forget(mediaId)
-        QualityUpgrade.refuseUpgrades(mediaId)
         val target = song.toDirectYouTubeMediaItem()
+        losslessRetryJob?.cancel()
+        losslessRetryJob = scope.launch {
+            delay(retryIn)
+            retryLosslessFor(mediaId)
+        }
         val targetUri = target.localConfiguration?.uri?.toString() ?: return
         downgradeJob = scope.launch {
             val offsetMs = if (stalled) {
@@ -4614,6 +4627,26 @@ class PlaybackService : MediaLibraryService() {
             }
             swap?.join()
         }
+    }
+
+    /**
+     * Asks for lossless again on [mediaId] while it plays lossy, when its retry
+     * wait has run out. Does nothing if the listener has moved on.
+     *
+     * Asked the same way as "Upgrade quality" from the menu, so the search,
+     * audition and crossfade are the ones that already work; if lossless
+     * stalls again, [checkLosslessKeepingUp] lowers it again and the wait
+     * grows.
+     */
+    private fun retryLosslessFor(mediaId: String) {
+        val player = player ?: return
+        val item = player.currentMediaItem ?: return
+        if (item.mediaId != mediaId) return
+        val uri = item.localConfiguration?.uri ?: return
+        if (QualityUpgrade.cacheTag(uri) != "original") return
+        TrackLog.d("BitChord", "retrying lossless for $mediaId", about = mediaId)
+        QualityUpgrade.askByHand(mediaId)
+        lookForBetterCopy(player)
     }
 
     /**
@@ -5015,6 +5048,9 @@ class PlaybackService : MediaLibraryService() {
                     NerdStats.onSourceStream(mediaId, stream.format, upgradedSourceName)
                     NerdStats.recordSource(mediaId, upgradedSourceName)
                     QualityUpgrade.unshelve(mediaId)
+                    // Lossless is back on screen: the next failure starts the
+                    // retry wait from the beginning — see [LosslessRetryPlan].
+                    if (stream.format.isLossless == true) losslessRetry.reset()
                     val playing = this@PlaybackService.player
                     val landedAt = playing?.currentPosition ?: now.position
                     TrackLog.d(
@@ -9472,9 +9508,6 @@ class PlaybackService : MediaLibraryService() {
 
         /** Buffered this close to the end counts as the whole track loaded. */
         const val LOADED_TO_END_SLACK_MS = 1_000L
-
-        /** How long lossless stays off after a stream couldn't keep up. */
-        const val LOSSLESS_HOLD_MS = 10L * 60 * 1000
 
         /** YouTube's Opus, for sizing the opening fetched to align a downgrade. */
         const val YOUTUBE_KBPS = 160
