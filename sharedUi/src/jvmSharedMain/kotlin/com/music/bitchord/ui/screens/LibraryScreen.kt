@@ -45,10 +45,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.LibraryPage
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.UiState
+import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.ui.AppUi
 import com.music.bitchord.ui.icons.BitChordIcons
@@ -373,6 +375,7 @@ internal fun LibraryGridShelf(
         ShelfRow(
             contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
             horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
+            artwork = List(leadingCount) { null } + visibleItems.map { it.thumbnailUrl.artworkAt(CARD_ART_PX) },
         ) {
             leadingCard?.let { card -> item(key = "leading") { card() } }
             items(visibleItems) { item ->

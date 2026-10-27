@@ -753,6 +753,7 @@ private fun HeroShelf(
                 state = rememberLazyListState(),
                 contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
+                artwork = shelf.items.map { it.thumbnailUrl.artworkAt(HEADER_ART_PX) },
             ) {
                 items(shelf.items) { item ->
                     HeroCard(
@@ -851,6 +852,10 @@ internal fun Shelf(
         ShelfRow(
             contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
+            artwork = List(if (leadingCard != null) 1 else 0) { null } + shelf.items.map { item ->
+                // Video cards load the raw thumbnail; the rest load it sized.
+                if (shelf.layout == ShelfLayout.VIDEO) item.thumbnailUrl else item.thumbnailUrl.artworkAt(CARD_ART_PX)
+            },
         ) {
             leadingCard?.let { card -> item(key = "leading") { card() } }
             items(shelf.items) { item ->
