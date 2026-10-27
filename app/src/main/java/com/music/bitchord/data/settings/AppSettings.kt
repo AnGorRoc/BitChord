@@ -562,6 +562,14 @@ object AppSettings {
     val losslessCacheLimitBytes = MutableStateFlow(DEFAULT_LOSSLESS_CACHE_LIMIT_BYTES)
 
     /**
+     * Whether a song playing from the cache is looked up again for a better
+     * copy, which then replaces the cached one. Bounded by the connection's
+     * own ceiling: on mobile data only a copy the mobile quality allows
+     * counts as better. On by default.
+     */
+    val improveCachedSongs = MutableStateFlow(true)
+
+    /**
      * Whether Library's "On device" shelf carries the Cached songs folder —
      * the YouTube and JioSaavn tracks the song cache is holding. Off by
      * default: the cache is an implementation detail most people never need
@@ -955,6 +963,7 @@ object AppSettings {
         }.getOrDefault(LosslessCacheLevel.OFF)
         losslessCacheLimitBytes.value =
             clampLosslessCacheLimit(prefs.getLong(KEY_LOSSLESS_CACHE_LIMIT, DEFAULT_LOSSLESS_CACHE_LIMIT_BYTES))
+        improveCachedSongs.value = prefs.getBoolean(KEY_IMPROVE_CACHED_SONGS, true)
         showCacheFolder.value = prefs.getBoolean(KEY_SHOW_CACHE_FOLDER, false)
         lastfmEnabled.value = prefs.getBoolean(KEY_LASTFM_ENABLED, false)
         lastfmUsername.value = prefs.getString(KEY_LASTFM_USERNAME, "").orEmpty()
@@ -1567,6 +1576,11 @@ object AppSettings {
     private fun clampLosslessCacheLimit(value: Long): Long =
         value.coerceIn(MIN_LOSSLESS_CACHE_LIMIT_BYTES, MAX_CACHE_LIMIT_BYTES)
 
+    fun setImproveCachedSongs(value: Boolean) {
+        improveCachedSongs.value = value
+        prefs.edit().putBoolean(KEY_IMPROVE_CACHED_SONGS, value).apply()
+    }
+
     fun setShowCacheFolder(value: Boolean) {
         showCacheFolder.value = value
         prefs.edit().putBoolean(KEY_SHOW_CACHE_FOLDER, value).apply()
@@ -2107,6 +2121,7 @@ object AppSettings {
     private const val KEY_CACHE_LIMIT = "audio_cache_limit_bytes"
     private const val KEY_LOSSLESS_CACHE_LEVEL = "lossless_cache_level"
     private const val KEY_LOSSLESS_CACHE_LIMIT = "lossless_cache_limit_bytes"
+    private const val KEY_IMPROVE_CACHED_SONGS = "improve_cached_songs"
     private const val KEY_REDUCE_ANIMATION = "reduce_animation"
     private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     private const val KEY_HIGH_PERFORMANCE_MODE = "high_performance_mode"

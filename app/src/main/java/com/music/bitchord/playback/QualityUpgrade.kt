@@ -54,6 +54,14 @@ object QualityUpgrade {
     const val MARKER = "q"
     private const val UPGRADED = "hifi"
 
+    /**
+     * Every cache tag an upgrade can leave a rendition under: the first swap
+     * and the one after it, the most [upgradedUri] hands out before
+     * [PlaybackService][com.music.bitchord.playback.PlaybackService] stops
+     * swapping a track.
+     */
+    val renditionTags = listOf(UPGRADED, "$UPGRADED-2")
+
     /** What a revert tags its rendition with — see [Song.toDirectYouTubeMediaItem]. */
     private const val ORIGINAL = "original"
 
@@ -681,6 +689,9 @@ object QualityUpgrade {
         asked -= mediaId
         refused -= mediaId
     }
+
+    /** Whether the listener asked for [mediaId]'s upgrade themselves — see [askByHand]. */
+    fun wasAskedByHand(mediaId: String): Boolean = mediaId in handAsked
 
     /**
      * Abandons the second look for every track at once, because the player all

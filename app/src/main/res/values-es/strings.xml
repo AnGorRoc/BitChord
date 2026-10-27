@@ -240,6 +240,8 @@
     <string name="lossless_cache_hires_detail">Todo sin pérdida, hasta 250 MB por canción</string>
     <string name="lossless_cache_limit">Límite sin pérdida</string>
     <string name="lossless_cache_limit_subtitle">Aparte de la caché de canciones</string>
+    <string name="improve_cached_songs">Mejorar canciones en caché</string>
+    <string name="improve_cached_songs_subtitle">Cambiarlas por una copia mejor con Wi-Fi, o con datos si su calidad lo permite</string>
     <string name="clear_song_cache">Borrar caché de canciones</string>
     <string name="clear_song_cache_subtitle">Libera espacio usado por el audio descargado</string>
     <string name="clear_image_cache">Borrar caché de imágenes</string>

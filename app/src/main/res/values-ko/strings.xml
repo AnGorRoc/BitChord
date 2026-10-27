@@ -344,6 +344,8 @@
     <string name="lossless_cache_hires_detail">모든 무손실, 곡당 최대 250MB</string>
     <string name="lossless_cache_limit">무손실 한도</string>
     <string name="lossless_cache_limit_subtitle">음악 캐시와 별도</string>
+    <string name="improve_cached_songs">캐시된 음악 개선</string>
+    <string name="improve_cached_songs_subtitle">Wi-Fi에서, 또는 모바일 데이터 음질이 허용할 때 더 좋은 버전으로 교체</string>
     <string name="clear_song_cache">음악 캐시 지우기</string>
     <string name="clear_song_cache_subtitle">다운로드한 오디오가 차지한 공간을 확보합니다</string>
     <string name="clear_image_cache">이미지 캐시 지우기</string>

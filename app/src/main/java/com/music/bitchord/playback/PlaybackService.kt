@@ -4599,6 +4599,9 @@ class PlaybackService : MediaLibraryService() {
      *   bitrate. See [cachedFloor].
      */
     private suspend fun adoptCachedTrack(mediaId: String, uri: Uri, durationSec: Int?): Boolean {
+        // The listener would rather keep what is on disk than spend data on a
+        // better copy. Asking from the player menu still overrules it.
+        if (!AppSettings.improveCachedSongs.value && !QualityUpgrade.wasAskedByHand(mediaId)) return false
         val format = withContext(Dispatchers.Main) {
             player
                 ?.takeIf { it.currentMediaItem?.mediaId == mediaId && audioFormatFor == mediaId }
@@ -4700,7 +4703,17 @@ class PlaybackService : MediaLibraryService() {
             return
         }
 
-        val upgradedUri = QualityUpgrade.upgradedUri(at.uri)
+        // A track that started on the copy an earlier upgrade left behind reads
+        // that `#hifi` entry under its plain URI — see [AudioCache.promotedCopy].
+        // Marking it `hifi` again would stream a second file into a complete
+        // one, so the upgrade takes the next tag instead.
+        val upgradedUri = QualityUpgrade.upgradedUri(at.uri).let { marked ->
+            if (AudioCache.cacheKeyOf(Uri.parse(marked)) == AudioCache.cacheKeyOf(Uri.parse(at.uri))) {
+                QualityUpgrade.upgradedUri(marked)
+            } else {
+                marked
+            }
+        }
         // Whether the rendition entry already holds *this* stream's bytes,
         // asked before [force] overwrites the record of what filled it. True
         // only for a shelved upgrade being re-offered, where throwing the entry
@@ -4937,8 +4950,9 @@ class PlaybackService : MediaLibraryService() {
                     // megabyte pulled for an analysis that will not run is a megabyte
                     // taken off the connection the party is syncing over.
                     if (!ListenTogether.state.value.inParty) {
+                        val upgraded = Uri.parse(upgradedUri)
                         scope.launch(Dispatchers.IO) {
-                            AudioCache.warmRange(Uri.parse(upgradedUri), 0, ANALYSIS_HEAD_BYTES)
+                            AudioCache.warmRange(upgraded, 0, upgradeHeadBytes(upgraded, landedAt, now.duration))
                         }
                     }
                 },
@@ -5167,6 +5181,22 @@ class PlaybackService : MediaLibraryService() {
      * each get the seconds they need and no more. Without a stated bitrate,
      * the head Automix asks for.
      */
+    /**
+     * How much of an upgraded rendition's opening to fetch once it has swapped
+     * in: enough for Automix, or — when the cache keeps this copy and
+     * [AppSettings.improveCachedSongs] is on — everything up to where it
+     * landed, so a track played to the end leaves the better copy on disk in
+     * full and the next play starts on it. See [AudioCache.promotedCopy].
+     */
+    private fun upgradeHeadBytes(uri: Uri, landedAtMs: Long, durationMs: Long): Long {
+        if (!AppSettings.improveCachedSongs.value || durationMs <= 0 || !AudioCache.keepsRendition(uri)) {
+            return ANALYSIS_HEAD_BYTES
+        }
+        val length = AudioCache.contentLengthOf(uri).takeIf { it > 0 } ?: return ANALYSIS_HEAD_BYTES
+        val throughSwap = (length.toDouble() * landedAtMs / durationMs).toLong() + UPGRADE_HEAD_MARGIN_BYTES
+        return maxOf(ANALYSIS_HEAD_BYTES, throughSwap.coerceAtMost(length))
+    }
+
     private fun upgradeAlignmentHeadBytes(kbps: Int?): Long {
         val seconds = VersionAudioAligner.RENDITION_WINDOW_SECONDS + 1
         val wanted = kbps?.let { (it * 125L * seconds).toLong() } ?: ANALYSIS_HEAD_BYTES
@@ -9306,6 +9336,9 @@ class PlaybackService : MediaLibraryService() {
          * compressed rendition, which simply finishes sooner.
          */
         const val ANALYSIS_HEAD_BYTES = 4L * 1024 * 1024
+
+        /** Past the swap point, so the head fill overlaps what playback fetched. */
+        const val UPGRADE_HEAD_MARGIN_BYTES = 1L * 1024 * 1024
 
         /**
          * How long an upgrade waits for its alignment before crossfading

@@ -482,8 +482,14 @@ object AudioCache {
             // still held.
             ?.let { videoId ->
                 val rendition = QualityUpgrade.cacheTag(spec.uri)
+                // Not for Automix's own reads, which want YouTube's Opus whatever plays.
+                val analysis = AutomixAnalysisSource.requestsYouTubeOpus(
+                    spec.uri.getQueryParameter(AutomixAnalysisSource.OPUS_QUERY_PARAMETER),
+                )
+                val promoted = if (rendition == null && !analysis) promotedCopy(videoId) else null
                 when {
                     rendition != null -> "$videoId#$rendition"
+                    promoted != null -> promoted
                     SourceResolver.canSubstituteForYouTube() ->
                         "$videoId#alt${atmosKeySuffix()}".let { completeSibling(videoId, it) ?: it }
                     else -> completeSibling(videoId, videoId) ?: videoId
@@ -549,6 +555,37 @@ object AudioCache {
         if (preferred != videoId) return null
         return siblings.firstOrNull { key -> isComplete(key) && isKeptOrigin(key) }
     }
+
+    /**
+     * The upgraded copy of [videoId] to start on, in place of the copy it
+     * replaced: the largest one an upgrade left on disk in full that the cache
+     * keeps. Without it the next play starts on the old copy and swaps up
+     * again, re-fetching what is already here.
+     *
+     * Only the fixed upgrade keys are looked at — see
+     * [QualityUpgrade.renditionTags] — so this costs two index reads, not a
+     * scan of every key, on each open. A complete entry is never written to
+     * again, so starting on it cannot mix two files under one key; the upgrade
+     * that follows from it moves on to the next tag — see `swapIn`.
+     */
+    private fun promotedCopy(videoId: String): String? {
+        if (!::cache.isInitialized) return null
+        return QualityUpgrade.renditionTags
+            .map { "$videoId#$it" }
+            .filter { isComplete(it) && isKeptOrigin(it) }
+            .maxByOrNull(::lengthOf)
+    }
+
+    private fun lengthOf(key: String): Long = runCatching {
+        ContentMetadata.getContentLength(cache.getContentMetadata(key))
+    }.getOrDefault(C.LENGTH_UNSET.toLong())
+
+    /**
+     * Whether the rendition [uri] reads outlives its track — see [keptOrigin].
+     * Asked once the origin is recorded, i.e. after the rendition was opened.
+     */
+    fun keepsRendition(uri: Uri): Boolean =
+        ::cache.isInitialized && isKeptOrigin(keyFactory.buildCacheKey(DataSpec(uri)))
 
     /**
      * Whether [key]'s bytes came from YouTube, Monochrome or JioSaavn — the
@@ -1140,7 +1177,20 @@ object AudioCache {
             }
             LosslessCachePolicy.overBudget(keptLossless, AppSettings.losslessCacheLimitBytes.value)
                 .forEach { key -> drop(key, mediaIds[key]) }
-            if (dropped > 0) TrackLog.d(TAG, "dropped $dropped addon / lossless / analysis-only cache entries")
+            // A copy an upgrade has replaced in full: the next play starts on
+            // the better one (see [promotedCopy]), so the old one is only
+            // taking room. A larger sibling is left alone — it is not worse.
+            val promoted = HashMap<String, String?>()
+            cache.keys.toList().forEach { key ->
+                if ('|' in key || key.endsWith("#watch")) return@forEach
+                val videoId = key.substringBefore('#')
+                if (videoId in keep) return@forEach
+                if (videoId !in promoted) promoted[videoId] = promotedCopy(videoId)
+                val better = promoted[videoId] ?: return@forEach
+                if (key == better || lengthOf(key) >= lengthOf(better)) return@forEach
+                drop(key, videoId)
+            }
+            if (dropped > 0) TrackLog.d(TAG, "dropped $dropped addon / lossless / analysis-only / replaced cache entries")
         }
     }
 

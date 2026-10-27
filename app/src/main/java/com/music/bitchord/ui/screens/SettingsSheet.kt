@@ -75,6 +75,7 @@ import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Upgrade
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.WebAssetOff
 import androidx.compose.material.icons.rounded.VolumeUp
@@ -244,6 +245,7 @@ fun SettingsScreen(
     val losslessCacheLimitBytes by AppSettings.losslessCacheLimitBytes.collectAsStateWithLifecycle()
     var pickingLosslessCache by remember { mutableStateOf(false) }
     val showCacheFolder by AppSettings.showCacheFolder.collectAsStateWithLifecycle()
+    val improveCachedSongs by AppSettings.improveCachedSongs.collectAsStateWithLifecycle()
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
@@ -1264,6 +1266,25 @@ fun SettingsScreen(
                         steps = 38,
                     )
                 }
+            }
+            val improveCachedSongsTitle = stringResource(R.string.improve_cached_songs)
+            row(improveCachedSongsTitle, "cache", "quality", "upgrade", "wi-fi") {
+                SettingsRow(
+                    icon = Icons.Rounded.Upgrade,
+                    title = improveCachedSongsTitle,
+                    subtitle = stringResource(R.string.improve_cached_songs_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = improveCachedSongs,
+                            onCheckedChange = AppSettings::setImproveCachedSongs,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setImproveCachedSongs(!improveCachedSongs) },
+                )
             }
             val clearSongCacheTitle = stringResource(R.string.clear_song_cache)
             row(clearSongCacheTitle, "cache", "free space") {

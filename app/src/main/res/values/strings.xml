@@ -360,6 +360,8 @@
     <string name="lossless_cache_hires_detail">All lossless, up to 250 MB a song</string>
     <string name="lossless_cache_limit">Lossless limit</string>
     <string name="lossless_cache_limit_subtitle">Separate from the song cache</string>
+    <string name="improve_cached_songs">Improve cached songs</string>
+    <string name="improve_cached_songs_subtitle">Swap in a better copy on Wi-Fi, or on mobile data when its quality allows</string>
     <string name="clear_song_cache">Clear song cache</string>
     <string name="clear_song_cache_subtitle">Frees space used by downloaded audio</string>
     <string name="clear_image_cache">Clear image cache</string>

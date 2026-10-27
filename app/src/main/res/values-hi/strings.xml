@@ -227,6 +227,8 @@
     <string name="lossless_cache_hires_detail">सारा लॉसलेस, हर गाना 250 MB तक</string>
     <string name="lossless_cache_limit">लॉसलेस सीमा</string>
     <string name="lossless_cache_limit_subtitle">सॉन्ग कैश से अलग</string>
+    <string name="improve_cached_songs">कैश किए गाने बेहतर करें</string>
+    <string name="improve_cached_songs_subtitle">Wi-Fi पर, या मोबाइल डेटा पर जब उसकी क्वालिटी अनुमति दे, बेहतर कॉपी से बदलें</string>
     <string name="clear_song_cache">गाना कैश साफ़ करें</string>
     <string name="clear_song_cache_subtitle">डाउनलोड किए गए ऑडियो द्वारा इस्तेमाल की गई जगह खाली करता है</string>
     <string name="clear_image_cache">इमेज कैश साफ़ करें</string>

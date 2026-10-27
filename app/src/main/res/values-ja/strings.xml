@@ -222,6 +222,8 @@
     <string name="lossless_cache_hires_detail">すべてのロスレス、1曲最大250 MB</string>
     <string name="lossless_cache_limit">ロスレスの上限</string>
     <string name="lossless_cache_limit_subtitle">曲キャッシュとは別枠</string>
+    <string name="improve_cached_songs">キャッシュ曲を高音質に</string>
+    <string name="improve_cached_songs_subtitle">Wi-Fi 時、またはモバイルデータの音質設定が許す場合に、より良い版に置き換える</string>
     <string name="clear_song_cache">曲のキャッシュを削除</string>
     <string name="clear_song_cache_subtitle">ダウンロードした音声が使用している容量を解放します</string>
     <string name="clear_image_cache">画像のキャッシュを削除</string>

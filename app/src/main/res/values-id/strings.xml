@@ -222,6 +222,8 @@
     <string name="lossless_cache_hires_detail">Semua lossless, hingga 250 MB per lagu</string>
     <string name="lossless_cache_limit">Batas lossless</string>
     <string name="lossless_cache_limit_subtitle">Terpisah dari cache lagu</string>
+    <string name="improve_cached_songs">Tingkatkan lagu di cache</string>
+    <string name="improve_cached_songs_subtitle">Ganti dengan salinan lebih baik saat Wi-Fi, atau data seluler jika kualitasnya mengizinkan</string>
     <string name="clear_song_cache">Bersihkan cache lagu</string>
     <string name="clear_song_cache_subtitle">Membebaskan ruang yang digunakan oleh audio yang diunduh</string>
     <string name="clear_image_cache">Bersihkan cache gambar</string>

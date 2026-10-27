@@ -258,6 +258,8 @@
     <string name="lossless_cache_hires_detail">Toàn bộ lossless, tối đa 250 MB mỗi bài</string>
     <string name="lossless_cache_limit">Giới hạn lossless</string>
     <string name="lossless_cache_limit_subtitle">Tách riêng khỏi bộ nhớ đệm bài hát</string>
+    <string name="improve_cached_songs">Cải thiện bài trong bộ nhớ đệm</string>
+    <string name="improve_cached_songs_subtitle">Thay bằng bản tốt hơn khi dùng Wi-Fi, hoặc dữ liệu di động nếu chất lượng cho phép</string>
     <string name="clear_song_cache">Xóa bộ nhớ đệm bài hát</string>
     <string name="clear_song_cache_subtitle">Giải phóng dung lượng do âm thanh đã tải sử dụng</string>
     <string name="clear_image_cache">Xóa bộ nhớ đệm hình ảnh</string>

@@ -228,6 +228,8 @@
     <string name="lossless_cache_hires_detail">כל ה-Lossless, עד 250 MB לשיר</string>
     <string name="lossless_cache_limit">מגבלת Lossless</string>
     <string name="lossless_cache_limit_subtitle">בנפרד ממטמון השירים</string>
+    <string name="improve_cached_songs">שיפור שירים במטמון</string>
+    <string name="improve_cached_songs_subtitle">להחליף בעותק טוב יותר ב-Wi-Fi, או בחבילת גלישה כשהאיכות שלה מאפשרת</string>
     <string name="clear_song_cache">ניקוי מטמון שירים</string>
     <string name="clear_song_cache_subtitle">משחרר שטח שתפוס על ידי אודיו שהורד</string>
     <string name="clear_image_cache">ניקוי מטמון תמונות</string>

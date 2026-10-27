@@ -222,6 +222,8 @@
     <string name="lossless_cache_hires_detail">全部无损，每首最多 250 MB</string>
     <string name="lossless_cache_limit">无损上限</string>
     <string name="lossless_cache_limit_subtitle">与歌曲缓存分开计算</string>
+    <string name="improve_cached_songs">改善缓存歌曲</string>
+    <string name="improve_cached_songs_subtitle">使用 Wi-Fi 时，或移动数据音质允许时，换成更好的版本</string>
     <string name="clear_song_cache">清除歌曲缓存</string>
     <string name="clear_song_cache_subtitle">释放已下载音频占用的空间</string>
     <string name="clear_image_cache">清除图片缓存</string>
