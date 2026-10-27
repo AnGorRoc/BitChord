@@ -1,6 +1,17 @@
 package com.music.bitchord.ui.screens
 
 import com.music.bitchord.sharedui.resources.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import androidx.compose.ui.graphics.Color
@@ -400,7 +411,7 @@ internal fun LibraryGridShelf(
         )
         if (list) {
             leadingRows?.invoke()
-            visibleItems.forEach { item ->
+            LeavingRows(items = visibleItems) { item ->
                 ShelfListRow(
                     item = item,
                     onClick = { onItemClick(item) },
@@ -416,13 +427,55 @@ internal fun LibraryGridShelf(
             artwork = List(leadingCount) { null } + visibleItems.map { it.thumbnailUrl.artworkAt(CARD_ART_PX) },
         ) {
             leadingCard?.let { card -> item(key = "leading") { card() } }
-            items(visibleItems) { item ->
+            items(visibleItems, key = { it.browseId ?: it.title }) { item ->
                 ShelfCard(
                     item = item,
                     onClick = { onItemClick(item) },
                     onLongPress = { onItemLongPress(item) },
+                    modifier = Modifier.width(SHELF_CARD_WIDTH).animateItem(),
                     isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
                 )
+            }
+        }
+    }
+}
+
+/**
+ * [items] as rows in a plain column, where one that drops out of [items] folds
+ * away and fades instead of vanishing: a [Column] has no `animateItem`, and a
+ * row removed from the list is gone from composition before it could play an
+ * exit. Each leaving row is kept here until its exit has finished.
+ */
+@Composable
+private fun LeavingRows(items: List<ShelfItem>, row: @Composable (ShelfItem) -> Unit) {
+    val keyOf = { item: ShelfItem -> item.browseId ?: item.title }
+    val rendered = remember { mutableStateListOf<ShelfItem>().apply { addAll(items) } }
+    // Rows already there when the list first drew are not entrances.
+    val initialKeys = remember { items.mapTo(HashSet(), keyOf) }
+    val liveKeys = items.mapTo(HashSet(), keyOf)
+    LaunchedEffect(items) {
+        val merged = items.toMutableList()
+        rendered.forEachIndexed { index, old ->
+            if (keyOf(old) !in liveKeys) merged.add(index.coerceAtMost(merged.size), old)
+        }
+        rendered.clear()
+        rendered.addAll(merged)
+    }
+    rendered.toList().forEach { stale ->
+        val id = keyOf(stale)
+        key(id) {
+            val live = id in liveKeys
+            val visibility = remember { MutableTransitionState(id in initialKeys) }
+            visibility.targetState = live
+            AnimatedVisibility(
+                visibleState = visibility,
+                enter = expandVertically(tween(220)) + fadeIn(tween(220)),
+                exit = shrinkVertically(tween(260)) + fadeOut(tween(160)),
+            ) {
+                row(items.firstOrNull { keyOf(it) == id } ?: stale)
+            }
+            if (!live && visibility.isIdle && !visibility.currentState) {
+                LaunchedEffect(Unit) { rendered.removeAll { keyOf(it) == id } }
             }
         }
     }
@@ -490,6 +543,7 @@ fun LibraryGridPage(
                         item = item,
                         onClick = { onItemClick(item) },
                         onLongPress = { onItemLongPress(item) },
+                        modifier = Modifier.animateItem(),
                         isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
                     )
                 } else {
@@ -497,7 +551,7 @@ fun LibraryGridPage(
                         item = item,
                         onClick = { onItemClick(item) },
                         onLongPress = { onItemLongPress(item) },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().animateItem(),
                         isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
                     )
                 }

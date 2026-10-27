@@ -2870,7 +2870,18 @@ private fun BitChordApp(
                                 contentPadding = listPadding,
                             )
                         } else if (pageRoute is AppRoute.LibraryShowAll) {
-                            pageRoute.shelf.let { shelf ->
+                            // The route carries the shelf as it was when "Show
+                            // all" was tapped; a playlist deleted from this very
+                            // page would otherwise stay on it. Re-read live, and
+                            // an emptied Playlists shelf — dropped from the
+                            // library — reads as empty rather than as itself.
+                            val snapshot = pageRoute.shelf
+                            val shelf = (libraryState as? UiState.Success)?.data?.let { page ->
+                                page.shelves.firstOrNull { it.title == snapshot.title }
+                                    ?: snapshot.takeUnless { it.title == YtMusicRepository.PLAYLISTS_SHELF }
+                                    ?: snapshot.copy(items = emptyList())
+                            } ?: snapshot
+                            shelf.let { shelf ->
                                 LibraryGridPage(
                                     shelf = shelf,
                                     gridState = libraryShowAllGridState,
