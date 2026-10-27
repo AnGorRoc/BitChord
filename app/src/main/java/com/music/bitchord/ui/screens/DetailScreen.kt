@@ -163,6 +163,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.components.DownloadedBadge
 import com.music.bitchord.ui.components.ExplicitSongTitle
 import com.music.bitchord.ui.components.LIBRARY_GRID_SPACING
+import com.music.bitchord.ui.components.PrefetchArtworkAhead
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.NUMBERED_ROW_DIVIDER_INSET
@@ -556,6 +557,27 @@ fun DetailScreen(
                         modifier = Modifier.matchParentSize(),
                     )
                 }
+
+                // The tracks start after the header, the search field when it is
+                // open, and an album's about section, which sits ahead of them.
+                // A folder lays out its own items, so only a plain track list is
+                // prefetched.
+                val songsFirstItem = 1 + (if (searching) 1 else 0) +
+                    (if (page.type == BrowseType.ALBUM && !page.description.isNullOrBlank()) 1 else 0)
+                PrefetchArtworkAhead(
+                    state = listState,
+                    artwork = if (folder != null || isArtist) {
+                        emptyList()
+                    } else {
+                        List(songsFirstItem) { null } + matches.map { entry ->
+                            // The cover each row loads: an album's rows keep their own
+                            // sleeve, the rest fall back to the page's.
+                            val song = entry.value
+                            val cover = if (page.type == BrowseType.ALBUM) song.thumbnailUrl else song.thumbnailUrl ?: page.thumbnailUrl
+                            cover.artworkAt(ROW_ART_PX)
+                        }
+                    },
+                )
 
                 if (reorder != null) {
                     reorder(palette)
