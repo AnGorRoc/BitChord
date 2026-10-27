@@ -16,9 +16,12 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.system.measureTimeMillis
@@ -46,8 +49,43 @@ object VersionAudioAligner {
     /** Same audio on both sides should correlate far above [MIN_CONFIDENCE]; less is a different cut. */
     private const val RENDITION_MIN_CONFIDENCE = 0.6
 
-    /** A shift too small to hear inside a crossfade. */
-    private const val RENDITION_MIN_SHIFT_MS = 20L
+    /**
+     * Below this a shift is measurement noise, not a shift. It used to be 20 ms
+     * on the argument that a pad that small is inaudible inside a crossfade,
+     * which is true of one copy and false of two: summed, the same audio 20 ms
+     * apart is a comb filter, and 10 ms of it is audible as phase smear on
+     * every bass note. Applying a seek is free, so anything measured is applied.
+     */
+    private const val RENDITION_MIN_SHIFT_MS = 1.0
+
+    /**
+     * The rate both renditions are brought to for the fine pass. 8 kHz keeps
+     * everything below 4 kHz — where two lossy encodes of one master still agree
+     * sample for sample — and makes a 6 s segment a 48 000-point correlation
+     * with an eighth of a millisecond between lags.
+     */
+    private const val FINE_RATE_HZ = 8_000.0
+
+    /**
+     * How far either side of the envelope's lag the fine pass looks. The
+     * envelope is built from 10 ms hops over 40 ms windows, so its peak is
+     * good to a frame or two; this is several times that, and still narrower
+     * than the period of any bass note that could pass for the true peak.
+     */
+    private const val FINE_MARGIN_MS = 60.0
+
+    /** The stretch of audio the fine pass correlates: long enough to be unmistakable. */
+    private const val FINE_SEGMENT_SECONDS = 6.0
+
+    /** Less than this and there isn't enough audio overlapping to trust a peak. */
+    private const val FINE_MIN_SEGMENT_SECONDS = 2.0
+
+    /**
+     * Waveform-level agreement needed to override the envelope. Two masters of
+     * one song with different EQ or limiting still sit well above this at
+     * 4 kHz and below; a different recording sits well under it.
+     */
+    private const val FINE_MIN_CONFIDENCE = 0.5
 
     // Cache computed offsets so subsequent switches are instantaneous:
     // (sourceVideoId, targetVideoId) -> offsetMs
@@ -240,9 +278,21 @@ object VersionAudioAligner {
                     return@withContext null
                 }
 
-                val lagMs = (bestLagFrames * HOP_MS).toLong()
-                val startDiffMs = ((startTargetSec - startSourceSec) * 1000.0).toLong()
-                val totalOffsetMs = lagMs + startDiffMs
+                // The envelope says which frame; the waveform says which sample.
+                val envelopeLagMs = bestLagFrames * HOP_MS
+                val lagMs = refineLagMs(
+                    pcmSource.samples, pcmSource.sampleRate,
+                    pcmTarget.samples, pcmTarget.sampleRate,
+                    envelopeLagMs,
+                )?.also {
+                    TrackLog.d(
+                        TAG,
+                        "Alignment for '${sourceSong.title}': waveform refined ${envelopeLagMs}ms -> ${"%.2f".format(it)}ms",
+                        sourceSong.videoId,
+                    )
+                } ?: envelopeLagMs
+                val startDiffMs = (startTargetSec - startSourceSec) * 1000.0
+                val totalOffsetMs = (lagMs + startDiffMs).roundToLong()
 
                 offsetCache[sourceSong.videoId to targetSong.videoId] = totalOffsetMs
                 offsetCache[targetSong.videoId to sourceSong.videoId] = -totalOffsetMs
@@ -302,12 +352,31 @@ object VersionAudioAligner {
             val (pcmSource, startSourceSec) = source
             val (pcmTarget, startTargetSec) = target
             if (pcmSource.samples.isEmpty() || pcmTarget.samples.isEmpty()) return@withContext null
-            val offset = renditionOffsetMs(
+            val envelopeLagMs = renditionLagMs(
                 sourceEnv = computeEnergyEnvelope(pcmSource.samples, pcmSource.sampleRate),
                 targetEnv = computeEnergyEnvelope(pcmTarget.samples, pcmTarget.sampleRate),
-                startDiffMs = ((startTargetSec - startSourceSec) * 1000.0).toLong(),
             )
-            TrackLog.d(TAG, "Upgrade alignment for '$label': ${offset?.let { "${it}ms" } ?: "no convincing match"}")
+            if (envelopeLagMs == null) {
+                TrackLog.d(TAG, "Upgrade alignment for '$label': no convincing match")
+                return@withContext null
+            }
+            // The envelope only has to be right to within the fine pass's reach;
+            // the waveform pass then lands the shift on the sample. When the
+            // waveforms disagree (a different master, a codec that smears
+            // phase) the envelope's figure stands, as it always did.
+            val fineLagMs = refineLagMs(
+                pcmSource.samples, pcmSource.sampleRate,
+                pcmTarget.samples, pcmTarget.sampleRate,
+                envelopeLagMs,
+            )
+            val offset = settleOffsetMs(
+                (fineLagMs ?: envelopeLagMs) + (startTargetSec - startSourceSec) * 1000.0,
+            )
+            TrackLog.d(
+                TAG,
+                "Upgrade alignment for '$label': ${offset}ms " +
+                    (fineLagMs?.let { "(waveform, envelope said ${envelopeLagMs}ms)" } ?: "(envelope only)"),
+            )
             offset
         } catch (e: Exception) {
             Log.w(TAG, "Failed to align upgrade for '$label'", e)
@@ -325,12 +394,136 @@ object VersionAudioAligner {
      * Shifts below [RENDITION_MIN_SHIFT_MS] come back as zero: inside a
      * crossfade they are inaudible, and applying one is a seek for nothing.
      */
-    internal fun renditionOffsetMs(sourceEnv: FloatArray, targetEnv: FloatArray, startDiffMs: Long): Long? {
+    internal fun renditionOffsetMs(sourceEnv: FloatArray, targetEnv: FloatArray, startDiffMs: Long): Long? =
+        renditionLagMs(sourceEnv, targetEnv)?.let { settleOffsetMs(it + startDiffMs) }
+
+    /** The envelope's own lag, in the arrays' time, before either decode's start is folded in. */
+    internal fun renditionLagMs(sourceEnv: FloatArray, targetEnv: FloatArray): Double? {
         val correlation = crossCorrelate(sourceEnv, targetEnv, maxLagSec = RENDITION_MAX_LAG_SECONDS)
         if (correlation.confidence < RENDITION_MIN_CONFIDENCE) return null
         if (correlation.lagFrames == correlation.floor || correlation.lagFrames == correlation.ceiling) return null
-        val total = (correlation.lagFrames * HOP_MS).toLong() + startDiffMs
-        return if (kotlin.math.abs(total) < RENDITION_MIN_SHIFT_MS) 0L else total
+        return correlation.lagFrames * HOP_MS
+    }
+
+    /** Whole milliseconds, which is what a seek can express; noise below [RENDITION_MIN_SHIFT_MS] is none. */
+    internal fun settleOffsetMs(totalMs: Double): Long =
+        if (abs(totalMs) < RENDITION_MIN_SHIFT_MS) 0L else totalMs.roundToLong()
+
+    /**
+     * Pins an envelope lag down to a fraction of a millisecond by correlating
+     * the waveforms themselves.
+     *
+     * The envelope is a 10 ms-hop summary, so its lag is only good to a frame
+     * or two — and two copies of one song a frame or two apart are not
+     * "close", they are a comb filter: every bass note phases against its own
+     * twin for the length of the crossfade. This is the pass that makes the
+     * two copies add instead.
+     *
+     * Both are brought to [FINE_RATE_HZ] (they usually differ: 48 kHz Opus
+     * against 44.1 kHz FLAC), the loudest [FINE_SEGMENT_SECONDS] of the source
+     * is cut out, and it is slid against the target through ±[marginMs] of
+     * the envelope's answer. The peak is then interpolated between lags.
+     *
+     * @param coarseLagMs the envelope's lag in the arrays' own time: target
+     *   `x + lag` is source `x`.
+     * @return the refined lag in the same terms, or null when there is too
+     *   little overlapping audio, the peak sits on the edge of the margin or
+     *   the waveforms don't agree well enough to prefer them to the envelope.
+     */
+    internal fun refineLagMs(
+        source: FloatArray,
+        sourceRate: Double,
+        target: FloatArray,
+        targetRate: Double,
+        coarseLagMs: Double,
+        marginMs: Double = FINE_MARGIN_MS,
+    ): Double? {
+        val s = decimate(source, sourceRate) ?: return null
+        val t = decimate(target, targetRate) ?: return null
+        val coarse = (coarseLagMs * FINE_RATE_HZ / 1000.0).roundToInt()
+        val margin = (marginMs * FINE_RATE_HZ / 1000.0).roundToInt()
+
+        // The earliest the segment can start with the whole margin still inside
+        // the target, and how much audio is left from there.
+        val firstStart = max(0, margin - coarse)
+        val room = min(s.size - firstStart, t.size - (firstStart + coarse + margin))
+        val minLen = (FINE_MIN_SEGMENT_SECONDS * FINE_RATE_HZ).toInt()
+        if (room < minLen) return null
+        val len = min(room, (FINE_SEGMENT_SECONDS * FINE_RATE_HZ).toInt())
+
+        // The loudest stretch that fits: a quiet intro correlates to nothing.
+        val sqPrefix = DoubleArray(s.size + 1)
+        for (i in s.indices) sqPrefix[i + 1] = sqPrefix[i] + s[i].toDouble() * s[i]
+        val lastStart = firstStart + (room - len)
+        val step = (FINE_RATE_HZ / 2).toInt()
+        var start = firstStart
+        var bestEnergy = -1.0
+        var candidate = firstStart
+        while (candidate <= lastStart) {
+            val energy = sqPrefix[candidate + len] - sqPrefix[candidate]
+            if (energy > bestEnergy) {
+                bestEnergy = energy
+                start = candidate
+            }
+            candidate += step
+        }
+        if (bestEnergy < 1e-9) return null
+
+        val segment = s.copyOfRange(start, start + len)
+        val window = t.copyOfRange(start + coarse - margin, start + len + coarse + margin)
+        val cross = crossTermsByLag(segment, window)
+
+        val windowSq = DoubleArray(window.size + 1)
+        for (i in window.indices) windowSq[i + 1] = windowSq[i] + window[i].toDouble() * window[i]
+        val segmentEnergy = bestEnergy
+
+        // Lag d of the window is `coarse - margin + d` of the whole.
+        val lags = 2 * margin + 1
+        val r = DoubleArray(lags)
+        var best = 0
+        for (d in 0 until lags) {
+            val windowEnergy = windowSq[d + len] - windowSq[d]
+            val denom = sqrt(segmentEnergy * windowEnergy)
+            r[d] = if (denom > 1e-9) cross[d + len - 1] / denom else 0.0
+            if (r[d] > r[best]) best = d
+        }
+        if (r[best] < FINE_MIN_CONFIDENCE) return null
+        if (best == 0 || best == lags - 1) return null
+
+        // Parabola through the peak and its neighbours: the true maximum lies
+        // between samples, and at 8 kHz a sample is 0.125 ms.
+        val y0 = r[best - 1]
+        val y1 = r[best]
+        val y2 = r[best + 1]
+        val curvature = y0 - 2 * y1 + y2
+        val fraction = if (curvature < 0) (0.5 * (y0 - y2) / curvature).coerceIn(-0.5, 0.5) else 0.0
+        return (coarse - margin + best + fraction) * 1000.0 / FINE_RATE_HZ
+    }
+
+    /**
+     * Averages [samples] down to [FINE_RATE_HZ]; null when it is already at or
+     * below that rate and there is nothing to bring down to.
+     *
+     * Box averaging is the low-pass: crude, but both sides get the same
+     * treatment and the centre of each averaged span sits at the same fraction
+     * of a sample whatever the input rate, so any delay it adds cancels
+     * between source and target.
+     */
+    private fun decimate(samples: FloatArray, rate: Double): FloatArray? {
+        val ratio = rate / FINE_RATE_HZ
+        if (ratio < 1.0) return null
+        val outLen = (samples.size / ratio).toInt()
+        if (outLen <= 0) return null
+        val out = FloatArray(outLen)
+        var from = 0
+        for (j in 0 until outLen) {
+            val to = max(from + 1, ((j + 1) * ratio).roundToInt()).coerceAtMost(samples.size)
+            var sum = 0.0
+            for (k in from until to) sum += samples[k]
+            out[j] = (sum / (to - from)).toFloat()
+            from = to
+        }
+        return out
     }
 
     /**

@@ -2315,18 +2315,15 @@ class PlaybackService : MediaLibraryService() {
                 }
                 if (standbyPlayer.isPlaying) {
                     // Now that it is producing audio — still at zero volume —
-                    // put it exactly where the outgoing player is *now*. The
-                    // near-seek lands inside the buffer it already holds, so
-                    // the drift accumulated above collapses to this seek's own
-                    // resume time, which is the one part that cannot go.
-                    standbyPlayer.seekTo(
-                        currentIndex,
-                        (activePlayer.currentPosition + alignmentOffsetMs).coerceAtLeast(0L),
-                    )
-                    val resyncTimeout = SystemClock.elapsedRealtime() + 300L
-                    while (isActive && standbyPlayer.playbackState != Player.STATE_READY && SystemClock.elapsedRealtime() < resyncTimeout) {
-                        delay(10)
-                    }
+                    // put it exactly where the outgoing player is, and check
+                    // that it is. A seek is not instant: the incoming player
+                    // resumes some tens of milliseconds after it is asked to,
+                    // and the outgoing one has not stopped for any of them, so
+                    // a single seek to "now" lands that late. Heard as a
+                    // crossfade between two copies of one song, that is the
+                    // flam, or the phasey smear, that a measured shift to the
+                    // sample could never have prevented.
+                    lockStandbyToActive(activePlayer, standbyPlayer, currentIndex, alignmentOffsetMs)
                 }
             } else {
                 // Paused swap: nothing is running on either side, so the first
@@ -2522,6 +2519,74 @@ class PlaybackService : MediaLibraryService() {
             VersionAudioAligner.publishPhase(token, VersionAudioAligner.CutPhase.FAILED)
             throw e
         }
+    }
+
+    /**
+     * How long, in wall-clock milliseconds, the standby player took last time
+     * to go from a seek being asked for to audio actually coming out at the
+     * position asked for. Carried between swaps because it is a property of the
+     * device and its output, not of the track: the next swap's first seek starts
+     * out aiming that far ahead instead of discovering it.
+     */
+    private var standbySeekLatencyMs = 0L
+
+    /**
+     * Brings [standby], which is already playing silently, to the moment
+     * [active] is at plus [offsetMs] — and then measures that it got there.
+     *
+     * Closed loop, because the only thing seeking can promise is *where the
+     * player will start from*, not *when*. Both positions are read here, in the
+     * same main-thread turn so the reads share a clock, and the difference is
+     * the error. It is fed back as the latency the seek is expected to cost:
+     * with the seek issued at wall time `t` to position `T`, the standby ends up
+     * `T − L − (A + offset)` from the outgoing player, so aiming `L` ahead
+     * makes the error vanish, and the error just measured is exactly the `L`
+     * that was mis-estimated. Two passes usually settle it; the latency learned
+     * is kept for the next swap, which then usually needs one.
+     *
+     * Playback speed scales it: positions are media time and the latency is
+     * wall time.
+     */
+    private suspend fun lockStandbyToActive(
+        active: ExoPlayer,
+        standby: ExoPlayer,
+        index: Int,
+        offsetMs: Long,
+    ) {
+        val speed = AppSettings.playbackSpeed.value.coerceAtLeast(0.1f)
+        var latencyMs = standbySeekLatencyMs
+        val deadline = SystemClock.elapsedRealtime() + STANDBY_LOCK_BUDGET_MS
+        var errorMs = 0L
+        for (pass in 1..STANDBY_LOCK_MAX_PASSES) {
+            if (!active.isPlaying || active.currentMediaItemIndex != index) return
+            val ahead = (latencyMs * speed).toLong()
+            standby.seekTo(index, (active.currentPosition + offsetMs + ahead).coerceAtLeast(0L))
+            val resumeBy = SystemClock.elapsedRealtime() + STANDBY_LOCK_RESUME_MS
+            while (!(standby.playbackState == Player.STATE_READY && standby.isPlaying) &&
+                SystemClock.elapsedRealtime() < resumeBy
+            ) {
+                delay(5)
+            }
+            if (!standby.isPlaying) return
+            // Long enough for the output's own timestamps to take over from
+            // the estimate a freshly started AudioTrack reports.
+            delay(STANDBY_LOCK_SETTLE_MS)
+            val samples = LongArray(STANDBY_LOCK_SAMPLES) {
+                if (it > 0) delay(STANDBY_LOCK_SAMPLE_GAP_MS)
+                standby.currentPosition - (active.currentPosition + offsetMs)
+            }
+            samples.sort()
+            errorMs = samples[samples.size / 2]
+            if (abs(errorMs) <= STANDBY_LOCK_TOLERANCE_MS) {
+                standbySeekLatencyMs = latencyMs
+                TrackLog.d("BitChord", "version swap locked to ${errorMs}ms in $pass pass(es), seek latency ${latencyMs}ms")
+                return
+            }
+            latencyMs = (latencyMs - (errorMs / speed).toLong()).coerceIn(0L, STANDBY_LOCK_MAX_LATENCY_MS)
+            if (SystemClock.elapsedRealtime() >= deadline) break
+        }
+        standbySeekLatencyMs = latencyMs
+        TrackLog.w("BitChord", "version swap crossfading ${errorMs}ms off after $STANDBY_LOCK_MAX_PASSES passes")
     }
 
     private fun adoptPlayerForVersionSwap(outgoing: ExoPlayer, incoming: ExoPlayer) {
@@ -9539,6 +9604,21 @@ class PlaybackService : MediaLibraryService() {
          * waiting is only that the better copy arrives a little later.
          */
         const val UPGRADE_ALIGN_TIMEOUT_MS = 6_000L
+
+        /**
+         * [lockStandbyToActive]'s limits. The outgoing player keeps playing
+         * through every pass, so they cost nothing but the moment the better
+         * copy arrives; the tolerance is a few milliseconds above what the
+         * position readout itself can resolve, which no further pass could beat.
+         */
+        const val STANDBY_LOCK_MAX_PASSES = 4
+        const val STANDBY_LOCK_BUDGET_MS = 2_500L
+        const val STANDBY_LOCK_RESUME_MS = 500L
+        const val STANDBY_LOCK_SETTLE_MS = 120L
+        const val STANDBY_LOCK_SAMPLES = 3
+        const val STANDBY_LOCK_SAMPLE_GAP_MS = 25L
+        const val STANDBY_LOCK_TOLERANCE_MS = 8L
+        const val STANDBY_LOCK_MAX_LATENCY_MS = 1_500L
 
         /**
          * The most an alignment will fetch of an upgrade's opening: thirteen
