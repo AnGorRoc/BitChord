@@ -115,7 +115,7 @@ class MonochromeSource(
             key = url,
             describe = { "▶ Monochrome search \"$query\"" },
         ) {
-            runCatching { rowsOf(politely { fetchJson(url) }) }
+            runCatching { rowsOf(politely(searchQuiet) { fetchJson(url) }) }
         }.getOrElse {
             TrackLog.w(TAG, "Monochrome search failed for \"$query\": ${it.message}")
             return emptyList()
@@ -168,27 +168,35 @@ class MonochromeSource(
     }
 
     /**
-     * When the server may be spoken to again, after it said it was being asked
-     * too often.
+     * When the server may be spoken to again after it said it was being asked
+     * too often, and how many times in a row it has.
+     *
+     * One for the search and one for the files, because the server limits them
+     * separately: a log of someone flicking through the queue had every file
+     * refused for forty seconds while the search went on answering, and a
+     * single window held the searches back for nothing.
      *
      * Per-instance and not per-request: a 429 is a statement about the server,
      * not about the track that drew it. A song opens up to three candidates and
      * the next one is warmed alongside, so without this each of those would
      * walk into the limiter in turn.
      */
-    @Volatile
-    private var quietUntilMs = 0L
+    private class Quiet {
+        @Volatile var untilMs = 0L
+
+        /**
+         * 429s in a row without an answer in between. A block that lasts is
+         * not one a second's wait gets past, so the window grows with it, see
+         * [backoffMs].
+         */
+        @Volatile var streak = 0
+    }
+
+    private val searchQuiet = Quiet()
+    private val fileQuiet = Quiet()
 
     /** A 429, with how long the server asked to be left alone. */
     private class Throttled(val retryAfter: String?) : IOException("HTTP 429")
-
-    /**
-     * How many 429s in a row the server has given without answering anything
-     * in between. A block that lasts is not one a second's wait gets past, so
-     * the quiet window grows with it, see [backoffMs].
-     */
-    @Volatile
-    private var throttleStreak = 0
 
     /**
      * Opens at most [MAX_PARALLEL_PROBES] files at once. A song opens up to
@@ -199,7 +207,7 @@ class MonochromeSource(
 
     /** [probeOnce], within the limits [politely] keeps. */
     private suspend fun probe(trackId: String): Probe? =
-        politely { probeGate.withPermit { probeOnce(trackId) } }
+        politely(fileQuiet) { probeGate.withPermit { probeOnce(trackId) } }
 
     /**
      * Starts the quiet window a 429 asked for: the server's own `Retry-After`
@@ -210,17 +218,17 @@ class MonochromeSource(
      * doesn't count towards the streak. Without that, three calls in flight
      * would read as three refusals in a row and the wait would triple at once.
      */
-    private fun noteThrottled(retryAfter: String?) {
+    private fun noteThrottled(quiet: Quiet, retryAfter: String?) {
         val now = System.currentTimeMillis()
         lastThrottledAtMs = now
-        if (now >= quietUntilMs) throttleStreak++
+        if (now >= quiet.untilMs) quiet.streak++
         val waitMs = if (retryAfter?.trim()?.toDoubleOrNull() != null) {
             retryAfterMs(retryAfter)
         } else {
-            backoffMs(throttleStreak)
+            backoffMs(quiet.streak)
         }
-        quietUntilMs = maxOf(quietUntilMs, now + waitMs)
-        lastQuietUntilMs = quietUntilMs
+        quiet.untilMs = maxOf(quiet.untilMs, now + waitMs)
+        lastQuietUntilMs = maxOf(lastQuietUntilMs, quiet.untilMs)
     }
 
     /**
@@ -234,19 +242,19 @@ class MonochromeSource(
      * behind this one don't ask either. Fails like any other error afterwards,
      * which isn't remembered, and the next look at the track asks again.
      */
-    private suspend fun <T> politely(call: suspend () -> T): T {
+    private suspend fun <T> politely(quiet: Quiet, call: suspend () -> T): T {
         var retried = false
         while (true) {
-            val quietFor = quietUntilMs - System.currentTimeMillis()
+            val quietFor = quiet.untilMs - System.currentTimeMillis()
             if (quietFor > MAX_QUIET_WAIT_MS) {
                 lastThrottledAtMs = System.currentTimeMillis()
                 throw IOException("HTTP 429, asked to wait ${quietFor / 1000}s")
             }
             if (quietFor > 0) delay(quietFor)
             try {
-                return call().also { throttleStreak = 0 }
+                return call().also { quiet.streak = 0 }
             } catch (throttled: Throttled) {
-                noteThrottled(throttled.retryAfter)
+                noteThrottled(quiet, throttled.retryAfter)
                 if (retried) throw throttled
                 retried = true
             }

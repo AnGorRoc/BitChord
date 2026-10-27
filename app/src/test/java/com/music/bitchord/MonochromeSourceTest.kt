@@ -357,6 +357,17 @@ class MonochromeSourceTest {
     }
 
     /** A block that lasts is given longer each time, and one answer starts it over. */
+    /** The server limits the files and the search separately, and so does this. */
+    @Test
+    fun `files refused for a long while don't hold back the search`() = runBlocking {
+        route("/track/1", throttled("60"))
+        route("/search/tracks", json(SEARCH_ANSWER))
+        val source = source()
+
+        assertNull(source.stream("1", StreamRequest.Lossless))
+        assertEquals(2, source.search("daft punk get lucky", limit = 10).size)
+    }
+
     @Test
     fun `the wait doubles while the server keeps refusing`() {
         assertEquals(1_000L, MonochromeSource.backoffMs(1))
