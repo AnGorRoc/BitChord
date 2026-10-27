@@ -62,17 +62,19 @@ class CastStateTest {
         anchorAtMs: Long = 9_000L,
         durationMs: Long = 200_000L,
     ) = castPositionMs(
-        liveMs = liveMs,
-        askedMs = askedMs,
-        requestedAtMs = requestedAtMs,
-        nowMs = nowMs,
-        handoverOutstanding = handoverOutstanding,
-        switchTimeoutMs = switchTimeout,
-        seekGraceMs = seekGrace,
-        playing = playing,
-        anchorPositionMs = anchorPositionMs,
-        anchorAtMs = anchorAtMs,
-        durationMs = durationMs,
+        CastPositionInputs(
+            liveMs = liveMs,
+            askedMs = askedMs,
+            requestedAtMs = requestedAtMs,
+            nowMs = nowMs,
+            handoverOutstanding = handoverOutstanding,
+            switchTimeoutMs = switchTimeout,
+            seekGraceMs = seekGrace,
+            playing = playing,
+            anchorPositionMs = anchorPositionMs,
+            anchorAtMs = anchorAtMs,
+            durationMs = durationMs,
+        ),
     )
 
     /**

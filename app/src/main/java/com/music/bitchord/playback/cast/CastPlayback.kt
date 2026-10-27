@@ -212,17 +212,19 @@ class CastPlayback(
     private fun computePosition(): Long {
         val now = SystemClock.elapsedRealtime()
         return castPositionMs(
-            liveMs = client?.takeIf { !loading }?.approximateStreamPosition,
-            askedMs = requestedPositionMs,
-            requestedAtMs = requestedAt,
-            nowMs = now,
-            handoverOutstanding = awaitingSwitchFrom != null,
-            switchTimeoutMs = SWITCH_TIMEOUT_MS,
-            seekGraceMs = SEEK_GRACE_MS,
-            playing = isPlaying,
-            anchorPositionMs = anchorPositionMs,
-            anchorAtMs = anchorAt,
-            durationMs = durationMs,
+            CastPositionInputs(
+                liveMs = client?.takeIf { !loading }?.approximateStreamPosition,
+                askedMs = requestedPositionMs,
+                requestedAtMs = requestedAt,
+                nowMs = now,
+                handoverOutstanding = awaitingSwitchFrom != null,
+                switchTimeoutMs = SWITCH_TIMEOUT_MS,
+                seekGraceMs = SEEK_GRACE_MS,
+                playing = isPlaying,
+                anchorPositionMs = anchorPositionMs,
+                anchorAtMs = anchorAt,
+                durationMs = durationMs,
+            ),
         )
     }
 
