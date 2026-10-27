@@ -264,6 +264,58 @@ class MonochromeSourceTest {
         assertNotNull(source.stream("1", StreamRequest.Lossless))
     }
 
+    // ── Rate limiting ─────────────────────────────────────────────────────
+
+    /** A 429 is the server asking to be left alone, not an answer about the track. */
+    @Test
+    fun `a probe the server throttles is asked again after the wait`() = runBlocking {
+        script(throttled("1"), partial(flacHead(rate = 44_100, bits = 16)))
+
+        val started = System.currentTimeMillis()
+        val stream = source().stream("1", StreamRequest.Lossless)
+
+        assertNotNull(stream)
+        assertEquals(2, seen.size)
+        assertTrue(System.currentTimeMillis() - started >= 900)
+    }
+
+    @Test
+    fun `a probe throttled twice is a miss that is not remembered`() = runBlocking {
+        script(throttled("1"), throttled("1"), partial(flacHead(rate = 44_100, bits = 16)))
+        val source = source()
+
+        assertNull(source.stream("1", StreamRequest.Lossless))
+        assertEquals(2, seen.size)
+
+        assertNotNull(source.stream("1", StreamRequest.Lossless))
+    }
+
+    /**
+     * The limit is the server's, so a track that draws a long wait holds back
+     * the ones behind it too, and none of them sits waiting on it.
+     */
+    @Test
+    fun `a long wait is not sat through and holds back the next probe`() = runBlocking {
+        script(throttled("60"), partial(flacHead(rate = 44_100, bits = 16)))
+        val source = source()
+
+        val started = System.currentTimeMillis()
+        assertNull(source.stream("1", StreamRequest.Lossless))
+        assertNull(source.stream("2", StreamRequest.Lossless))
+
+        assertEquals(1, seen.size)
+        assertTrue(System.currentTimeMillis() - started < 2_000)
+    }
+
+    @Test
+    fun `Retry-After is believed within bounds, and a date is not read`() {
+        assertEquals(2_000L, MonochromeSource.retryAfterMs("2"))
+        assertEquals(500L, MonochromeSource.retryAfterMs("0"))
+        assertEquals(MonochromeSource.MAX_RETRY_MS, MonochromeSource.retryAfterMs("3600"))
+        assertEquals(MonochromeSource.DEFAULT_RETRY_MS, MonochromeSource.retryAfterMs(null))
+        assertEquals(MonochromeSource.DEFAULT_RETRY_MS, MonochromeSource.retryAfterMs("Wed, 21 Oct 2026 07:28:00 GMT"))
+    }
+
     // ── Health ────────────────────────────────────────────────────────────
 
     @Test
@@ -336,6 +388,21 @@ class MonochromeSourceTest {
     private fun route(path: String, response: MockResponse) {
         routes[path] = response
     }
+
+    /** Answers every request with the next of [responses], in order, the last one for any after. */
+    private fun script(vararg responses: MockResponse) {
+        val queue = ArrayDeque(responses.toList())
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                synchronized(seen) { seen += request }
+                return synchronized(queue) { if (queue.size > 1) queue.removeFirst() else queue.first() }
+            }
+        }
+    }
+
+    private fun throttled(retryAfter: String) = MockResponse()
+        .setResponseCode(429)
+        .setHeader("Retry-After", retryAfter)
 
     private fun json(body: String) = MockResponse()
         .setResponseCode(200)

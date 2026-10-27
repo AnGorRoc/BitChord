@@ -8,6 +8,7 @@ import com.music.bitchord.data.sources.module.SharedCalls
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -162,6 +163,47 @@ class MonochromeSource(
     }
 
     /**
+     * When the server may be spoken to again, after it said it was being asked
+     * too often.
+     *
+     * Per-instance and not per-request: a 429 is a statement about the server,
+     * not about the track that drew it. A song opens up to three candidates and
+     * the next one is warmed alongside, so without this each of those would
+     * walk into the limiter in turn.
+     */
+    @Volatile
+    private var quietUntilMs = 0L
+
+    /** A 429, with how long the server asked to be left alone. */
+    private class Throttled(val waitMs: Long) : IOException("HTTP 429")
+
+    /**
+     * [probeOnce], waiting out the server's quiet window first and asking once
+     * more if it still answers with a 429.
+     *
+     * A wait longer than [MAX_QUIET_WAIT_MS] is not sat through: the live
+     * resolve is blocked on this and the next source is always there to fall
+     * back to, so it fails at once. The window is still kept, so the probes
+     * behind this one don't ask either. Fails like any other error afterwards,
+     * which isn't remembered, and the next look at the track asks again.
+     */
+    private suspend fun probe(trackId: String): Probe? {
+        var retried = false
+        while (true) {
+            val quietFor = quietUntilMs - System.currentTimeMillis()
+            if (quietFor > MAX_QUIET_WAIT_MS) throw IOException("HTTP 429, asked to wait ${quietFor / 1000}s")
+            if (quietFor > 0) delay(quietFor)
+            try {
+                return probeOnce(trackId)
+            } catch (throttled: Throttled) {
+                quietUntilMs = maxOf(quietUntilMs, System.currentTimeMillis() + throttled.waitMs)
+                if (retried) throw throttled
+                retried = true
+            }
+        }
+    }
+
+    /**
      * Reads the head of [trackId]'s file and says what it is: a FLAC's
      * STREAMINFO and size, or null for anything else.
      *
@@ -169,7 +211,7 @@ class MonochromeSource(
      * isn't remembered — a 404 is the exception, being an answer about the
      * track rather than about the server.
      */
-    private fun probe(trackId: String): Probe? {
+    private fun probeOnce(trackId: String): Probe? {
         val request = Request.Builder()
             .url(trackUrl(trackId))
             .header("User-Agent", USER_AGENT)
@@ -177,6 +219,7 @@ class MonochromeSource(
             .build()
         probeClient.newCall(request).execute().use { response ->
             if (response.code == 404) return null
+            if (response.code == 429) throw Throttled(retryAfterMs(response.header("Retry-After")))
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             // A server that ignores the range answers 200 with the whole file;
             // only its first bytes are read either way.
@@ -245,6 +288,24 @@ class MonochromeSource(
 
         /** The file behind an id doesn't change, but a fresh check now and then is cheap. */
         const val PROBE_TTL_MS = 30 * 60 * 1000L
+
+        /** How long to leave the server alone after a 429 that didn't say. */
+        const val DEFAULT_RETRY_MS = 1_000L
+
+        /** The most of a stated `Retry-After` that is believed. */
+        const val MAX_RETRY_MS = 30_000L
+
+        /** The longest a probe sits waiting for the quiet window to pass. */
+        const val MAX_QUIET_WAIT_MS = 3_000L
+
+        /**
+         * How long a 429 asked to be left alone: the `Retry-After` seconds when
+         * it sent them, [DEFAULT_RETRY_MS] when it sent nothing or a date.
+         */
+        fun retryAfterMs(header: String?): Long =
+            header?.trim()?.toDoubleOrNull()?.times(1000)?.toLong()
+                ?.coerceIn(DEFAULT_RETRY_MS / 2, MAX_RETRY_MS)
+                ?: DEFAULT_RETRY_MS
 
         private val USER_AGENT = "BitChord/v${BuildConfig.VERSION_NAME}"
 
