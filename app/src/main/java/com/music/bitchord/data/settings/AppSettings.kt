@@ -571,10 +571,10 @@ object AppSettings {
 
     /**
      * Whether a lossless stream the connection can't keep up with is
-     * crossfaded down to a lossy copy before the audio cuts out. On by
-     * default; off keeps lossless whatever the buffering costs.
+     * crossfaded down to a lossy copy before the audio cuts out. Off by
+     * default; on, lossless is retried on a schedule — see [LosslessRetryPlan].
      */
-    val losslessDowngrade = MutableStateFlow(true)
+    val losslessDowngrade = MutableStateFlow(false)
 
     /**
      * Whether a track waits for its lossless copy before the first note,
@@ -997,7 +997,7 @@ object AppSettings {
         losslessCacheLimitBytes.value =
             clampLosslessCacheLimit(prefs.getLong(KEY_LOSSLESS_CACHE_LIMIT, DEFAULT_LOSSLESS_CACHE_LIMIT_BYTES))
         improveCachedSongs.value = prefs.getBoolean(KEY_IMPROVE_CACHED_SONGS, true)
-        losslessDowngrade.value = prefs.getBoolean(KEY_LOSSLESS_DOWNGRADE, true)
+        losslessDowngrade.value = prefs.getBoolean(KEY_LOSSLESS_DOWNGRADE, false)
         losslessFromStart.value = prefs.getBoolean(KEY_LOSSLESS_FROM_START, false)
         showCacheFolder.value = prefs.getBoolean(KEY_SHOW_CACHE_FOLDER, false)
         lastfmEnabled.value = prefs.getBoolean(KEY_LASTFM_ENABLED, false)

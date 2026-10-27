@@ -242,7 +242,7 @@
     <string name="lossless_cache_limit_subtitle">Aparte de la caché de canciones</string>
     <string name="improve_cached_songs">Mejorar canciones en caché</string>
     <string name="improve_cached_songs_subtitle">Cambiarlas por una copia mejor con Wi-Fi, o con datos si su calidad lo permite</string>
-    <string name="lossless_downgrade">Bajar calidad si hace falta</string>
+    <string name="lossless_downgrade">Bajar calidad si es necesario</string>
     <string name="lossless_downgrade_subtitle">Cuando la conexión no alcanza para la versión sin pérdida</string>
     <string name="lossless_from_start">Sin pérdida desde el inicio</string>
     <string name="lossless_from_start_subtitle">Esperar la versión sin pérdida en vez de empezar con menos calidad</string>
