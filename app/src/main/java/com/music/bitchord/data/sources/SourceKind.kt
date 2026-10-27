@@ -5,8 +5,8 @@ package com.music.bitchord.data.sources
  *
  * Fixed and small on purpose. **[rank] is the order sources are tried** — see
  * `SourceRegistry.active()`, which sorts on it — so the sources a user added
- * come first, then the legacy built-in module kind, then JioSaavn, then
- * YouTube Music. Adding a source means adding a [MusicSource]
+ * come first, then Monochrome (and the legacy built-in module kind), then
+ * JioSaavn, then YouTube Music. Adding a source means adding a [MusicSource]
  * implementation and an entry here, which is the point — every protocol the
  * app speaks is one someone can read in this repo, and a source can't teach
  * the app a new way to behave after it ships.
@@ -54,6 +54,17 @@ enum class SourceKind(
      * nothing about what was actually asked first.
      */
     val rank: Int,
+    /**
+     * Whether this kind's rows are offered in the search screen, beside
+     * YouTube's.
+     *
+     * False for a source that only exists to *serve* tracks the listener found
+     * elsewhere. [MONOCHROME] is the case: its rows would duplicate YouTube's
+     * with nothing new to choose between, and a row cannot honestly promise
+     * FLAC before the file is opened — see [MonochromeSource.stream], which is
+     * where that is checked. Playback and downloads ask it either way.
+     */
+    val showsInSearch: Boolean = true,
 ) {
     /**
      * An addon server the user pointed at themselves.
@@ -125,6 +136,33 @@ enum class SourceKind(
         needsServer = true,
         canServeLossless = true,
         rank = 1,
+    ),
+
+    /**
+     * Monochrome's track streamer: the catalogue searched by title and artist,
+     * each track served as one FLAC file with byte ranges. No account, no
+     * challenge and no DRM, so it ships on rather than waiting to be set up.
+     *
+     * Ranked behind the sources a user added on purpose and ahead of everything
+     * lossy, which is the whole point of having it: a track it holds plays
+     * bit-exact instead of as YouTube's Opus. It shares rank 1 with [MODULE],
+     * which [SourceRegistry.init] drops on every launch, so the two never meet.
+     *
+     * Only asked when the connection's ceiling is Lossless — see
+     * [AudioQuality.permits][com.music.bitchord.data.settings.permits] — and
+     * never listed in search; see [showsInSearch].
+     */
+    MONOCHROME(
+        label = "Monochrome",
+        detail = "Lossless FLAC, up to 24-bit, for the songs Monochrome has. No account needed.",
+        labels = listOf("FLAC", "Lossless", "Hi-Res"),
+        needsServer = false,
+        canServeLossless = true,
+        // One search and one 42-byte read: cheap enough to ask about the next
+        // track before it is reached, like JioSaavn.
+        worthPrefetching = true,
+        rank = 1,
+        showsInSearch = false,
     ),
 
     JIOSAAVN(

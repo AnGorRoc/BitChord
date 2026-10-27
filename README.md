@@ -45,7 +45,7 @@
 
 #### Playback
 - **Search, browse and play** anything available on YouTube Music.
-- **Hi-Res lossless audio** — FLAC/ALAC from a configured module source, with YouTube Music as fallback.
+- **Hi-Res lossless audio** — FLAC up to 24-bit from [Monochrome](https://monochrome.st), built in and on by default, plus FLAC/ALAC from your own addons, with YouTube Music as fallback.
 - **Gapless playback with true crossfade**, adjustable 0–12s.
 - **Automix [Beta]** — DJ-style transitions with beat-matching and tempo-stretching.
 - **Offline downloads** — save tracks with embedded metadata.
@@ -58,7 +58,7 @@
 - **Spotify integration** — connect your account to play your playlists and Liked Songs.
 - **Discord Rich Presence** — in-app login, live track/artist/album and progress.
 - **Scrobbling** to Last.fm and ListenBrainz.
-- **Pluggable sources** — add, edit, test and health-check module sources.
+- **Pluggable sources** — add, edit, test and health-check addon sources, ranked ahead of Monochrome, JioSaavn and YouTube Music.
 
     </td>
     <td width="50%" valign="top">

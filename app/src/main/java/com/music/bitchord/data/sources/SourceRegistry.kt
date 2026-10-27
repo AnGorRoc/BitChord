@@ -75,14 +75,16 @@ data class SourceConfig(
 
 /**
  * The user's sources, always tried in the fixed order [SourceKind] declares:
- * their own addons first, then JioSaavn, then YouTube Music.
+ * their own addons first, then Monochrome, then JioSaavn, then YouTube Music.
  *
- * [SourceKind.YOUTUBE] is seeded on first run and cannot be deleted, only
- * disabled — it needs no configuration, so a "remove" would delete something
- * the user could not then re-create by typing anything in, it would just be a
- * switch that hides itself. Addons are entirely optional: with none
- * configured, YouTube is the only active source on a fresh install. JioSaavn
- * is present but off until the user accepts its catalogue-matching risk.
+ * The built-in kinds are seeded on first run (and on the first launch of a
+ * build that adds one) and cannot be deleted, only disabled — they need no
+ * configuration, so a "remove" would delete something the user could not then
+ * re-create by typing anything in, it would just be a switch that hides
+ * itself. Addons are entirely optional: with none configured, Monochrome and
+ * YouTube are the active sources on a fresh install, Monochrome serving the
+ * tracks it holds in FLAC and YouTube the rest. JioSaavn is present but off
+ * until the user accepts its catalogue-matching risk.
  */
 object SourceRegistry {
 
@@ -456,6 +458,7 @@ object SourceRegistry {
         // Same protocol, same implementation — the kinds differ only in rank.
         SourceKind.CUSTOM_MODULE -> ModuleSource(config)
         SourceKind.MODULE -> ModuleSource(config)
+        SourceKind.MONOCHROME -> MonochromeSource(config)
         SourceKind.JIOSAAVN -> JioSaavnSource(config)
         SourceKind.YOUTUBE -> YouTubeSource(config)
     }
@@ -501,7 +504,7 @@ object SourceRegistry {
             .build()
             .toString()
 
-    private val BUILT_IN_KINDS = listOf(SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
+    private val BUILT_IN_KINDS = listOf(SourceKind.MONOCHROME, SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
 
     private const val KEY_SOURCES = "sources"
     /** One-shot migration: existing users must explicitly opt in again. */

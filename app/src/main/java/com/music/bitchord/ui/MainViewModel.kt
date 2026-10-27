@@ -2491,7 +2491,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             .let { if (it < 0) active.size else it }
 
         val answers = active
-            .filter { it.kind != SourceKind.YOUTUBE }
+            // Not YouTube, whose rows are the results already; and not a source
+            // that only serves tracks found elsewhere — see SourceKind.showsInSearch.
+            .filter { it.kind != SourceKind.YOUTUBE && it.kind.showsInSearch }
             .map { source ->
                 source to async {
                     // Per-source, so one slow or unreachable server delays the
