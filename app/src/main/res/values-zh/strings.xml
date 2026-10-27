@@ -226,6 +226,8 @@
     <string name="improve_cached_songs_subtitle">使用 Wi-Fi 时，或移动数据音质允许时，换成更好的版本</string>
     <string name="lossless_downgrade">必要时降低音质</string>
     <string name="lossless_downgrade_subtitle">网络跟不上无损音质时</string>
+    <string name="lossless_from_start">从头无损</string>
+    <string name="lossless_from_start_subtitle">等待无损版本，而不是先以较低音质开始</string>
     <string name="clear_song_cache">清除歌曲缓存</string>
     <string name="clear_song_cache_subtitle">释放已下载音频占用的空间</string>
     <string name="clear_image_cache">清除图片缓存</string>

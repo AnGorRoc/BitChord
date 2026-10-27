@@ -5612,6 +5612,21 @@ class PlaybackService : MediaLibraryService() {
         }
         if (DirectSourceGate.isActive()) return resolveDirect(videoId, target)
         NerdStats.onLosslessRaceStart(videoId)
+        // The listener would rather wait for lossless than hear the opening in
+        // anything less — see [AppSettings.losslessFromStart]. The lookup is
+        // waited out alone; only when no source has a lossless copy does the
+        // ordinary race below run, and its lossy start with it. A manifest
+        // can't start a track here (see below), so it goes the same way.
+        if (SourceResolver.losslessFromStart()) {
+            val lossless = withContext(Dispatchers.IO + TrackLog.about(videoId)) {
+                withTimeoutOrNull(SUBSTITUTE_TIMEOUT_MS) { SourceResolver.losslessForYouTube(target) }
+            }
+            if (lossless != null && !StreamContainer.isManifest(lossless.url)) {
+                NerdStats.onLosslessRaceEnd(videoId)
+                return Resolved.Module(lossless)
+            }
+            TrackLog.d("BitChord", "no lossless copy of '${target.title}' to start on; starting as usual", about = videoId)
+        }
         // Both legs are parented to the service's scope rather than to the
         // caller, so neither inherits whose track this is — see
         // [TrackLog.about]. Without it the module walk and the client walk both

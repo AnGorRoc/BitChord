@@ -348,6 +348,8 @@
     <string name="improve_cached_songs_subtitle">Wi-Fi에서, 또는 모바일 데이터 음질이 허용할 때 더 좋은 버전으로 교체</string>
     <string name="lossless_downgrade">필요하면 음질 낮추기</string>
     <string name="lossless_downgrade_subtitle">연결이 무손실을 감당하지 못할 때</string>
+    <string name="lossless_from_start">처음부터 무손실</string>
+    <string name="lossless_from_start_subtitle">낮은 음질로 시작하지 않고 무손실을 기다림</string>
     <string name="clear_song_cache">음악 캐시 지우기</string>
     <string name="clear_song_cache_subtitle">다운로드한 오디오가 차지한 공간을 확보합니다</string>
     <string name="clear_image_cache">이미지 캐시 지우기</string>

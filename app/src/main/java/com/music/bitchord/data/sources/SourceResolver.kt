@@ -271,6 +271,31 @@ object SourceResolver {
     }
 
     /**
+     * Whether a track should wait for a lossless copy rather than start on
+     * whatever answers first — see [AppSettings.losslessFromStart]. Only when
+     * lossless is what the connection asks for.
+     */
+    fun losslessFromStart(request: StreamRequest = requestForNow()): Boolean =
+        request == StreamRequest.Lossless && AppSettings.losslessFromStart.value
+
+    /**
+     * The first lossless copy of a YouTube track any source ranked above
+     * YouTube holds, or null when none has one. [substituteForYouTube] with
+     * lossy answers refused, for a track that waits for lossless before its
+     * first note — see [losslessFromStart].
+     */
+    suspend fun losslessForYouTube(target: TrackMatcher.Target): SourceStream? {
+        if (target.title.isBlank() || target.isVideo) return null
+        val active = SourceRegistry.activeForPlayback()
+        val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
+        val (source, stream) = bestAcross(rankedAbove(youtube.configId, active), target, StreamRequest.Lossless) { _, stream ->
+            stream.format.isLossless == true
+        } ?: return null
+        TrackLog.d(TAG, "lossless from the start: '${target.title}' served by ${source.displayName} at ${stream.format.summary}")
+        return stream
+    }
+
+    /**
      * The addons Direct Source Stream plays from: enabled, inside the
      * connection's ceiling, and ranked above YouTube — in rank order.
      *
@@ -364,7 +389,14 @@ object SourceResolver {
         val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
         val quick = rankedAbove(youtube.configId, active).filter { it.kind.worthPrefetching }
         if (quick.isEmpty()) return null
-        val (source, stream) = bestAcross(quick, target, requestForNow()) ?: return null
+        val request = requestForNow()
+        // Pinning a quick lossy answer here would start the track on it, which
+        // is what "Lossless from the start" is there to prevent.
+        val (source, stream) = if (losslessFromStart(request)) {
+            bestAcross(quick, target, request) { _, stream -> stream.format.isLossless == true }
+        } else {
+            bestAcross(quick, target, request)
+        } ?: return null
         TrackLog.d(
             TAG,
             "warmed: '${target.title}' from ${source.displayName} at ${stream.format.summary}",

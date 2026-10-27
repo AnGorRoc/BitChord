@@ -232,6 +232,8 @@
     <string name="improve_cached_songs_subtitle">להחליף בעותק טוב יותר ב-Wi-Fi, או בחבילת גלישה כשהאיכות שלה מאפשרת</string>
     <string name="lossless_downgrade">להוריד איכות בעת הצורך</string>
     <string name="lossless_downgrade_subtitle">כשהחיבור לא עומד ב-Lossless</string>
+    <string name="lossless_from_start">Lossless מההתחלה</string>
+    <string name="lossless_from_start_subtitle">לחכות ל-Lossless במקום להתחיל באיכות נמוכה יותר</string>
     <string name="clear_song_cache">ניקוי מטמון שירים</string>
     <string name="clear_song_cache_subtitle">משחרר שטח שתפוס על ידי אודיו שהורד</string>
     <string name="clear_image_cache">ניקוי מטמון תמונות</string>

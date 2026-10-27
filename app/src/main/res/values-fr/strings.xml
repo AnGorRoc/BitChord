@@ -232,6 +232,8 @@
     <string name="improve_cached_songs_subtitle">Les remplacer par une meilleure copie en Wi-Fi, ou en données mobiles si leur qualité le permet</string>
     <string name="lossless_downgrade">Baisser la qualité si besoin</string>
     <string name="lossless_downgrade_subtitle">Quand la connexion ne suit pas la version sans perte</string>
+    <string name="lossless_from_start">Sans perte dès le début</string>
+    <string name="lossless_from_start_subtitle">Attendre la version sans perte au lieu de commencer en qualité inférieure</string>
     <string name="clear_song_cache">Vider le cache des chansons</string>
     <string name="clear_song_cache_subtitle">Libère l\'espace utilisé par l\'audio téléchargé</string>
     <string name="clear_image_cache">Vider le cache des images</string>

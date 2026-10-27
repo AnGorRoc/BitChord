@@ -262,6 +262,8 @@
     <string name="improve_cached_songs_subtitle">Thay bằng bản tốt hơn khi dùng Wi-Fi, hoặc dữ liệu di động nếu chất lượng cho phép</string>
     <string name="lossless_downgrade">Giảm chất lượng khi cần</string>
     <string name="lossless_downgrade_subtitle">Khi kết nối không theo kịp lossless</string>
+    <string name="lossless_from_start">Lossless ngay từ đầu</string>
+    <string name="lossless_from_start_subtitle">Chờ bản lossless thay vì bắt đầu ở chất lượng thấp hơn</string>
     <string name="clear_song_cache">Xóa bộ nhớ đệm bài hát</string>
     <string name="clear_song_cache_subtitle">Giải phóng dung lượng do âm thanh đã tải sử dụng</string>
     <string name="clear_image_cache">Xóa bộ nhớ đệm hình ảnh</string>

@@ -274,6 +274,8 @@
     <string name="improve_cached_songs_subtitle">Sostituiscili con una copia migliore in Wi-Fi, o con i dati mobili se la loro qualità lo consente</string>
     <string name="lossless_downgrade">Abbassa la qualità se serve</string>
     <string name="lossless_downgrade_subtitle">Quando la connessione non regge il lossless</string>
+    <string name="lossless_from_start">Lossless dall’inizio</string>
+    <string name="lossless_from_start_subtitle">Aspetta il lossless invece di partire in qualità inferiore</string>
     <string name="clear_song_cache">Svuota cache brani</string>
     <string name="clear_song_cache_subtitle">Libera lo spazio usato dall\'audio scaricato</string>
     <string name="clear_image_cache">Svuota cache immagini</string>

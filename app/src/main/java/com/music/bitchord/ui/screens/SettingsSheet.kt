@@ -58,6 +58,7 @@ import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -205,6 +206,7 @@ fun SettingsScreen(
     val wifiQuality by AppSettings.audioQualityWifi.collectAsStateWithLifecycle()
     val cellularQuality by AppSettings.audioQualityCellular.collectAsStateWithLifecycle()
     val losslessDowngrade by AppSettings.losslessDowngrade.collectAsStateWithLifecycle()
+    val losslessFromStart by AppSettings.losslessFromStart.collectAsStateWithLifecycle()
     val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
@@ -530,6 +532,25 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setLosslessDowngrade(!losslessDowngrade) },
+                )
+            }
+            val losslessFromStartTitle = stringResource(R.string.lossless_from_start)
+            row(losslessFromStartTitle, "lossless", "flac", "wait", "streaming quality") {
+                SettingsRow(
+                    icon = Icons.Rounded.HourglassTop,
+                    title = losslessFromStartTitle,
+                    subtitle = stringResource(R.string.lossless_from_start_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = losslessFromStart,
+                            onCheckedChange = AppSettings::setLosslessFromStart,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setLosslessFromStart(!losslessFromStart) },
                 )
             }
             // Sits with the quality ceilings rather than with Playback: it

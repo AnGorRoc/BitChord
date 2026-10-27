@@ -577,6 +577,14 @@ object AppSettings {
     val losslessDowngrade = MutableStateFlow(true)
 
     /**
+     * Whether a track waits for its lossless copy before the first note,
+     * instead of starting on a quicker lossy one and swapping up mid-song.
+     * Off by default: it trades a longer silence at every start for the
+     * whole track in lossless.
+     */
+    val losslessFromStart = MutableStateFlow(false)
+
+    /**
      * Whether Library's "On device" shelf carries the Cached songs folder —
      * the YouTube and JioSaavn tracks the song cache is holding. Off by
      * default: the cache is an implementation detail most people never need
@@ -990,6 +998,7 @@ object AppSettings {
             clampLosslessCacheLimit(prefs.getLong(KEY_LOSSLESS_CACHE_LIMIT, DEFAULT_LOSSLESS_CACHE_LIMIT_BYTES))
         improveCachedSongs.value = prefs.getBoolean(KEY_IMPROVE_CACHED_SONGS, true)
         losslessDowngrade.value = prefs.getBoolean(KEY_LOSSLESS_DOWNGRADE, true)
+        losslessFromStart.value = prefs.getBoolean(KEY_LOSSLESS_FROM_START, false)
         showCacheFolder.value = prefs.getBoolean(KEY_SHOW_CACHE_FOLDER, false)
         lastfmEnabled.value = prefs.getBoolean(KEY_LASTFM_ENABLED, false)
         lastfmUsername.value = prefs.getString(KEY_LASTFM_USERNAME, "").orEmpty()
@@ -1612,6 +1621,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_LOSSLESS_DOWNGRADE, value).apply()
     }
 
+    fun setLosslessFromStart(value: Boolean) {
+        losslessFromStart.value = value
+        prefs.edit().putBoolean(KEY_LOSSLESS_FROM_START, value).apply()
+    }
+
     fun setShowCacheFolder(value: Boolean) {
         showCacheFolder.value = value
         prefs.edit().putBoolean(KEY_SHOW_CACHE_FOLDER, value).apply()
@@ -2154,6 +2168,7 @@ object AppSettings {
     private const val KEY_LOSSLESS_CACHE_LIMIT = "lossless_cache_limit_bytes"
     private const val KEY_IMPROVE_CACHED_SONGS = "improve_cached_songs"
     private const val KEY_LOSSLESS_DOWNGRADE = "lossless_downgrade"
+    private const val KEY_LOSSLESS_FROM_START = "lossless_from_start"
     private const val KEY_REDUCE_ANIMATION = "reduce_animation"
     private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     private const val KEY_HIGH_PERFORMANCE_MODE = "high_performance_mode"

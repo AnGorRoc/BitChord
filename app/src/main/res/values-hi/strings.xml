@@ -231,6 +231,8 @@
     <string name="improve_cached_songs_subtitle">Wi-Fi पर, या मोबाइल डेटा पर जब उसकी क्वालिटी अनुमति दे, बेहतर कॉपी से बदलें</string>
     <string name="lossless_downgrade">ज़रूरत हो तो क्वालिटी घटाएँ</string>
     <string name="lossless_downgrade_subtitle">जब कनेक्शन लॉसलेस नहीं संभाल पाता</string>
+    <string name="lossless_from_start">शुरू से लॉसलेस</string>
+    <string name="lossless_from_start_subtitle">कम क्वालिटी में शुरू करने के बजाय लॉसलेस का इंतज़ार करें</string>
     <string name="clear_song_cache">गाना कैश साफ़ करें</string>
     <string name="clear_song_cache_subtitle">डाउनलोड किए गए ऑडियो द्वारा इस्तेमाल की गई जगह खाली करता है</string>
     <string name="clear_image_cache">इमेज कैश साफ़ करें</string>
