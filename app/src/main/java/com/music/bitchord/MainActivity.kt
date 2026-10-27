@@ -911,6 +911,7 @@ private fun BitChordApp(
     val webdavUrl by AppSettings.webdavUrl.collectAsStateWithLifecycle()
     val smbHost by AppSettings.smbHost.collectAsStateWithLifecycle()
     val librarySort by AppSettings.librarySort.collectAsStateWithLifecycle()
+    val libraryViewType by AppSettings.libraryViewType.collectAsStateWithLifecycle()
     // The releases those files were asked for as — read here rather than in the
     // page so the Downloads folder recomposes when one is added, the same way it
     // does when a file is.
@@ -3801,6 +3802,28 @@ private fun BitChordApp(
                             // Left of the account photo, and only on Library itself:
                             // a history is a record of what was played, which reads
                             // as that tab's business rather than every tab's.
+                            if ((route == null && detail == null && selectedTab == TAB_LIBRARY) ||
+                                route is AppRoute.LibraryShowAll
+                            ) {
+                                // Cards or rows — one choice for the Library's
+                                // collections, here and on their "Show all" pages.
+                                val listStyle = libraryViewType == LibraryViewType.LIST
+                                IconButton(
+                                    onClick = {
+                                        AppSettings.setLibraryViewType(
+                                            if (listStyle) LibraryViewType.GRID else LibraryViewType.LIST,
+                                        )
+                                    },
+                                ) {
+                                    Icon(
+                                        if (listStyle) BitChordIcons.GridView else BitChordIcons.ListView,
+                                        contentDescription = stringResource(
+                                            if (listStyle) R.string.switch_to_grid_view else R.string.switch_to_list_view,
+                                        ),
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                            }
                             if (route == null && detail == null && selectedTab == TAB_LIBRARY) {
                                 IconButton(
                                     onClick = {

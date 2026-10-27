@@ -52,6 +52,7 @@ import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.LibrarySort
+import com.music.bitchord.data.settings.LibraryViewType
 import com.music.bitchord.ui.AppUi
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.components.LIBRARY_GRID_SPACING
@@ -320,6 +321,24 @@ private fun PlaylistShelf(
         onItemLongPress = onItemLongPress,
         onShowAll = onShowAll,
         pinnedPlaylists = pinnedPlaylists,
+        leadingRows = {
+            NewShelfListRow(
+                icon = BitChordIcons.Plus,
+                label = stringResource(Res.string.new_playlist),
+                subtitle = stringResource(Res.string.saved_to_youtube_music),
+                onClick = onNewPlaylist,
+            )
+            if (onImportSpotifyPlaylist != null) {
+                NewShelfListRow(
+                    icon = BitChordIcons.Download,
+                    label = stringResource(Res.string.import_spotify),
+                    subtitle = stringResource(Res.string.import_spotify_subtitle),
+                    onClick = onImportSpotifyPlaylist,
+                    logo = Res.drawable.spotify_logo,
+                )
+            }
+        },
+        leadingRowCount = if (onImportSpotifyPlaylist != null) 2 else 1,
         leadingCard = {
             Row(horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING)) {
                 NewShelfCard(
@@ -363,8 +382,15 @@ internal fun LibraryGridShelf(
     onShowAll: () -> Unit,
     leadingCard: (@Composable () -> Unit)? = null,
     pinnedPlaylists: List<String> = emptyList(),
+    /** [leadingCard] in the list style: [leadingRowCount] rows, each counting against the cap. */
+    leadingRows: (@Composable () -> Unit)? = null,
+    leadingRowCount: Int = 1,
 ) {
-    val leadingCount = if (leadingCard != null) 1 else 0
+    val list = AppUi.host.libraryViewType.collectAsStateWithLifecycle().value == LibraryViewType.LIST
+    val leadingCount = when {
+        list -> if (leadingRows != null) leadingRowCount else 0
+        else -> if (leadingCard != null) 1 else 0
+    }
     val visibleItems = shelf.items.take((LIBRARY_ROW_MAX_ITEMS - leadingCount).coerceAtLeast(0))
     Column(Modifier.padding(bottom = 26.dp)) {
         SectionHeader(
@@ -372,6 +398,18 @@ internal fun LibraryGridShelf(
             subtitle = shelf.subtitle,
             onShowAll = onShowAll.takeIf { shelf.items.size + leadingCount > LIBRARY_ROW_MAX_ITEMS },
         )
+        if (list) {
+            leadingRows?.invoke()
+            visibleItems.forEach { item ->
+                ShelfListRow(
+                    item = item,
+                    onClick = { onItemClick(item) },
+                    onLongPress = { onItemLongPress(item) },
+                    isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
+                )
+            }
+            return@Column
+        }
         ShelfRow(
             contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
             horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
@@ -410,6 +448,7 @@ fun LibraryGridPage(
     // immediately rather than waiting for the row underneath to be revisited.
     val pinnedPlaylists by AppUi.host.pinnedPlaylists.collectAsStateWithLifecycle()
     val librarySort by AppUi.host.librarySort.collectAsStateWithLifecycle()
+    val list = AppUi.host.libraryViewType.collectAsStateWithLifecycle().value == LibraryViewType.LIST
     // Pinning wins over the default order, but an explicit sort is a stronger,
     // more deliberate signal than a pin and is left to reorder the whole grid,
     // pinned cards included.
@@ -417,32 +456,51 @@ fun LibraryGridPage(
     BoxWithConstraints(modifier.fillMaxSize()) {
         val grid = libraryGrid(maxWidth - PAGE_GUTTER * 2)
         LazyVerticalGrid(
-            columns = GridCells.Fixed(grid.columns),
+            // The list style is one column of full-width rows, each with its own gutter.
+            columns = GridCells.Fixed(if (list) 1 else grid.columns),
             state = gridState,
             contentPadding = contentPadding,
             horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-            modifier = Modifier.padding(horizontal = PAGE_GUTTER),
+            verticalArrangement = Arrangement.spacedBy(if (list) 0.dp else 20.dp),
+            modifier = if (list) Modifier else Modifier.padding(horizontal = PAGE_GUTTER),
         ) {
             if (onNewPlaylist != null) {
                 item(key = "leading") {
-                    NewShelfCard(
-                        icon = BitChordIcons.Plus,
-                        label = stringResource(Res.string.new_playlist),
-                        subtitle = stringResource(Res.string.saved_to_youtube_music),
-                        onClick = onNewPlaylist,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    if (list) {
+                        NewShelfListRow(
+                            icon = BitChordIcons.Plus,
+                            label = stringResource(Res.string.new_playlist),
+                            subtitle = stringResource(Res.string.saved_to_youtube_music),
+                            onClick = onNewPlaylist,
+                        )
+                    } else {
+                        NewShelfCard(
+                            icon = BitChordIcons.Plus,
+                            label = stringResource(Res.string.new_playlist),
+                            subtitle = stringResource(Res.string.saved_to_youtube_music),
+                            onClick = onNewPlaylist,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
             }
             items(sortedShelf.items, key = { it.browseId ?: it.title }) { item ->
-                ShelfCard(
-                    item = item,
-                    onClick = { onItemClick(item) },
-                    onLongPress = { onItemLongPress(item) },
-                    modifier = Modifier.fillMaxWidth(),
-                    isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
-                )
+                if (list) {
+                    ShelfListRow(
+                        item = item,
+                        onClick = { onItemClick(item) },
+                        onLongPress = { onItemLongPress(item) },
+                        isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
+                    )
+                } else {
+                    ShelfCard(
+                        item = item,
+                        onClick = { onItemClick(item) },
+                        onLongPress = { onItemLongPress(item) },
+                        modifier = Modifier.fillMaxWidth(),
+                        isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
+                    )
+                }
             }
         }
     }

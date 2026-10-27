@@ -16,6 +16,7 @@ object AndroidAppUiHost : AppUiHost {
     override val swipeToPlayNext = AppSettings.swipeToPlayNext
     override val pinnedPlaylists = AppSettings.pinnedPlaylists
     override val librarySort = AppSettings.librarySort
+    override val libraryViewType = AppSettings.libraryViewType
 
     @Composable
     override fun downloadedIds(): Set<String> {

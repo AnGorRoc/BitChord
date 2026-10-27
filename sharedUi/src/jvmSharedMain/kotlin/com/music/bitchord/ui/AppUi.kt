@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.settings.LibrarySort
+import com.music.bitchord.data.settings.LibraryViewType
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -22,6 +23,9 @@ interface AppUiHost {
 
     /** How a Library "Show all" grid is ordered. */
     val librarySort: StateFlow<LibrarySort>
+
+    /** Whether the Library's collections are cards or stacked rows with a small cover. */
+    val libraryViewType: StateFlow<LibraryViewType>
 
     /** Video ids of the tracks already downloaded, for the mark on their rows. */
     @Composable
