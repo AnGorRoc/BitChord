@@ -387,7 +387,7 @@ object SourceResolver {
         if (target.title.isBlank() || target.isVideo) return null
         val active = SourceRegistry.activeForPlayback()
         val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
-        val quick = rankedAbove(youtube.configId, active).filter { it.kind.worthPrefetching }
+        val quick = rankedAbove(youtube.configId, active).filter { it.kind.worthPrefetching && !resting(it) }
         if (quick.isEmpty()) return null
         val request = requestForNow()
         // Pinning a quick lossy answer here would start the track on it, which
@@ -493,7 +493,7 @@ object SourceResolver {
         // and the seam then landed mid-song rather than near its start. Raced,
         // the same swap happens inside a second.
         val (source, chosen) = bestAcross(
-            rankedAbove(youtube.configId, active).filterNot { it.configId == servedBy },
+            rankedAbove(youtube.configId, active).filterNot { it.configId == servedBy || resting(it) },
             target,
             request,
             waitForAll = true,
@@ -807,6 +807,16 @@ object SourceResolver {
         SourceRegistry.activeForPlayback().indexOfFirst { it.kind == SourceKind.YOUTUBE } > 0
 
     /**
+     * Whether [source] has asked to be left alone for now, for the lookups
+     * that can wait — a warm-up and a second look — to leave it out of. Only
+     * the live resolve still asks it then, and that fails without a request.
+     * Spending the server's patience on a song not yet playing is what had the
+     * one that was refused.
+     */
+    private fun resting(source: MusicSource): Boolean =
+        source.kind == SourceKind.MONOCHROME && MonochromeSource.holdingOff()
+
+    /**
      * The sources ranked above [configId], in order.
      *
      * A config that isn't in [active] ranks last: it is disabled or incomplete,
@@ -1099,7 +1109,22 @@ object SourceResolver {
         var settleFor: SourceStream? = null
         for (match in ordered.take(STREAM_ATTEMPTS)) {
             val trackId = SourceRegistry.parseTrackKey(match.videoId)?.second ?: match.videoId
-            val opened = attempt(source) { source.stream(trackId, request) } ?: continue
+            val opened = try {
+                source.stream(trackId, request)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SourceThrottled) {
+                // The server's word, not the row's: every row after this one
+                // would be refused the same way, and asking is what extends
+                // the refusal. Settle for what was already found, if anything.
+                TrackLog.w(TAG, "${source.displayName} is asking to be left alone (${e.message}); not opening its other rows")
+                break
+            } catch (e: Exception) {
+                // As [attempt] would, which can't be used here: it would
+                // swallow the throttle above along with everything else.
+                TrackLog.w(TAG, "${source.displayName} failed: ${e.javaClass.simpleName}: ${e.message}")
+                null
+            } ?: continue
             // The row this URL came from knows how long the recording is; the
             // URL itself doesn't. Carried along so a caller swapping this into
             // a track already playing can check it — see [SourceStream.durationSec].

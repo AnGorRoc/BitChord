@@ -152,6 +152,15 @@ interface MusicSource {
      * @return an openable stream, or null when this source turns out not to
      *   have the track after all — which is a miss, not an error, and lets
      *   [SourceResolver] move to the next source without logging a failure.
+     * @throws SourceThrottled when the server turned the call away for being
+     *   asked too often, so no other row of this source is worth asking either.
      */
     suspend fun stream(trackId: String, request: StreamRequest): SourceStream?
 }
+
+/**
+ * The server asked to be left alone. Not an answer about the track: the next
+ * row of the same source would draw the same refusal, so [SourceResolver]
+ * stops asking this source rather than walking its candidates into the limit.
+ */
+open class SourceThrottled(message: String) : java.io.IOException(message)

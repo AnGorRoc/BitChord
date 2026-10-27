@@ -15,6 +15,7 @@ import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.SourceStream
+import com.music.bitchord.data.sources.SourceThrottled
 import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.StreamRequest
 import com.music.bitchord.data.sources.TrackMatcher
@@ -1280,6 +1281,31 @@ class SourcesTest {
         val a = FakeSource("Ricky's Addon", answerAfterMs = 5, format = null)
         val b = FakeSource("JioSaavn", answerAfterMs = 10, format = null)
         assertNull(SourceResolver.bestAcross(listOf(a, b), raceTarget(), StreamRequest.Lossless))
+    }
+
+    /**
+     * A 429 is the server's word, not the row's. Walking on to the next row
+     * was three refusals per song where one said everything — and each extra
+     * ask is what keeps the server refusing.
+     */
+    @Test
+    fun `a throttled source is not asked about its other rows`() = runBlocking {
+        val opened = mutableListOf<String>()
+        val throttled = object : MusicSource {
+            override val configId = "Monochrome"
+            override val kind = SourceKind.MONOCHROME
+            override val displayName = "Monochrome"
+            override suspend fun health() = SourceHealth.Ok()
+            override suspend fun search(query: String, limit: Int, waitForAll: Boolean, request: StreamRequest?) =
+                (1..3).map { song(RACE_TITLE, RACE_ARTIST, "2:00").copy(videoId = "row-$it") }
+            override suspend fun stream(trackId: String, request: StreamRequest): SourceStream? {
+                opened += trackId
+                throw SourceThrottled("HTTP 429")
+            }
+        }
+
+        assertNull(SourceResolver.bestAcross(listOf(throttled), raceTarget(), StreamRequest.Lossless))
+        assertEquals(1, opened.size)
     }
 
     /**

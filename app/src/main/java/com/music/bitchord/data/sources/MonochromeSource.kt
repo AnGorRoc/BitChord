@@ -146,6 +146,9 @@ class MonochromeSource(
             runCatching { probe(trackId) }
         }.getOrElse {
             TrackLog.w(TAG, "Monochrome: couldn't open $trackId: ${it.message}")
+            // Said about the server, so said up: the resolver's next row would
+            // only draw the same refusal. See [SourceThrottled].
+            if (it is SourceThrottled) throw it
             return null
         } ?: return null
         val format = StreamFormat(
@@ -196,7 +199,7 @@ class MonochromeSource(
     private val fileQuiet = Quiet()
 
     /** A 429, with how long the server asked to be left alone. */
-    private class Throttled(val retryAfter: String?) : IOException("HTTP 429")
+    private class Throttled(val retryAfter: String?) : SourceThrottled("HTTP 429")
 
     /**
      * Opens at most [MAX_PARALLEL_PROBES] files at once. A song opens up to
@@ -205,9 +208,16 @@ class MonochromeSource(
      */
     private val probeGate = Semaphore(MAX_PARALLEL_PROBES)
 
-    /** [probeOnce], within the limits [politely] keeps. */
+    /**
+     * [probeOnce], within the limits [politely] keeps — strictly: no waiting
+     * the window out and no second try. A probe that waited and asked again
+     * was the bulk of what a log of one song showed: three candidates, each
+     * asked twice a second apart, every one of them refused. The live resolve
+     * has the next source to fall back to and [QualityUpgrade][com.music.bitchord.playback.QualityUpgrade]
+     * comes back for the lossless copy once the window has passed.
+     */
     private suspend fun probe(trackId: String): Probe? =
-        politely(fileQuiet) { probeGate.withPermit { probeOnce(trackId) } }
+        politely(fileQuiet, retry = false, maxWaitMs = 0L) { probeGate.withPermit { probeOnce(trackId) } }
 
     /**
      * Starts the quiet window a 429 asked for: the server's own `Retry-After`
@@ -236,19 +246,28 @@ class MonochromeSource(
      * if it still answers with a 429. Shared by the search and the probe,
      * since the limit is the server's and not either one's.
      *
-     * A wait longer than [MAX_QUIET_WAIT_MS] is not sat through: the live
-     * resolve is blocked on this and the next source is always there to fall
-     * back to, so it fails at once. The window is still kept, so the calls
-     * behind this one don't ask either. Fails like any other error afterwards,
-     * which isn't remembered, and the next look at the track asks again.
+     * A wait longer than [maxWaitMs] is not sat through: the live resolve is
+     * blocked on this and the next source is always there to fall back to, so
+     * it fails at once. The window is still kept, so the calls behind this one
+     * don't ask either. Fails like any other error afterwards, which isn't
+     * remembered, and the next look at the track asks again.
+     *
+     * @param retry whether a 429 is asked once more after its window. Only
+     *   the search does: the files are refused in longer stretches, and a
+     *   second ask there was one more refusal, not an answer.
      */
-    private suspend fun <T> politely(quiet: Quiet, call: suspend () -> T): T {
-        var retried = false
+    private suspend fun <T> politely(
+        quiet: Quiet,
+        retry: Boolean = true,
+        maxWaitMs: Long = MAX_QUIET_WAIT_MS,
+        call: suspend () -> T,
+    ): T {
+        var retried = !retry
         while (true) {
             val quietFor = quiet.untilMs - System.currentTimeMillis()
-            if (quietFor > MAX_QUIET_WAIT_MS) {
+            if (quietFor > maxWaitMs) {
                 lastThrottledAtMs = System.currentTimeMillis()
-                throw IOException("HTTP 429, asked to wait ${quietFor / 1000}s")
+                throw SourceThrottled("HTTP 429, asked to wait ${(quietFor + 999) / 1000}s")
             }
             if (quietFor > 0) delay(quietFor)
             try {
@@ -259,6 +278,19 @@ class MonochromeSource(
                 retried = true
             }
         }
+    }
+
+    /**
+     * Logs what a 429 said about the limit, so it can be sized from the
+     * server's own word rather than guessed: `Retry-After` and any of the
+     * `RateLimit` family of headers it sent.
+     */
+    private fun logThrottle(what: String, response: okhttp3.Response): Throttled {
+        val limits = response.headers.names()
+            .filter { it.equals("Retry-After", true) || it.contains("ratelimit", ignoreCase = true) }
+            .joinToString { "$it=${response.header(it)}" }
+        TrackLog.w(TAG, "Monochrome 429 on $what: ${limits.ifBlank { "no rate-limit headers" }}")
+        return Throttled(response.header("Retry-After"))
     }
 
     /**
@@ -277,7 +309,7 @@ class MonochromeSource(
             .build()
         probeClient.newCall(request).execute().use { response ->
             if (response.code == 404) return null
-            if (response.code == 429) throw Throttled(response.header("Retry-After"))
+            if (response.code == 429) throw logThrottle("file $trackId", response)
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             // A server that ignores the range answers 200 with the whole file;
             // only its first bytes are read either way.
@@ -306,7 +338,7 @@ class MonochromeSource(
             .header("User-Agent", USER_AGENT)
             .build()
         searchClient.newCall(request).execute().use { response ->
-            if (response.code == 429) throw Throttled(response.header("Retry-After"))
+            if (response.code == 429) throw logThrottle("search", response)
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             return response.body?.string() ?: throw IOException("Empty body")
         }
@@ -375,6 +407,15 @@ class MonochromeSource(
          * nothing about the track, only about the server.
          */
         fun throttledSince(sinceMs: Long): Boolean = lastThrottledAtMs >= sinceMs
+
+        /**
+         * Whether the server is still to be left alone, for a lookup that can
+         * wait — a warm-up or a second look — to leave Monochrome out of.
+         * Counts as a throttle for [throttledSince] when it is, so a second
+         * look that skipped it isn't taken as Monochrome not having the track.
+         */
+        fun holdingOff(): Boolean =
+            (quietForMs() > 0).also { if (it) lastThrottledAtMs = System.currentTimeMillis() }
 
         /**
          * How long a 429 asked to be left alone: the `Retry-After` seconds when

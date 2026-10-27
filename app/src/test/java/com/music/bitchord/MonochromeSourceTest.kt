@@ -1,5 +1,6 @@
 package com.music.bitchord
 
+import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.permits
 import com.music.bitchord.data.sources.MonochromeSource
@@ -8,6 +9,7 @@ import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceHealth
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
+import com.music.bitchord.data.sources.SourceThrottled
 import com.music.bitchord.data.sources.StreamRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -270,28 +272,54 @@ class MonochromeSourceTest {
 
     // ── Rate limiting ─────────────────────────────────────────────────────
 
-    /** A 429 is the server asking to be left alone, not an answer about the track. */
+    /**
+     * A 429 is the server asking to be left alone, not an answer about the
+     * track — so it is said up rather than read as a miss, and not asked again
+     * on the spot: a second ask a second later was one more refusal.
+     */
     @Test
-    fun `a probe the server throttles is asked again after the wait`() = runBlocking {
+    fun `a throttled probe is asked once and said up`() = runBlocking {
         script(throttled("1"), partial(flacHead(rate = 44_100, bits = 16)))
 
-        val started = System.currentTimeMillis()
-        val stream = source().stream("1", StreamRequest.Lossless)
+        refused { source().stream("1", StreamRequest.Lossless) }
 
-        assertNotNull(stream)
-        assertEquals(2, seen.size)
-        assertTrue(System.currentTimeMillis() - started >= 900)
+        assertEquals(1, seen.size)
     }
 
     @Test
-    fun `a probe throttled twice is a miss that is not remembered`() = runBlocking {
-        script(throttled("1"), throttled("1"), partial(flacHead(rate = 44_100, bits = 16)))
+    fun `a throttled probe is not remembered`() = runBlocking {
+        script(throttled("1"), partial(flacHead(rate = 44_100, bits = 16)))
         val source = source()
 
-        assertNull(source.stream("1", StreamRequest.Lossless))
-        assertEquals(2, seen.size)
+        refused { source.stream("1", StreamRequest.Lossless) }
+        Thread.sleep(1_100)
 
         assertNotNull(source.stream("1", StreamRequest.Lossless))
+    }
+
+    /** Inside the window nothing is asked at all, however short the wait. */
+    @Test
+    fun `a probe inside the window fails without a request`() = runBlocking {
+        script(throttled("1"), partial(flacHead(rate = 44_100, bits = 16)))
+        val source = source()
+
+        refused { source.stream("1", StreamRequest.Lossless) }
+        refused { source.stream("2", StreamRequest.Lossless) }
+
+        assertEquals(1, seen.size)
+    }
+
+    @Test
+    fun `a 429 states what the server said about its limits`() = runBlocking {
+        script(throttled("1").setHeader("X-RateLimit-Remaining", "0"))
+        val logged = java.util.Collections.synchronizedList(mutableListOf<String>())
+        TrackLog.echo = { _, _, message, _ -> logged += message }
+        try {
+            refused { source().stream("1", StreamRequest.Lossless) }
+        } finally {
+            TrackLog.echo = null
+        }
+        assertTrue(logged.toString(), logged.any { "X-RateLimit-Remaining=0" in it && "Retry-After=1" in it })
     }
 
     /**
@@ -304,8 +332,8 @@ class MonochromeSourceTest {
         val source = source()
 
         val started = System.currentTimeMillis()
-        assertNull(source.stream("1", StreamRequest.Lossless))
-        assertNull(source.stream("2", StreamRequest.Lossless))
+        refused { source.stream("1", StreamRequest.Lossless) }
+        refused { source.stream("2", StreamRequest.Lossless) }
 
         assertEquals(1, seen.size)
         assertTrue(System.currentTimeMillis() - started < 2_000)
@@ -324,10 +352,10 @@ class MonochromeSourceTest {
     /** What a lookup that found nothing is told about why, so it isn't taken as a no. */
     @Test
     fun `a throttle is noted for a lookup that was running through it`() = runBlocking {
-        script(throttled("1"), throttled("1"))
+        script(throttled("1"))
         val before = System.currentTimeMillis()
 
-        assertNull(source().stream("1", StreamRequest.Lossless))
+        refused { source().stream("1", StreamRequest.Lossless) }
 
         assertTrue(MonochromeSource.throttledSince(before))
         assertFalse(MonochromeSource.throttledSince(System.currentTimeMillis() + 60_000))
@@ -364,7 +392,7 @@ class MonochromeSourceTest {
         route("/search/tracks", json(SEARCH_ANSWER))
         val source = source()
 
-        assertNull(source.stream("1", StreamRequest.Lossless))
+        refused { source.stream("1", StreamRequest.Lossless) }
         assertEquals(2, source.search("daft punk get lucky", limit = 10).size)
     }
 
@@ -381,7 +409,9 @@ class MonochromeSourceTest {
         script(throttled("x"), throttled("x"), partial(flacHead(rate = 44_100, bits = 16)))
         val source = source()
 
-        assertNull(source.stream("1", StreamRequest.Lossless))
+        refused { source.stream("1", StreamRequest.Lossless) }
+        Thread.sleep(1_100)
+        refused { source.stream("1", StreamRequest.Lossless) }
 
         // Two in a row: the second asked for 2s, which is left standing.
         assertTrue(MonochromeSource.quietForMs() in 1_000L..2_000L)
@@ -493,6 +523,12 @@ class MonochromeSourceTest {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
+
+    /** Runs [block], which must fail with the server asking to be left alone. */
+    private suspend fun refused(block: suspend () -> Any?) {
+        val failure = runCatching { block() }.exceptionOrNull()
+        assertTrue("expected a throttle, got $failure", failure is SourceThrottled)
+    }
 
     private fun route(path: String, response: MockResponse) {
         routes[path] = response
