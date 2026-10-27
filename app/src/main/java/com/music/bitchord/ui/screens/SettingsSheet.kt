@@ -72,6 +72,7 @@ import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VolumeOff
@@ -157,6 +158,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
+import com.music.bitchord.data.settings.LosslessCacheLevel
 import com.music.bitchord.data.settings.LosslessDataNotice
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.stats.Backup
@@ -238,6 +240,9 @@ fun SettingsScreen(
     val playingFormat by NerdStats.current.collectAsStateWithLifecycle()
     val playingDolbyAtmos = playingFormat?.isDolbyAtmos == true
     val cacheLimitBytes by AppSettings.audioCacheLimitBytes.collectAsStateWithLifecycle()
+    val losslessCacheLevel by AppSettings.losslessCacheLevel.collectAsStateWithLifecycle()
+    val losslessCacheLimitBytes by AppSettings.losslessCacheLimitBytes.collectAsStateWithLifecycle()
+    var pickingLosslessCache by remember { mutableStateOf(false) }
     val showCacheFolder by AppSettings.showCacheFolder.collectAsStateWithLifecycle()
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
@@ -1228,6 +1233,38 @@ fun SettingsScreen(
                     steps = 19,
                 )
             }
+            // Its own level and its own budget: one hi-res master outweighs
+            // the whole song cache — see [LosslessCacheLevel].
+            val losslessCacheTitle = stringResource(R.string.lossless_cache)
+            row(losslessCacheTitle, "cache", "flac", "hi-res", "lossless") {
+                SettingsRow(
+                    icon = Icons.Rounded.HighQuality,
+                    title = losslessCacheTitle,
+                    subtitle = stringResource(R.string.lossless_cache_subtitle),
+                    value = losslessCacheLevel.localizedLabel(),
+                    onClick = { pickingLosslessCache = true },
+                )
+            }
+            if (losslessCacheLevel != LosslessCacheLevel.OFF) {
+                val losslessLimitMb = (losslessCacheLimitBytes / (1024 * 1024)).toInt()
+                val losslessLimitTitle = stringResource(R.string.lossless_cache_limit)
+                row(losslessLimitTitle, "cache", "space", "lossless") {
+                    SliderRow(
+                        icon = Icons.Rounded.Storage,
+                        title = losslessLimitTitle,
+                        subtitle = stringResource(R.string.lossless_cache_limit_subtitle),
+                        value = formatCacheSize(losslessLimitMb),
+                        sliderValue = losslessLimitMb.toFloat(),
+                        onSliderValue = {
+                            AppSettings.setLosslessCacheLimitBytes(it.roundToInt().toLong() * 1024 * 1024)
+                        },
+                        valueRange = (AppSettings.MIN_LOSSLESS_CACHE_LIMIT_BYTES / (1024 * 1024)).toFloat()..
+                            (AppSettings.MAX_CACHE_LIMIT_BYTES / (1024 * 1024)).toFloat(),
+                        // A stop every 256 MB.
+                        steps = 38,
+                    )
+                }
+            }
             val clearSongCacheTitle = stringResource(R.string.clear_song_cache)
             row(clearSongCacheTitle, "cache", "free space") {
                 SettingsRow(
@@ -1643,6 +1680,21 @@ fun SettingsScreen(
                         QualityTarget.CELLULAR -> AppSettings.setAudioQualityCellular(quality)
                     }
                     picking = null
+                },
+            )
+        }
+    }
+
+    if (pickingLosslessCache) {
+        ModalBottomSheet(
+            onDismissRequest = { pickingLosslessCache = false },
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            LosslessCacheSheet(
+                selected = losslessCacheLevel,
+                onSelect = { level ->
+                    AppSettings.setLosslessCacheLevel(level)
+                    pickingLosslessCache = false
                 },
             )
         }
@@ -2279,6 +2331,96 @@ private fun DownloadQualitySheet(
                     )
                     Text(
                         text = stringResource(R.string.quality_per_track, quality.detail, quality.perTrack),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (chosen) {
+                    Spacer(Modifier.width(12.dp))
+                    Icon(
+                        Icons.Rounded.Check,
+                        contentDescription = stringResource(R.string.selected),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LosslessCacheLevel.localizedLabel(): String = stringResource(
+    when (this) {
+        LosslessCacheLevel.OFF -> R.string.off
+        LosslessCacheLevel.CD -> R.string.lossless_cache_cd
+        LosslessCacheLevel.ALL -> R.string.lossless_cache_hires
+    },
+)
+
+@Composable
+private fun LosslessCacheLevel.localizedDetail(): String = stringResource(
+    when (this) {
+        LosslessCacheLevel.OFF -> R.string.lossless_cache_off_detail
+        LosslessCacheLevel.CD -> R.string.lossless_cache_cd_detail
+        LosslessCacheLevel.ALL -> R.string.lossless_cache_hires_detail
+    },
+)
+
+/** The three lossless cache levels, lightest first — same shape as [DownloadQualitySheet]. */
+@Composable
+private fun LosslessCacheSheet(
+    selected: LosslessCacheLevel,
+    onSelect: (LosslessCacheLevel) -> Unit,
+) {
+    val haptics = LocalHapticFeedback.current
+    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Row(
+            modifier = Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.HighQuality,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text(
+                    text = stringResource(R.string.lossless_cache),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = stringResource(R.string.lossless_cache_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+
+        LosslessCacheLevel.entries.forEach { level ->
+            val chosen = level == selected
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelect(level)
+                    }
+                    .padding(horizontal = 22.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = level.localizedLabel(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Text(
+                        text = level.localizedDetail(),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

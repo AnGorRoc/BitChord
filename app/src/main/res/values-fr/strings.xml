@@ -219,6 +219,15 @@
     <string name="synced_lyrics_subtitle">Met en surbrillance les mots au fil de la chanson</string>
     <string name="lyrics_sources">Sources des paroles</string>
     <string name="song_cache_limit">Limite du cache des chansons</string>
+    <string name="lossless_cache">Sans perte en cache</string>
+    <string name="lossless_cache_subtitle">Garder sur l’appareil les titres sans perte écoutés</string>
+    <string name="lossless_cache_cd">Qualité CD</string>
+    <string name="lossless_cache_hires">Hi-Res</string>
+    <string name="lossless_cache_off_detail">Jusqu’à 320 kb/s seulement</string>
+    <string name="lossless_cache_cd_detail">FLAC 16 bits, environ 30 Mo par titre</string>
+    <string name="lossless_cache_hires_detail">Tout le sans perte, jusqu’à 250 Mo par titre</string>
+    <string name="lossless_cache_limit">Limite sans perte</string>
+    <string name="lossless_cache_limit_subtitle">Séparée du cache des titres</string>
     <string name="clear_song_cache">Vider le cache des chansons</string>
     <string name="clear_song_cache_subtitle">Libère l\'espace utilisé par l\'audio téléchargé</string>
     <string name="clear_image_cache">Vider le cache des images</string>

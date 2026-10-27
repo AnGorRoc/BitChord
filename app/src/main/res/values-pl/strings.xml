@@ -216,6 +216,15 @@
     <string name="synced_lyrics_subtitle">Podświetla słowa na odtwarzaczu w miarę ich śpiewania</string>
     <string name="lyrics_sources">Źródła tekstów</string>
     <string name="song_cache_limit">Limit pamięci podręcznej utworów</string>
+    <string name="lossless_cache">Lossless w pamięci podręcznej</string>
+    <string name="lossless_cache_subtitle">Zachowuj odtworzone utwory lossless na urządzeniu</string>
+    <string name="lossless_cache_cd">Jakość CD</string>
+    <string name="lossless_cache_hires">Hi-Res</string>
+    <string name="lossless_cache_off_detail">Tylko do 320 kb/s</string>
+    <string name="lossless_cache_cd_detail">16-bitowy FLAC, ok. 30 MB na utwór</string>
+    <string name="lossless_cache_hires_detail">Cały lossless, do 250 MB na utwór</string>
+    <string name="lossless_cache_limit">Limit lossless</string>
+    <string name="lossless_cache_limit_subtitle">Oddzielnie od pamięci utworów</string>
     <string name="clear_song_cache">Wyczyść pamięć podręczną utworów</string>
     <string name="clear_song_cache_subtitle">Zwalnia miejsce zajmowane przez pobrane pliki audio</string>
     <string name="clear_image_cache">Wyczyść pamięć podręczną obrazów</string>

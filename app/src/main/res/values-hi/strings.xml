@@ -218,6 +218,15 @@
     <string name="synced_lyrics_subtitle">गाए जाने के साथ प्लेयर पर शब्दों को हाइलाइट करता है</string>
     <string name="lyrics_sources">लिरिक्स के स्रोत</string>
     <string name="song_cache_limit">गाना कैश सीमा</string>
+    <string name="lossless_cache">कैश में लॉसलेस</string>
+    <string name="lossless_cache_subtitle">चलाए गए लॉसलेस गाने डिवाइस पर रखें</string>
+    <string name="lossless_cache_cd">CD क्वालिटी</string>
+    <string name="lossless_cache_hires">Hi-Res</string>
+    <string name="lossless_cache_off_detail">सिर्फ़ 320 kbps तक</string>
+    <string name="lossless_cache_cd_detail">16-बिट FLAC, हर गाना लगभग 30 MB</string>
+    <string name="lossless_cache_hires_detail">सारा लॉसलेस, हर गाना 250 MB तक</string>
+    <string name="lossless_cache_limit">लॉसलेस सीमा</string>
+    <string name="lossless_cache_limit_subtitle">सॉन्ग कैश से अलग</string>
     <string name="clear_song_cache">गाना कैश साफ़ करें</string>
     <string name="clear_song_cache_subtitle">डाउनलोड किए गए ऑडियो द्वारा इस्तेमाल की गई जगह खाली करता है</string>
     <string name="clear_image_cache">इमेज कैश साफ़ करें</string>

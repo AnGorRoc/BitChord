@@ -219,6 +219,15 @@
     <string name="synced_lyrics_subtitle">מדגיש את המילים בנגן בזמן שהן מושרות</string>
     <string name="lyrics_sources">מקורות מילות שיר</string>
     <string name="song_cache_limit">מגבלת מטמון שירים</string>
+    <string name="lossless_cache">Lossless במטמון</string>
+    <string name="lossless_cache_subtitle">לשמור במכשיר שירי Lossless שהושמעו</string>
+    <string name="lossless_cache_cd">איכות CD</string>
+    <string name="lossless_cache_hires">Hi-Res</string>
+    <string name="lossless_cache_off_detail">עד 320 kbps בלבד</string>
+    <string name="lossless_cache_cd_detail">FLAC של 16 ביט, כ-30 MB לשיר</string>
+    <string name="lossless_cache_hires_detail">כל ה-Lossless, עד 250 MB לשיר</string>
+    <string name="lossless_cache_limit">מגבלת Lossless</string>
+    <string name="lossless_cache_limit_subtitle">בנפרד ממטמון השירים</string>
     <string name="clear_song_cache">ניקוי מטמון שירים</string>
     <string name="clear_song_cache_subtitle">משחרר שטח שתפוס על ידי אודיו שהורד</string>
     <string name="clear_image_cache">ניקוי מטמון תמונות</string>

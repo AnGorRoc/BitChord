@@ -249,6 +249,15 @@
     <string name="synced_lyrics_subtitle">Làm sáng các từ trên trình phát khi đang được hát</string>
     <string name="lyrics_sources">Nguồn lời bài hát</string>
     <string name="song_cache_limit">Giới hạn bộ nhớ đệm bài hát</string>
+    <string name="lossless_cache">Lossless trong bộ nhớ đệm</string>
+    <string name="lossless_cache_subtitle">Giữ bài lossless đã phát trên thiết bị</string>
+    <string name="lossless_cache_cd">Chất lượng CD</string>
+    <string name="lossless_cache_hires">Hi-Res</string>
+    <string name="lossless_cache_off_detail">Chỉ đến 320 kbps</string>
+    <string name="lossless_cache_cd_detail">FLAC 16-bit, khoảng 30 MB mỗi bài</string>
+    <string name="lossless_cache_hires_detail">Toàn bộ lossless, tối đa 250 MB mỗi bài</string>
+    <string name="lossless_cache_limit">Giới hạn lossless</string>
+    <string name="lossless_cache_limit_subtitle">Tách riêng khỏi bộ nhớ đệm bài hát</string>
     <string name="clear_song_cache">Xóa bộ nhớ đệm bài hát</string>
     <string name="clear_song_cache_subtitle">Giải phóng dung lượng do âm thanh đã tải sử dụng</string>
     <string name="clear_image_cache">Xóa bộ nhớ đệm hình ảnh</string>

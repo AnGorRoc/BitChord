@@ -218,6 +218,15 @@
     <string name="synced_lyrics_subtitle">Hebt die Wörter im Player passend zum Gesang hervor</string>
     <string name="lyrics_sources">Songtext-Quellen</string>
     <string name="song_cache_limit">Song-Cache-Limit</string>
+    <string name="lossless_cache">Verlustfrei im Cache</string>
+    <string name="lossless_cache_subtitle">Gespielte verlustfreie Songs auf dem Gerät behalten</string>
+    <string name="lossless_cache_cd">CD-Qualität</string>
+    <string name="lossless_cache_hires">Hi-Res</string>
+    <string name="lossless_cache_off_detail">Nur bis 320 kbit/s</string>
+    <string name="lossless_cache_cd_detail">16-Bit-FLAC, etwa 30 MB pro Song</string>
+    <string name="lossless_cache_hires_detail">Alles verlustfrei, bis 250 MB pro Song</string>
+    <string name="lossless_cache_limit">Verlustfrei-Limit</string>
+    <string name="lossless_cache_limit_subtitle">Getrennt vom Song-Cache</string>
     <string name="clear_song_cache">Song-Cache leeren</string>
     <string name="clear_song_cache_subtitle">Gibt den von heruntergeladenem Audio belegten Speicher frei</string>
     <string name="clear_image_cache">Bild-Cache leeren</string>

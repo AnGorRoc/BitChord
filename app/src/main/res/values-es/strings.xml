@@ -231,6 +231,15 @@
     <string name="synced_lyrics_subtitle">Ilumina las palabras mientras se cantan</string>
     <string name="lyrics_sources">Fuentes de letras</string>
     <string name="song_cache_limit">Límite de caché de canciones</string>
+    <string name="lossless_cache">Sin pérdida en caché</string>
+    <string name="lossless_cache_subtitle">Guardar en el teléfono las canciones sin pérdida reproducidas</string>
+    <string name="lossless_cache_cd">Calidad CD</string>
+    <string name="lossless_cache_hires">Hi-Res</string>
+    <string name="lossless_cache_off_detail">Solo hasta 320 kbps</string>
+    <string name="lossless_cache_cd_detail">FLAC de 16 bits, unos 30 MB por canción</string>
+    <string name="lossless_cache_hires_detail">Todo sin pérdida, hasta 250 MB por canción</string>
+    <string name="lossless_cache_limit">Límite sin pérdida</string>
+    <string name="lossless_cache_limit_subtitle">Aparte de la caché de canciones</string>
     <string name="clear_song_cache">Borrar caché de canciones</string>
     <string name="clear_song_cache_subtitle">Libera espacio usado por el audio descargado</string>
     <string name="clear_image_cache">Borrar caché de imágenes</string>

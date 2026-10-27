@@ -549,6 +549,19 @@ object AppSettings {
     val audioCacheLimitBytes = MutableStateFlow(DEFAULT_CACHE_LIMIT_BYTES)
 
     /**
+     * How much lossless the song cache keeps after a track plays — see
+     * [LosslessCacheLevel]. Off by default: the cache keeps lossy copies (AAC
+     * up to 320 kbps, YouTube's Opus) unless the listener asks for more.
+     */
+    val losslessCacheLevel = MutableStateFlow(LosslessCacheLevel.OFF)
+
+    /**
+     * Disk budget for kept lossless, on top of [audioCacheLimitBytes] rather
+     * than inside it — see [LosslessCachePolicy.evictorCeiling].
+     */
+    val losslessCacheLimitBytes = MutableStateFlow(DEFAULT_LOSSLESS_CACHE_LIMIT_BYTES)
+
+    /**
      * Whether Library's "On device" shelf carries the Cached songs folder —
      * the YouTube and JioSaavn tracks the song cache is holding. Off by
      * default: the cache is an implementation detail most people never need
@@ -937,6 +950,11 @@ object AppSettings {
         paxSenixApiKey.value = prefs.getString(KEY_PAXSENIX_API_KEY, "").orEmpty()
         com.music.bitchord.data.lyrics.PaxSenix.setApiKey(paxSenixApiKey.value)
         audioCacheLimitBytes.value = clampCacheLimit(prefs.getLong(KEY_CACHE_LIMIT, DEFAULT_CACHE_LIMIT_BYTES))
+        losslessCacheLevel.value = runCatching {
+            LosslessCacheLevel.valueOf(prefs.getString(KEY_LOSSLESS_CACHE_LEVEL, null) ?: LosslessCacheLevel.OFF.name)
+        }.getOrDefault(LosslessCacheLevel.OFF)
+        losslessCacheLimitBytes.value =
+            clampLosslessCacheLimit(prefs.getLong(KEY_LOSSLESS_CACHE_LIMIT, DEFAULT_LOSSLESS_CACHE_LIMIT_BYTES))
         showCacheFolder.value = prefs.getBoolean(KEY_SHOW_CACHE_FOLDER, false)
         lastfmEnabled.value = prefs.getBoolean(KEY_LASTFM_ENABLED, false)
         lastfmUsername.value = prefs.getString(KEY_LASTFM_USERNAME, "").orEmpty()
@@ -1534,6 +1552,21 @@ object AppSettings {
         if (value > MAX_CACHE_LIMIT_BYTES) UNLIMITED_CACHE_LIMIT_BYTES
         else value.coerceAtLeast(DEFAULT_CACHE_LIMIT_BYTES)
 
+    fun setLosslessCacheLevel(value: LosslessCacheLevel) {
+        losslessCacheLevel.value = value
+        prefs.edit().putString(KEY_LOSSLESS_CACHE_LEVEL, value.name).apply()
+    }
+
+    /** Clamped to [MIN_LOSSLESS_CACHE_LIMIT_BYTES]..[MAX_CACHE_LIMIT_BYTES]. */
+    fun setLosslessCacheLimitBytes(value: Long) {
+        val clamped = clampLosslessCacheLimit(value)
+        losslessCacheLimitBytes.value = clamped
+        prefs.edit().putLong(KEY_LOSSLESS_CACHE_LIMIT, clamped).apply()
+    }
+
+    private fun clampLosslessCacheLimit(value: Long): Long =
+        value.coerceIn(MIN_LOSSLESS_CACHE_LIMIT_BYTES, MAX_CACHE_LIMIT_BYTES)
+
     fun setShowCacheFolder(value: Boolean) {
         showCacheFolder.value = value
         prefs.edit().putBoolean(KEY_SHOW_CACHE_FOLDER, value).apply()
@@ -2017,6 +2050,10 @@ object AppSettings {
     const val DEFAULT_CACHE_LIMIT_BYTES = 512L * 1024 * 1024
     const val MAX_CACHE_LIMIT_BYTES = 10L * 1024 * 1024 * 1024
 
+    /** Room for about thirty CD-quality FLACs, or four or five hi-res masters. */
+    const val DEFAULT_LOSSLESS_CACHE_LIMIT_BYTES = 1L * 1024 * 1024 * 1024
+    const val MIN_LOSSLESS_CACHE_LIMIT_BYTES = 256L * 1024 * 1024
+
     /** The cache limit with no ceiling: only free storage bounds it. */
     const val UNLIMITED_CACHE_LIMIT_BYTES = Long.MAX_VALUE
 
@@ -2068,6 +2105,8 @@ object AppSettings {
     private const val KEY_REPEAT_MODE = "repeat_mode"
     private const val KEY_NERD_STATS = "show_nerd_stats"
     private const val KEY_CACHE_LIMIT = "audio_cache_limit_bytes"
+    private const val KEY_LOSSLESS_CACHE_LEVEL = "lossless_cache_level"
+    private const val KEY_LOSSLESS_CACHE_LIMIT = "lossless_cache_limit_bytes"
     private const val KEY_REDUCE_ANIMATION = "reduce_animation"
     private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     private const val KEY_HIGH_PERFORMANCE_MODE = "high_performance_mode"

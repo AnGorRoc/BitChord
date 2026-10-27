@@ -24,7 +24,10 @@ import androidx.media3.datasource.cache.SimpleCache
 import java.io.IOException
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.LosslessCachePolicy
+import com.music.bitchord.data.settings.LosslessTier
 import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
@@ -41,6 +44,8 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -258,11 +263,26 @@ object AudioCache {
         // A SimpleCache can only be opened once per process, so the ceiling
         // moves by mutating this evictor rather than reopening the cache —
         // see [DynamicLruCacheEvictor].
+        //
+        // Kept lossless has a budget of its own on top of the song cache's —
+        // see [LosslessCachePolicy.evictorCeiling] — and a change to the level
+        // or the budget is applied straight away rather than at the next
+        // track change.
         scope.launch {
-            AppSettings.audioCacheLimitBytes.collect { maxBytes ->
-                evictor.maxBytes = maxBytes
-                evictor.applyNow(cache)
-            }
+            combine(
+                AppSettings.audioCacheLimitBytes,
+                AppSettings.losslessCacheLevel,
+                AppSettings.losslessCacheLimitBytes,
+            ) { songs, level, lossless -> LosslessCachePolicy.evictorCeiling(songs, level, lossless) }
+                .collect { maxBytes ->
+                    evictor.maxBytes = maxBytes
+                    evictor.applyNow(cache)
+                }
+        }
+        scope.launch {
+            combine(AppSettings.losslessCacheLevel, AppSettings.losslessCacheLimitBytes) { level, limit -> level to limit }
+                .drop(1)
+                .collect { dropForeignEntries(lastKeep) }
         }
     }
 
@@ -537,10 +557,45 @@ object AudioCache {
      * or lossless rendition nothing ranked above YouTube would serve.
      */
     private fun isKeptOrigin(key: String): Boolean = runCatching {
-        val origin = cache.getContentMetadata(key).get(META_ORIGIN, null as String?)
-        origin != null && origin != Origin.OTHER.name &&
-            runCatching { Origin.valueOf(origin) }.isSuccess
+        keptOrigin(cache.getContentMetadata(key)) != null
     }.getOrDefault(false)
+
+    /**
+     * The origin of an entry worth keeping past playback, or null for one
+     * that goes when its track does: an addon's ([Origin.OTHER]), or a
+     * Monochrome FLAC the listener's lossless level doesn't keep — see
+     * [LosslessCachePolicy.keeps]. The one rule every keep-or-drop decision
+     * here asks, so the Cached songs folder, the purge and sibling reuse can
+     * never disagree about an entry.
+     */
+    private fun keptOrigin(meta: ContentMetadata): Origin? {
+        val origin = meta.get(META_ORIGIN, null as String?)
+            ?.let { runCatching { Origin.valueOf(it) }.getOrNull() }
+            ?: return null
+        if (origin == Origin.OTHER) return null
+        if (origin == Origin.MONOCHROME &&
+            !LosslessCachePolicy.keeps(AppSettings.losslessCacheLevel.value, losslessTierIn(meta))
+        ) {
+            return null
+        }
+        return origin
+    }
+
+    private fun losslessTierIn(meta: ContentMetadata): LosslessTier? =
+        meta.get(META_LOSSLESS_TIER, null as String?)
+            ?.let { runCatching { LosslessTier.valueOf(it) }.getOrNull() }
+
+    /**
+     * Which side of the CD line the lossless stream behind [uri] sits on, from
+     * what its source stated: an upgrade's parked stream, the substitute
+     * pinned for the track, or the format declared as it was served.
+     */
+    private fun losslessTierOf(uri: Uri, mediaId: String): LosslessTier =
+        LosslessTier.of(
+            QualityUpgrade.forcedStream(uri)?.format
+                ?: StreamChoice.of(mediaId)?.format
+                ?: NerdStats.declaredFormat(mediaId),
+        )
 
     /** Whether every byte of the entry [key] is on disk. */
     private fun isComplete(key: String): Boolean = runCatching {
@@ -588,9 +643,10 @@ object AudioCache {
      * Only the built-in sources — [YOUTUBE], [MONOCHROME] and [JIOSAAVN] —
      * are kept on disk once a track stops playing: they are what the player
      * reaches first, before any addon has answered, so they are the copies
-     * worth having instantly next time. A Monochrome FLAC is the one most
-     * worth keeping, being 20-50 MB to fetch again; it ages out under the same
-     * size cap as the rest. Everything else — an addon's or a module's
+     * worth having instantly next time. A Monochrome FLAC is kept only as far
+     * as the listener's lossless level allows, under a budget of its own —
+     * see [LosslessCachePolicy] — since one hi-res master can outweigh the
+     * whole song cache. Everything else — an addon's or a module's
      * stream, a lossless upgrade from one of them — is [OTHER]: cached while
      * it plays, so seeking and Automix's analysis work exactly as before, then
      * dropped by [dropForeignEntries].
@@ -726,6 +782,8 @@ object AudioCache {
         val mediaId = mediaIdIn(spec.uri) ?: return
         val key = spec.key ?: keyFactory.buildCacheKey(spec)
         val origin = originOf(spec.uri, mediaId, servedUrl)
+        // What decides whether this FLAC outlives its track — see [keptOrigin].
+        val tier = if (origin == Origin.MONOCHROME) losslessTierOf(spec.uri, mediaId).name else null
         val song = notedSongs[mediaId]
         // Automix's analysis-only read: its own YouTube Opus download, made
         // whatever the track is actually playing from. Never playback.
@@ -741,7 +799,8 @@ object AudioCache {
                 meta.get(META_MEDIA_ID, null as String?) == mediaId &&
                 has(META_PLAYBACK) == usedByPlayback &&
                 (usedByPlayback || has(META_ANALYSIS)) &&
-                has(META_PLAYED) == played
+                has(META_PLAYED) == played &&
+                (tier == null || meta.get(META_LOSSLESS_TIER, null as String?) == tier)
             // Every re-open — a seek, a continuation fetch — passes through
             // here. Only write when something would actually change.
             if (tagged && (song == null || has(META_TITLE))) return
@@ -750,6 +809,7 @@ object AudioCache {
                 ContentMetadataMutations().also { mutations ->
                     mutations.set(META_ORIGIN, origin.name)
                     mutations.set(META_MEDIA_ID, mediaId)
+                    tier?.let { mutations.set(META_LOSSLESS_TIER, it) }
                     if (usedByPlayback) mutations.set(META_PLAYBACK, "1") else mutations.set(META_ANALYSIS, "1")
                     if (played) mutations.set(META_PLAYED, "1")
                     describe(mutations, song, spec.uri)
@@ -826,10 +886,7 @@ object AudioCache {
         val byTrack = LinkedHashMap<String, MutableList<Entry>>()
         for (key in cache.keys) {
             val meta = runCatching { cache.getContentMetadata(key) }.getOrNull() ?: continue
-            val origin = meta.get(META_ORIGIN, null as String?)
-                ?.let { runCatching { Origin.valueOf(it) }.getOrNull() }
-                ?: continue
-            if (origin == Origin.OTHER) continue
+            val origin = keptOrigin(meta) ?: continue
             if (meta.get(META_PLAYED, null as String?) == null) continue
             val mediaId = meta.get(META_MEDIA_ID, null as String?) ?: continue
             val spans = cache.getCachedSpans(key).filter { it.isCached && it.file?.exists() == true }
@@ -1033,20 +1090,18 @@ object AudioCache {
      * playback behaves the same as ever, and leave it once the track does.
      * Analysis results are kept in their own store, so the analysis-only
      * audio has done its job by then.
+     *
+     * Monochrome's FLACs go the same way when the lossless level doesn't keep
+     * them, and the ones it does keep are held to their own budget here,
+     * least recently used out first — see [LosslessCachePolicy].
      */
     fun dropForeignEntries(keep: Set<String>) {
         if (!::cache.isInitialized) return
+        lastKeep = keep
         scope.launch {
             var dropped = 0
-            cache.keys.toList().forEach { key ->
-                val meta = runCatching { cache.getContentMetadata(key) }.getOrNull() ?: return@forEach
-                val foreign = meta.get(META_ORIGIN, null as String?) == Origin.OTHER.name
-                val analysisOnly = meta.get(META_ANALYSIS, null as String?) != null &&
-                    meta.get(META_PLAYBACK, null as String?) == null &&
-                    meta.get(META_PLAYED, null as String?) == null
-                if (!foreign && !analysisOnly) return@forEach
-                val mediaId = meta.get(META_MEDIA_ID, null as String?)
-                if (mediaId != null && mediaId in keep) return@forEach
+            val keptLossless = mutableListOf<LosslessCachePolicy.Entry>()
+            fun drop(key: String, mediaId: String?) {
                 runCatching { cache.removeResource(key) }
                     .onSuccess {
                         dropped++
@@ -1058,9 +1113,44 @@ object AudioCache {
                     }
                     .onFailure { TrackLog.d(TAG, "unkept cache entry $key still in use: ${it.message}") }
             }
-            if (dropped > 0) TrackLog.d(TAG, "dropped $dropped addon / analysis-only cache entries")
+            val mediaIds = HashMap<String, String?>()
+            cache.keys.toList().forEach { key ->
+                val meta = runCatching { cache.getContentMetadata(key) }.getOrNull() ?: return@forEach
+                val origin = meta.get(META_ORIGIN, null as String?)
+                val kept = keptOrigin(meta)
+                val foreign = origin != null && kept == null
+                val analysisOnly = meta.get(META_ANALYSIS, null as String?) != null &&
+                    meta.get(META_PLAYBACK, null as String?) == null &&
+                    meta.get(META_PLAYED, null as String?) == null
+                val mediaId = meta.get(META_MEDIA_ID, null as String?)
+                if (mediaId != null && mediaId in keep) return@forEach
+                if (foreign || analysisOnly) {
+                    drop(key, mediaId)
+                    return@forEach
+                }
+                if (kept == Origin.MONOCHROME) {
+                    val spans = cache.getCachedSpans(key)
+                    keptLossless += LosslessCachePolicy.Entry(
+                        key = key,
+                        bytes = spans.sumOf { it.length },
+                        lastUsedMs = spans.maxOfOrNull { it.lastTouchTimestamp } ?: 0L,
+                    )
+                    mediaIds[key] = mediaId
+                }
+            }
+            LosslessCachePolicy.overBudget(keptLossless, AppSettings.losslessCacheLimitBytes.value)
+                .forEach { key -> drop(key, mediaIds[key]) }
+            if (dropped > 0) TrackLog.d(TAG, "dropped $dropped addon / lossless / analysis-only cache entries")
         }
     }
+
+    /**
+     * The tracks the last purge was told to spare, so a change to the
+     * lossless level or budget can apply at once without dropping the track
+     * playing — see [init].
+     */
+    @Volatile
+    private var lastKeep: Set<String> = emptySet()
 
     /** The part of a cache key that names the track, before any `#rendition`; see [keyFactory]. */
     private fun cacheKeyBaseOf(mediaId: String): String =
@@ -1080,6 +1170,9 @@ object AudioCache {
     }
 
     private const val META_ORIGIN = "bc_origin"
+
+    /** A kept lossless entry's [LosslessTier], which decides whether its level keeps it. */
+    private const val META_LOSSLESS_TIER = "bc_lossless_tier"
     private const val META_MEDIA_ID = "bc_media_id"
     private const val META_TITLE = "bc_title"
     private const val META_ARTIST = "bc_artist"

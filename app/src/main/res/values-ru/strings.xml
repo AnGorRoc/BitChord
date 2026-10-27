@@ -228,6 +228,15 @@
     <string name="synced_lyrics_subtitle">Подсвечивает слова в плеере по мере исполнения</string>
     <string name="lyrics_sources">Источники текстов</string>
     <string name="song_cache_limit">Лимит кэша песен</string>
+    <string name="lossless_cache">Без потерь в кэше</string>
+    <string name="lossless_cache_subtitle">Хранить на устройстве прослушанные треки без потерь</string>
+    <string name="lossless_cache_cd">Качество CD</string>
+    <string name="lossless_cache_hires">Hi-Res</string>
+    <string name="lossless_cache_off_detail">Только до 320 кбит/с</string>
+    <string name="lossless_cache_cd_detail">16-битный FLAC, около 30 МБ на трек</string>
+    <string name="lossless_cache_hires_detail">Всё без потерь, до 250 МБ на трек</string>
+    <string name="lossless_cache_limit">Лимит без потерь</string>
+    <string name="lossless_cache_limit_subtitle">Отдельно от кэша треков</string>
     <string name="clear_song_cache">Очистить кэш песен</string>
     <string name="clear_song_cache_subtitle">Освобождает место, занятое загруженным аудио</string>
     <string name="clear_image_cache">Очистить кэш изображений</string>

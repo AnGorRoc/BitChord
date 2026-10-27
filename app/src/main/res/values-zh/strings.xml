@@ -213,6 +213,15 @@
     <string name="synced_lyrics_subtitle">随着演唱在播放器上高亮显示歌词</string>
     <string name="lyrics_sources">歌词来源</string>
     <string name="song_cache_limit">歌曲缓存上限</string>
+    <string name="lossless_cache">缓存无损音频</string>
+    <string name="lossless_cache_subtitle">将播放过的无损歌曲保存在设备上</string>
+    <string name="lossless_cache_cd">CD 音质</string>
+    <string name="lossless_cache_hires">Hi-Res</string>
+    <string name="lossless_cache_off_detail">最高 320 kbps</string>
+    <string name="lossless_cache_cd_detail">16 位 FLAC，每首约 30 MB</string>
+    <string name="lossless_cache_hires_detail">全部无损，每首最多 250 MB</string>
+    <string name="lossless_cache_limit">无损上限</string>
+    <string name="lossless_cache_limit_subtitle">与歌曲缓存分开计算</string>
     <string name="clear_song_cache">清除歌曲缓存</string>
     <string name="clear_song_cache_subtitle">释放已下载音频占用的空间</string>
     <string name="clear_image_cache">清除图片缓存</string>

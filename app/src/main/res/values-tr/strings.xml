@@ -243,6 +243,15 @@
     <string name="synced_lyrics_subtitle">Söylenirken oynatıcıdaki kelimeleri aydınlatır</string>
     <string name="lyrics_sources">Söz kaynakları</string>
     <string name="song_cache_limit">Şarkı önbelleği sınırı</string>
+    <string name="lossless_cache">Önbellekte kayıpsız</string>
+    <string name="lossless_cache_subtitle">Çalınan kayıpsız şarkıları cihazda tut</string>
+    <string name="lossless_cache_cd">CD kalitesi</string>
+    <string name="lossless_cache_hires">Hi-Res</string>
+    <string name="lossless_cache_off_detail">Yalnızca en fazla 320 kbps</string>
+    <string name="lossless_cache_cd_detail">16 bit FLAC, şarkı başına yaklaşık 30 MB</string>
+    <string name="lossless_cache_hires_detail">Tüm kayıpsız, şarkı başına en fazla 250 MB</string>
+    <string name="lossless_cache_limit">Kayıpsız sınırı</string>
+    <string name="lossless_cache_limit_subtitle">Şarkı önbelleğinden ayrı</string>
     <string name="clear_song_cache">Şarkı önbelleğini temizle</string>
     <string name="clear_song_cache_subtitle">İndirilen sesin kullandığı alanı boşaltır</string>
     <string name="clear_image_cache">Resim önbelleğini temizle</string>

@@ -335,6 +335,15 @@
     <string name="synced_lyrics_subtitle">지금 불리는 가사를 밝게 표시합니다</string>
     <string name="lyrics_sources">가사 소스</string>
     <string name="song_cache_limit">음악 캐시 제한</string>
+    <string name="lossless_cache">캐시에 무손실 저장</string>
+    <string name="lossless_cache_subtitle">재생한 무손실 음악을 기기에 보관</string>
+    <string name="lossless_cache_cd">CD 음질</string>
+    <string name="lossless_cache_hires">하이레스</string>
+    <string name="lossless_cache_off_detail">320kbps까지만</string>
+    <string name="lossless_cache_cd_detail">16비트 FLAC, 곡당 약 30MB</string>
+    <string name="lossless_cache_hires_detail">모든 무손실, 곡당 최대 250MB</string>
+    <string name="lossless_cache_limit">무손실 한도</string>
+    <string name="lossless_cache_limit_subtitle">음악 캐시와 별도</string>
     <string name="clear_song_cache">음악 캐시 지우기</string>
     <string name="clear_song_cache_subtitle">다운로드한 오디오가 차지한 공간을 확보합니다</string>
     <string name="clear_image_cache">이미지 캐시 지우기</string>

@@ -213,6 +213,15 @@
     <string name="synced_lyrics_subtitle">歌われている歌詞をプレイヤー上でハイライト表示します</string>
     <string name="lyrics_sources">歌詞のソース</string>
     <string name="song_cache_limit">曲キャッシュの上限</string>
+    <string name="lossless_cache">ロスレスをキャッシュ</string>
+    <string name="lossless_cache_subtitle">再生したロスレス曲を端末に保存</string>
+    <string name="lossless_cache_cd">CD品質</string>
+    <string name="lossless_cache_hires">ハイレゾ</string>
+    <string name="lossless_cache_off_detail">320 kbps まで</string>
+    <string name="lossless_cache_cd_detail">16ビット FLAC、1曲約30 MB</string>
+    <string name="lossless_cache_hires_detail">すべてのロスレス、1曲最大250 MB</string>
+    <string name="lossless_cache_limit">ロスレスの上限</string>
+    <string name="lossless_cache_limit_subtitle">曲キャッシュとは別枠</string>
     <string name="clear_song_cache">曲のキャッシュを削除</string>
     <string name="clear_song_cache_subtitle">ダウンロードした音声が使用している容量を解放します</string>
     <string name="clear_image_cache">画像のキャッシュを削除</string>
