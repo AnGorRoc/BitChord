@@ -1214,7 +1214,6 @@
     <string name="spotify_sync_error_network">No connection. Check your internet and try again.</string>
     <string name="spotify_sync_error_other">Something went wrong: %1$s</string>
     <string name="spotify_sync_auto">Keep up to date</string>
-    <string name="spotify_sync_auto_subtitle">Bring in new songs whenever the Spotify page opens</string>
     <string name="spotify_sync_imported">Imported</string>
     <string name="onboarding_title">Millions of songs, stream on BitChord</string>
     <string name="onboarding_name_prompt">What should we call you?</string>

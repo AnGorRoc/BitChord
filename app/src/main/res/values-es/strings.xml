@@ -1298,7 +1298,6 @@
     <string name="spotify_sync_error_network">Sin conexión. Revisa tu internet e inténtalo de nuevo.</string>
     <string name="spotify_sync_error_other">Algo salió mal: %1$s</string>
     <string name="spotify_sync_auto">Mantener al día</string>
-    <string name="spotify_sync_auto_subtitle">Trae las canciones nuevas cada vez que se abre la página de Spotify</string>
     <string name="spotify_sync_imported">Importada</string>
     <string name="spotify_sign_in">Iniciar sesión con Spotify</string>
     <string name="spotify_use_spdc_token">Usar token sp_dc</string>

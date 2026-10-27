@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,13 +20,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -33,7 +35,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,12 +46,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -66,6 +69,8 @@ import com.music.bitchord.data.spotify.SyncErrorKind
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.spotify_logo
 import com.music.bitchord.ui.components.PAGE_GUTTER
+import com.music.bitchord.ui.haptics.Haptic
+import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.components.topBarContentPadding
 import org.jetbrains.compose.resources.painterResource
@@ -215,7 +220,7 @@ fun SpotifyLibraryScreen(
                 }
             } else {
                 if (state.selecting) {
-                    item { SelectingIntro(autoSync) }
+                    item { SelectingIntro() }
                 }
                 if (loading) {
                     item {
@@ -268,35 +273,15 @@ fun SpotifyLibraryScreen(
     }
 }
 
-/** What appears over the list once choosing starts: what it does, and the keep-up-to-date switch. */
+/** What appears over the list once choosing starts: what it does. */
 @Composable
-private fun SelectingIntro(autoSync: Boolean) {
-    Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp)) {
-        Text(
-            text = stringResource(R.string.spotify_sync_description),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.spotify_sync_auto),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                Text(
-                    text = stringResource(R.string.spotify_sync_auto_subtitle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Switch(checked = autoSync, onCheckedChange = AppSettings::setSpotifyAutoSync)
-        }
-    }
+private fun SelectingIntro() {
+    Text(
+        text = stringResource(R.string.spotify_sync_description),
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
+    )
 }
 
 @Composable
@@ -318,15 +303,7 @@ private fun FloatingBar(
     indeterminate: Boolean = false,
     content: @Composable RowScope.() -> Unit,
 ) {
-    val shape = RoundedCornerShape(14.dp)
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .shadow(10.dp, shape)
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-    ) {
+    Box(modifier.floating().heightIn(min = 48.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -345,34 +322,126 @@ private fun FloatingBar(
     }
 }
 
-/** Downloads' selection bar, for playlists: select all, the count, Import, Cancel. */
+/** The lift, corners and fill the page's floating bars share with Downloads' ([LocalFolderSelectionBar]). */
+@Composable
+private fun Modifier.floating(): Modifier {
+    val shape = RoundedCornerShape(14.dp)
+    return fillMaxWidth()
+        .shadow(10.dp, shape)
+        .clip(shape)
+        .background(MaterialTheme.colorScheme.surfaceVariant)
+}
+
+/** Height of the two capsules at the foot of the selection bar. */
+private val BAR_PILL_HEIGHT = 44.dp
+
+/**
+ * The selection, the way a contextual action bar is laid out: what is chosen
+ * on top (close, the count, Select all), and under it what to do with it — the
+ * main action as the app's filled capsule, with the one setting that goes with
+ * it as its quieter twin beside it, as Play and Shuffle sit on a release page.
+ */
 @Composable
 private fun SelectionBar(state: SpotifyLibraryState, modifier: Modifier) {
     val count = state.selectedIds.size
     val allSelected = state.playlists.isNotEmpty() && count == state.playlists.size
-    val dark = isSystemInDarkTheme()
-    FloatingBar(modifier) {
-        IconButton(onClick = state::selectAll, enabled = !allSelected) {
-            Icon(
-                Icons.Rounded.Check,
-                contentDescription = stringResource(R.string.select_all),
-                tint = if (dark) Color.White else MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp),
+    val autoSync by AppSettings.spotifyAutoSync.collectAsStateWithLifecycle()
+    val ink = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+    val haptics = rememberHaptics()
+    Column(modifier.floating()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = state::clear) {
+                Icon(
+                    Icons.Rounded.Close,
+                    contentDescription = stringResource(R.string.cancel),
+                    tint = ink,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Text(
+                text = "$count ${stringResource(R.string.selected)}",
+                style = MaterialTheme.typography.titleSmall,
+                color = ink,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = state::selectAll, enabled = !allSelected) {
+                Text(stringResource(R.string.select_all))
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            BarPill(
+                icon = Icons.Rounded.Sync,
+                label = stringResource(R.string.spotify_sync_auto),
+                highlighted = autoSync,
+                onClick = {
+                    haptics.play(if (autoSync) Haptic.ToggleOff else Haptic.ToggleOn)
+                    AppSettings.setSpotifyAutoSync(!autoSync)
+                },
+                modifier = Modifier.weight(1f),
+            )
+            BarPill(
+                icon = Icons.Rounded.Download,
+                label = stringResource(R.string.spotify_import_button),
+                filled = true,
+                enabled = count > 0,
+                onClick = {
+                    haptics.play(Haptic.Resume)
+                    state.importSelected()
+                },
+                modifier = Modifier.weight(1f),
             )
         }
+    }
+}
+
+/**
+ * A capsule of the selection bar. [filled] is the main action, in the primary
+ * colour (white with black type on dark, as Play is); otherwise it is the
+ * quiet twin, which [highlighted] turns to the accent while its setting is on.
+ */
+@Composable
+private fun BarPill(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    filled: Boolean = false,
+    highlighted: Boolean = false,
+    enabled: Boolean = true,
+) {
+    val dark = isSystemInDarkTheme()
+    val scheme = MaterialTheme.colorScheme
+    val (container, content) = when {
+        filled -> (if (dark) Color.White else scheme.primary) to (if (dark) Color.Black else scheme.onPrimary)
+        highlighted -> scheme.primary.copy(alpha = 0.18f) to scheme.primary
+        else -> scheme.onSurface.copy(alpha = 0.08f) to scheme.onSurface
+    }
+    Row(
+        modifier = modifier
+            .height(BAR_PILL_HEIGHT)
+            .alpha(if (enabled) 1f else 0.38f)
+            .clip(CircleShape)
+            .background(container)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
         Text(
-            text = "$count ${stringResource(R.string.selected)}",
+            text = label,
             style = MaterialTheme.typography.titleSmall,
-            color = if (dark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
+            color = content,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
-        BarAction(
-            icon = Icons.Rounded.Download,
-            label = stringResource(R.string.spotify_import_button),
-            enabled = count > 0,
-            onClick = state::importSelected,
-        )
-        TextButton(onClick = state::clear) { Text(stringResource(R.string.cancel)) }
     }
 }
 
@@ -480,15 +549,6 @@ private fun CloseButton() {
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp),
         )
-    }
-}
-
-@Composable
-private fun BarAction(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
-    TextButton(onClick = onClick, enabled = enabled) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(4.dp))
-        Text(label, color = MaterialTheme.colorScheme.primary)
     }
 }
 
