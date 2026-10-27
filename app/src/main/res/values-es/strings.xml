@@ -331,6 +331,8 @@
     <string name="sources">Fuentes</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">Datos móviles</string>
+    <string name="lossless_data_notice">Reproduciendo sin pérdida con datos móviles</string>
+    <string name="lossless_data_notice_action">Cambiar</string>
     <string name="couldnt_load_tracks">No se pudieron cargar estas canciones</string>
     <string name="wifi_only_download_refusal">Las descargas están limitadas a Wi-Fi. Desactiva esa opción en Ajustes para usar datos móviles.</string>
     <string name="pinned_playlist_limit">Solo se pueden fijar %1$d playlists</string>

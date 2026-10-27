@@ -478,6 +478,8 @@
     <string name="sources">소스</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">모바일 데이터</string>
+    <string name="lossless_data_notice">모바일 데이터로 무손실 스트리밍 중</string>
+    <string name="lossless_data_notice_action">변경</string>
     <string name="couldnt_load_tracks">음악을 불러올 수 없습니다</string>
     <string name="wifi_only_download_refusal">Wi-Fi에서만 다운로드하도록 제한되었습니다. 모바일 데이터를 사용하려면 제한 설정을 끄세요.</string>
     <string name="pinned_playlist_limit">재생목록은 %1$d개만 고정할 수 있습니다</string>

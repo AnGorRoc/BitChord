@@ -313,6 +313,8 @@
     <string name="sources">ソース</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">モバイルデータ</string>
+    <string name="lossless_data_notice">モバイルデータでロスレス再生中</string>
+    <string name="lossless_data_notice_action">変更</string>
     <string name="couldnt_load_tracks">これらのトラックを読み込めませんでした</string>
     <string name="wifi_only_download_refusal">ダウンロードはWi-Fiのみに制限されています。モバイルデータを使うには設定でオフにしてください。</string>
     <string name="pinned_playlist_limit">ピン留めできるプレイリストは%1$d件までです</string>

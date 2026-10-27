@@ -343,6 +343,8 @@
     <string name="sources">Kaynaklar</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">Mobil veri</string>
+    <string name="lossless_data_notice">Mobil veriyle kayıpsız akış</string>
+    <string name="lossless_data_notice_action">Değiştir</string>
     <string name="couldnt_load_tracks">Bu parçalar yüklenemedi</string>
     <string name="wifi_only_download_refusal">İndirmeler yalnızca Wi-Fi ile sınırlıdır. Mobil veri kullanmak için Ayarlar\'dan bunu kapatın.</string>
     <string name="pinned_playlist_limit">Yalnızca %1$d çalma listesi sabitlenebilir</string>

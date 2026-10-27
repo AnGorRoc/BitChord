@@ -318,6 +318,8 @@
     <string name="sources">स्रोत</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">मोबाइल डेटा</string>
+    <string name="lossless_data_notice">मोबाइल डेटा पर लॉसलेस स्ट्रीमिंग</string>
+    <string name="lossless_data_notice_action">बदलें</string>
     <string name="couldnt_load_tracks">ये ट्रैक लोड नहीं हो सके</string>
     <string name="wifi_only_download_refusal">डाउनलोड केवल Wi-Fi तक सीमित हैं। मोबाइल डेटा इस्तेमाल करने के लिए सेटिंग्स में इसे बंद करें।</string>
     <string name="pinned_playlist_limit">केवल %1$d प्लेलिस्ट पिन की जा सकती हैं</string>

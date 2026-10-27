@@ -148,11 +148,17 @@ import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.model.SearchHistoryEntity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.LibrarySort
+import com.music.bitchord.data.settings.LosslessDataNotice
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.AccountProfileSelector
 import com.music.bitchord.ui.navigation.AppDestination
@@ -1003,8 +1009,63 @@ private fun BitChordApp(
     }
     LaunchedEffect(queueNotice?.id) {
         val shown = queueNotice ?: return@LaunchedEffect
-        delay(3_000)
-        if (queueNotice?.id == shown.id) queueNotice = null
+        delay(shown.durationMs)
+        if (queueNotice?.id == shown.id) {
+            queueNotice = null
+            shown.onExpire?.invoke()
+        }
+    }
+
+    // Lossless streaming over mobile data, said once and quietly — see
+    // [LosslessDataNotice] for when, and for how it retires itself.
+    // Watched as flows rather than collected into state here: the stats
+    // snapshot is republished as the decoder reports, and reading it at this
+    // level would recompose the whole app on every one of those.
+    val losslessDataMessage = stringResource(R.string.lossless_data_notice)
+    val losslessDataAction = stringResource(R.string.lossless_data_notice_action)
+    val losslessDataClose = stringResource(R.string.close)
+    LaunchedEffect(Unit) {
+        combine(
+            // Lossless as the decoder sees it, and fetched from a source rather
+            // than read off the phone: a local FLAC costs no data.
+            NerdStats.current.map { it != null && it.isLossless && it.claimed?.isLossless == true },
+            AppSettings.meteredConnection,
+            AppSettings.audioQualityCellular,
+            AppSettings.streamCeilingOverride,
+            AppSettings.losslessDataNoticeDone,
+        ) { streaming, metered, cellular, override, done ->
+            LosslessDataNotice.shouldShow(
+                streamingLossless = streaming,
+                metered = metered,
+                cellularCeiling = cellular,
+                ceilingOverride = override,
+                done = done,
+                shownThisSession = LosslessDataNotice.shownThisSession,
+            )
+        }.distinctUntilChanged().filter { it }.first()
+        LosslessDataNotice.shownThisSession = true
+        queueNoticeId += 1
+        val id = queueNoticeId
+        val clear = { if (queueNotice?.id == id) queueNotice = null }
+        queueNotice = QueueActionNotice(
+            id = id,
+            message = losslessDataMessage,
+            durationMs = LosslessDataNotice.SHOW_MS,
+            actionLabel = losslessDataAction,
+            onAction = {
+                clear()
+                LosslessDataNotice.record(LosslessDataNotice.Outcome.ACTED)
+                LosslessDataNotice.requestCellularQuality()
+                dismissPlayer()
+                navigator.reset(AppRoute.Settings)
+            },
+            closeDescription = losslessDataClose,
+            onClose = {
+                clear()
+                LosslessDataNotice.record(LosslessDataNotice.Outcome.CLOSED)
+            },
+            onExpire = { LosslessDataNotice.record(LosslessDataNotice.Outcome.IGNORED) },
+        )
     }
     // Why a control did nothing, on the same strip above the mini player that
     // already answers "added to queue". Reached from every surface that had a

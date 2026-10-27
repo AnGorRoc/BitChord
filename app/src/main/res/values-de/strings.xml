@@ -318,6 +318,8 @@
     <string name="sources">Quellen</string>
     <string name="wifi">WLAN</string>
     <string name="mobile_data">Mobile Daten</string>
+    <string name="lossless_data_notice">Verlustfreies Streaming über mobile Daten</string>
+    <string name="lossless_data_notice_action">Ändern</string>
     <string name="couldnt_load_tracks">Diese Titel konnten nicht geladen werden</string>
     <string name="wifi_only_download_refusal">Downloads sind auf WLAN beschränkt. Schalte das in den Einstellungen aus, um mobile Daten zu nutzen.</string>
     <string name="pinned_playlist_limit">Es können nur %1$d Playlists angeheftet werden</string>

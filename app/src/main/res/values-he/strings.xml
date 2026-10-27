@@ -319,6 +319,8 @@
     <string name="sources">מקורות</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">נתונים סלולריים</string>
+    <string name="lossless_data_notice">סטרימינג Lossless בנתונים סלולריים</string>
+    <string name="lossless_data_notice_action">שינוי</string>
     <string name="couldnt_load_tracks">לא ניתן היה לטעון רצועות אלו</string>
     <string name="wifi_only_download_refusal">הורדות מוגבלות ל-Wi-Fi. כבה זאת בהגדרות כדי להשתמש בנתונים סלולריים.</string>
     <string name="pinned_playlist_limit">ניתן לנעוץ רק %1$d רשימות השמעה</string>

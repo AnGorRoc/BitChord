@@ -313,6 +313,8 @@
     <string name="sources">来源</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">移动数据</string>
+    <string name="lossless_data_notice">正在使用移动数据播放无损音质</string>
+    <string name="lossless_data_notice_action">更改</string>
     <string name="couldnt_load_tracks">无法加载这些曲目</string>
     <string name="wifi_only_download_refusal">下载已限制为仅使用 Wi-Fi。请在设置中关闭此项以使用移动数据。</string>
     <string name="pinned_playlist_limit">最多只能固定 %1$d 个播放列表</string>

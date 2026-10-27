@@ -337,6 +337,8 @@
     <string name="sources">แหล่งข้อมูล</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">เน็ตมือถือ</string>
+    <string name="lossless_data_notice">กำลังสตรีมแบบไม่สูญเสียคุณภาพผ่านเน็ตมือถือ</string>
+    <string name="lossless_data_notice_action">เปลี่ยน</string>
     <string name="couldnt_load_tracks">โหลดแทร็กเหล่านี้ไม่ได้</string>
     <string name="wifi_only_download_refusal">การดาวน์โหลดจำกัดไว้เฉพาะ Wi-Fi ปิดการตั้งค่านี้เพื่อใช้เน็ตมือถือ</string>
     <string name="pinned_playlist_limit">ปักหมุดได้สูงสุด %1$d เพลย์ลิสต์</string>

@@ -495,6 +495,8 @@
     <string name="sources">Sources</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">Mobile data</string>
+    <string name="lossless_data_notice">Streaming lossless on mobile data</string>
+    <string name="lossless_data_notice_action">Change</string>
     <string name="couldnt_load_tracks">Could not load these tracks</string>
     <string name="wifi_only_download_refusal">Downloads are limited to Wi-Fi. Turn that off in Settings to use mobile data.</string>
     <string name="pinned_playlist_limit">Only %1$d playlists can be pinned</string>

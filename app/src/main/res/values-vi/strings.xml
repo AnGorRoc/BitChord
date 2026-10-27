@@ -352,6 +352,8 @@
     <string name="sources">Nguồn nhạc</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">Dữ liệu di động</string>
+    <string name="lossless_data_notice">Đang phát lossless bằng dữ liệu di động</string>
+    <string name="lossless_data_notice_action">Thay đổi</string>
     <string name="couldnt_load_tracks">Không thể tải các bài hát này</string>
     <string name="wifi_only_download_refusal">Tải xuống đang bị giới hạn chỉ qua Wi-Fi. Hãy tắt tùy chọn đó trong Cài đặt để sử dụng dữ liệu di động.</string>
     <string name="pinned_playlist_limit">Chỉ có thể ghim tối đa %1$d danh sách phát</string>

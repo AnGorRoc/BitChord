@@ -328,6 +328,8 @@
     <string name="sources">Источники</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">Мобильные данные</string>
+    <string name="lossless_data_notice">Воспроизведение без потерь через мобильные данные</string>
+    <string name="lossless_data_notice_action">Изменить</string>
     <string name="couldnt_load_tracks">Не удалось загрузить эти треки</string>
     <string name="wifi_only_download_refusal">Загрузки ограничены сетью Wi-Fi. Отключите это в настройках, чтобы использовать мобильные данные.</string>
     <string name="pinned_playlist_limit">Можно закрепить не более %1$d плейлистов</string>

@@ -312,6 +312,8 @@
     <string name="sources">來源</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">移動資料</string>
+    <string name="lossless_data_notice">正在用移動資料播放無損音質</string>
+    <string name="lossless_data_notice_action">更改</string>
     <string name="couldnt_load_tracks">無法載入這些曲目</string>
     <string name="wifi_only_download_refusal">下載已限制為僅使用 Wi-Fi。請在設定中關閉此項以使用移動資料。</string>
     <string name="pinned_playlist_limit">最多隻能固定 %1$d 個播放列表</string>

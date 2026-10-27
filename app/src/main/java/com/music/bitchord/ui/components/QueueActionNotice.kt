@@ -8,14 +8,21 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -25,11 +32,28 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
 
-/** A unique queue result, so repeating the same action restarts its lifetime. */
+/**
+ * A unique queue result, so repeating the same action restarts its lifetime.
+ *
+ * Most notices are a sentence and nothing else. One that offers a way out —
+ * see [LosslessDataNotice][com.music.bitchord.data.settings.LosslessDataNotice]
+ * — also carries an [actionLabel] with its [onAction], and a close button
+ * described by [closeDescription]; [onExpire] hears when it ran out untouched.
+ */
 data class QueueActionNotice(
     val id: Int,
     val message: String,
-)
+    val durationMs: Long = DEFAULT_DURATION_MS,
+    val actionLabel: String? = null,
+    val onAction: (() -> Unit)? = null,
+    val closeDescription: String? = null,
+    val onClose: (() -> Unit)? = null,
+    val onExpire: (() -> Unit)? = null,
+) {
+    companion object {
+        const val DEFAULT_DURATION_MS = 3_000L
+    }
+}
 
 /** Brief queue confirmation shown immediately above the mini player. */
 @Composable
@@ -65,11 +89,39 @@ fun QueueActionNoticeHost(
                     .padding(bottom = 8.dp)
                     .semantics { liveRegion = LiveRegionMode.Polite },
             ) {
-                Text(
-                    text = current.message,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                )
+                val action = current.onAction?.takeIf { current.actionLabel != null }
+                val close = current.onClose
+                if (action == null && close == null) {
+                    Text(
+                        text = current.message,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = current.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 20.dp, top = 14.dp, bottom = 14.dp, end = 8.dp),
+                        )
+                        if (action != null) {
+                            TextButton(onClick = action) {
+                                Text(current.actionLabel!!, color = Color.White)
+                            }
+                        }
+                        if (close != null) {
+                            IconButton(onClick = close) {
+                                Icon(
+                                    Icons.Rounded.Close,
+                                    contentDescription = current.closeDescription,
+                                    tint = Color.White.copy(alpha = 0.7f),
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

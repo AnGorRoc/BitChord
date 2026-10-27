@@ -157,6 +157,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
+import com.music.bitchord.data.settings.LosslessDataNotice
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
@@ -290,6 +291,15 @@ fun SettingsScreen(
     // Saveable so a search survives a trip into one of the pages it found.
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var picking by remember { mutableStateOf<QualityTarget?>(null) }
+    // Opened straight to the mobile-data picker by the "lossless on mobile
+    // data" notice's action — see [LosslessDataNotice].
+    val openCellularQuality by LosslessDataNotice.openCellularQuality.collectAsStateWithLifecycle()
+    LaunchedEffect(openCellularQuality) {
+        if (openCellularQuality) {
+            picking = QualityTarget.CELLULAR
+            LosslessDataNotice.cellularQualityHandled()
+        }
+    }
     var pickingDownloadQuality by remember { mutableStateOf(false) }
     var pickingAutomixPerformance by remember { mutableStateOf(false) }
     // What the last export or import did, shown on the row that did it rather

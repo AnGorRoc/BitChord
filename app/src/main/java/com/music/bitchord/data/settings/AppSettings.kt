@@ -704,6 +704,15 @@ object AppSettings {
     /** The notice about what connecting an account actually does has been read. */
     val discordInfoDismissed = MutableStateFlow(false)
 
+    /**
+     * How many times the "lossless on mobile data" notice ran out without
+     * being touched. See [LosslessDataNotice].
+     */
+    val losslessDataNoticeIgnored = MutableStateFlow(0)
+
+    /** The "lossless on mobile data" notice is retired: acted on, closed, or ignored enough. */
+    val losslessDataNoticeDone = MutableStateFlow(false)
+
     /** Published by PlaybackService so the UI can open the system equalizer. */
     val audioSessionId = MutableStateFlow(0)
 
@@ -993,6 +1002,8 @@ object AppSettings {
         discordButton2Text.value = prefs.getString(KEY_DISCORD_BUTTON_2_TEXT, "").orEmpty()
         discordButton2Visible.value = prefs.getBoolean(KEY_DISCORD_BUTTON_2_VISIBLE, true)
         discordInfoDismissed.value = prefs.getBoolean(KEY_DISCORD_INFO_DISMISSED, false)
+        losslessDataNoticeIgnored.value = prefs.getInt(KEY_LOSSLESS_DATA_NOTICE_IGNORED, 0)
+        losslessDataNoticeDone.value = prefs.getBoolean(KEY_LOSSLESS_DATA_NOTICE_DONE, false)
     }
 
     /**
@@ -1716,6 +1727,16 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_DISCORD_INFO_DISMISSED, value).apply()
     }
 
+    fun setLosslessDataNoticeIgnored(value: Int) {
+        losslessDataNoticeIgnored.value = value
+        prefs.edit().putInt(KEY_LOSSLESS_DATA_NOTICE_IGNORED, value).apply()
+    }
+
+    fun setLosslessDataNoticeDone(value: Boolean) {
+        losslessDataNoticeDone.value = value
+        prefs.edit().putBoolean(KEY_LOSSLESS_DATA_NOTICE_DONE, value).apply()
+    }
+
     fun setReplayGenres(value: Boolean) {
         replayGenres.value = value
         prefs.edit().putBoolean(KEY_REPLAY_GENRES, value).apply()
@@ -2130,6 +2151,8 @@ object AppSettings {
     private const val KEY_DISCORD_BUTTON_2_TEXT = "discord_button_2_text"
     private const val KEY_DISCORD_BUTTON_2_VISIBLE = "discord_button_2_visible"
     private const val KEY_DISCORD_INFO_DISMISSED = "discord_info_dismissed"
+    private const val KEY_LOSSLESS_DATA_NOTICE_IGNORED = "lossless_data_notice_ignored"
+    private const val KEY_LOSSLESS_DATA_NOTICE_DONE = "lossless_data_notice_done"
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }
 

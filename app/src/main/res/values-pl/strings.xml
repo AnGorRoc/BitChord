@@ -316,6 +316,8 @@
     <string name="sources">Źródła</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">Dane komórkowe</string>
+    <string name="lossless_data_notice">Strumieniowanie lossless przez dane komórkowe</string>
+    <string name="lossless_data_notice_action">Zmień</string>
     <string name="couldnt_load_tracks">Nie można załadować tych utworów</string>
     <string name="wifi_only_download_refusal">Pobieranie jest ograniczone do Wi-Fi. Wyłącz to w Ustawieniach, aby korzystać z danych komórkowych.</string>
     <string name="pinned_playlist_limit">Tylko %1$d playlist może być przypiętych</string>

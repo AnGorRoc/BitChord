@@ -319,6 +319,8 @@
     <string name="sources">Sources</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">Données mobiles</string>
+    <string name="lossless_data_notice">Streaming sans perte sur les données mobiles</string>
+    <string name="lossless_data_notice_action">Modifier</string>
     <string name="couldnt_load_tracks">Impossible de charger ces titres</string>
     <string name="wifi_only_download_refusal">Les téléchargements sont limités au Wi-Fi. Désactivez cette option dans les paramètres pour utiliser les données mobiles.</string>
     <string name="pinned_playlist_limit">Seulement %1$d playlists peuvent être épinglées</string>

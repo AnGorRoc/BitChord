@@ -313,6 +313,8 @@
     <string name="sources">Sumber</string>
     <string name="wifi">Wi-Fi</string>
     <string name="mobile_data">Data seluler</string>
+    <string name="lossless_data_notice">Streaming lossless pakai data seluler</string>
+    <string name="lossless_data_notice_action">Ubah</string>
     <string name="couldnt_load_tracks">Tidak dapat memuat trek ini</string>
     <string name="wifi_only_download_refusal">Unduhan dibatasi hanya lewat Wi-Fi. Nonaktifkan itu di Pengaturan untuk menggunakan data seluler.</string>
     <string name="pinned_playlist_limit">Hanya %1$d playlist yang dapat disematkan</string>
