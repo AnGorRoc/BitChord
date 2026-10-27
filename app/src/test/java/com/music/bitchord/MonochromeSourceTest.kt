@@ -3,6 +3,7 @@ package com.music.bitchord
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.permits
 import com.music.bitchord.data.sources.MonochromeSource
+import com.music.bitchord.data.sources.SkipPace
 import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceHealth
 import com.music.bitchord.data.sources.SourceKind
@@ -58,6 +59,7 @@ class MonochromeSourceTest {
 
     @After
     fun tearDown() {
+        SkipPace.shared.reset()
         runCatching { server.shutdown() }
     }
 
@@ -354,6 +356,26 @@ class MonochromeSourceTest {
         assertTrue("peak was ${peak.get()}", peak.get() <= MonochromeSource.MAX_PARALLEL_PROBES)
     }
 
+    /** A block that lasts is given longer each time, and one answer starts it over. */
+    @Test
+    fun `the wait doubles while the server keeps refusing`() {
+        assertEquals(1_000L, MonochromeSource.backoffMs(1))
+        assertEquals(2_000L, MonochromeSource.backoffMs(2))
+        assertEquals(8_000L, MonochromeSource.backoffMs(4))
+        assertEquals(MonochromeSource.MAX_RETRY_MS, MonochromeSource.backoffMs(9))
+    }
+
+    @Test
+    fun `a refusal with no Retry-After lengthens the next wait`() = runBlocking {
+        script(throttled("x"), throttled("x"), partial(flacHead(rate = 44_100, bits = 16)))
+        val source = source()
+
+        assertNull(source.stream("1", StreamRequest.Lossless))
+
+        // Two in a row: the second asked for 2s, which is left standing.
+        assertTrue(MonochromeSource.quietForMs() in 1_000L..2_000L)
+    }
+
     @Test
     fun `Retry-After is believed within bounds, and a date is not read`() {
         assertEquals(2_000L, MonochromeSource.retryAfterMs("2"))
@@ -361,6 +383,35 @@ class MonochromeSourceTest {
         assertEquals(MonochromeSource.MAX_RETRY_MS, MonochromeSource.retryAfterMs("3600"))
         assertEquals(MonochromeSource.DEFAULT_RETRY_MS, MonochromeSource.retryAfterMs(null))
         assertEquals(MonochromeSource.DEFAULT_RETRY_MS, MonochromeSource.retryAfterMs("Wed, 21 Oct 2026 07:28:00 GMT"))
+    }
+
+    // ── Skipping ──────────────────────────────────────────────────────────
+
+    /** A song the listener is skipping past is never asked about. */
+    @Test
+    fun `a lookup for a track skipped during a flick through the queue never reaches the server`() = runBlocking {
+        route("/search/tracks", json(SEARCH_ANSWER))
+        route("/track/1", partial(flacHead(rate = 44_100, bits = 16)))
+        repeat(3) { SkipPace.shared.noteSkip() }
+        val source = source()
+
+        val search = async(Dispatchers.IO) { source.search("daft punk get lucky", limit = 10) }
+        val stream = async(Dispatchers.IO) { source.stream("1", StreamRequest.Lossless) }
+        kotlinx.coroutines.delay(200)
+        search.cancel()
+        stream.cancel()
+        search.join()
+        stream.join()
+
+        assertTrue(seen.isEmpty())
+    }
+
+    /** Nothing is held back for the listener who is simply listening. */
+    @Test
+    fun `without skipping a lookup goes straight out`() = runBlocking {
+        route("/track/1", partial(flacHead(rate = 44_100, bits = 16)))
+        assertNotNull(source().stream("1", StreamRequest.Lossless))
+        assertEquals(1, seen.size)
     }
 
     // ── Health ────────────────────────────────────────────────────────────

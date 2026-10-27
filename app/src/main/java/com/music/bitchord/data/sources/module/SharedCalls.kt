@@ -98,6 +98,10 @@ internal class SharedCalls<T>(
         }
     }
 
+    /** Whether [key] is being answered or already was recently, so asking costs nothing. */
+    fun has(key: String): Boolean =
+        entries[key]?.let { it.work.isActive || now() - it.startedAtMs < ttlMs } == true
+
     /** Everything held, dropped — the configuration it was all about is gone. */
     fun clear() = entries.clear()
 

@@ -110,6 +110,7 @@ import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.QueueTier
+import com.music.bitchord.data.sources.SkipPace
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.download.Downloads
 import java.util.concurrent.ConcurrentHashMap
@@ -3646,6 +3647,7 @@ class PlaybackService : MediaLibraryService() {
                 mediaItem.localConfiguration?.uri?.let(QualityUpgrade::cacheTag),
             )
         }
+        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK) SkipPace.shared.noteSkip()
         TrackLog.d(
             "BitChord",
             "TIMING track selected: ${mediaItem?.mediaId} (reason=$reason)",

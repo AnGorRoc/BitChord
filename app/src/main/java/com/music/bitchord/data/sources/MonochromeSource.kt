@@ -109,6 +109,8 @@ class MonochromeSource(
     ): List<Song> {
         if (query.isBlank()) return emptyList()
         val url = searchUrl(query, SEARCH_LIMIT) ?: return emptyList()
+        // A search for a song the listener is skipping past is not made at all.
+        if (!searches.has(url)) SkipPace.shared.settle()
         val rows = searches.get(
             key = url,
             describe = { "▶ Monochrome search \"$query\"" },
@@ -136,6 +138,7 @@ class MonochromeSource(
             TrackLog.w(TAG, "Monochrome: refusing malformed track id '$trackId'")
             return null
         }
+        if (!probes.has(trackId)) SkipPace.shared.settle()
         val probe = probes.get(
             key = trackId,
             describe = { "▶ Monochrome probe $trackId" },
@@ -177,7 +180,15 @@ class MonochromeSource(
     private var quietUntilMs = 0L
 
     /** A 429, with how long the server asked to be left alone. */
-    private class Throttled(val waitMs: Long) : IOException("HTTP 429")
+    private class Throttled(val retryAfter: String?) : IOException("HTTP 429")
+
+    /**
+     * How many 429s in a row the server has given without answering anything
+     * in between. A block that lasts is not one a second's wait gets past, so
+     * the quiet window grows with it, see [backoffMs].
+     */
+    @Volatile
+    private var throttleStreak = 0
 
     /**
      * Opens at most [MAX_PARALLEL_PROBES] files at once. A song opens up to
@@ -189,6 +200,28 @@ class MonochromeSource(
     /** [probeOnce], within the limits [politely] keeps. */
     private suspend fun probe(trackId: String): Probe? =
         politely { probeGate.withPermit { probeOnce(trackId) } }
+
+    /**
+     * Starts the quiet window a 429 asked for: the server's own `Retry-After`
+     * when it sent one, otherwise one that doubles with each 429 in a row.
+     *
+     * A 429 that lands inside a window already running is a straggler from the
+     * same burst, answered before the server's word reached the others, and
+     * doesn't count towards the streak. Without that, three calls in flight
+     * would read as three refusals in a row and the wait would triple at once.
+     */
+    private fun noteThrottled(retryAfter: String?) {
+        val now = System.currentTimeMillis()
+        lastThrottledAtMs = now
+        if (now >= quietUntilMs) throttleStreak++
+        val waitMs = if (retryAfter?.trim()?.toDoubleOrNull() != null) {
+            retryAfterMs(retryAfter)
+        } else {
+            backoffMs(throttleStreak)
+        }
+        quietUntilMs = maxOf(quietUntilMs, now + waitMs)
+        lastQuietUntilMs = quietUntilMs
+    }
 
     /**
      * [call], after waiting out the server's quiet window, and asked once more
@@ -211,10 +244,9 @@ class MonochromeSource(
             }
             if (quietFor > 0) delay(quietFor)
             try {
-                return call()
+                return call().also { throttleStreak = 0 }
             } catch (throttled: Throttled) {
-                lastThrottledAtMs = System.currentTimeMillis()
-                quietUntilMs = maxOf(quietUntilMs, lastThrottledAtMs + throttled.waitMs)
+                noteThrottled(throttled.retryAfter)
                 if (retried) throw throttled
                 retried = true
             }
@@ -237,7 +269,7 @@ class MonochromeSource(
             .build()
         probeClient.newCall(request).execute().use { response ->
             if (response.code == 404) return null
-            if (response.code == 429) throw Throttled(retryAfterMs(response.header("Retry-After")))
+            if (response.code == 429) throw Throttled(response.header("Retry-After"))
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             // A server that ignores the range answers 200 with the whole file;
             // only its first bytes are read either way.
@@ -266,7 +298,7 @@ class MonochromeSource(
             .header("User-Agent", USER_AGENT)
             .build()
         searchClient.newCall(request).execute().use { response ->
-            if (response.code == 429) throw Throttled(retryAfterMs(response.header("Retry-After")))
+            if (response.code == 429) throw Throttled(response.header("Retry-After"))
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             return response.body?.string() ?: throw IOException("Empty body")
         }
@@ -323,6 +355,12 @@ class MonochromeSource(
         @Volatile
         private var lastThrottledAtMs = 0L
 
+        @Volatile
+        private var lastQuietUntilMs = 0L
+
+        /** How much longer the server has asked to be left alone, if it still has. */
+        fun quietForMs(): Long = (lastQuietUntilMs - System.currentTimeMillis()).coerceAtLeast(0L)
+
         /**
          * Whether Monochrome turned a call away for being asked too often at
          * or after [sinceMs]. A lookup that found nothing meanwhile learned
@@ -334,6 +372,9 @@ class MonochromeSource(
          * How long a 429 asked to be left alone: the `Retry-After` seconds when
          * it sent them, [DEFAULT_RETRY_MS] when it sent nothing or a date.
          */
+        fun backoffMs(streak: Int): Long =
+            (DEFAULT_RETRY_MS shl (streak - 1).coerceIn(0, 5)).coerceAtMost(MAX_RETRY_MS)
+
         fun retryAfterMs(header: String?): Long =
             header?.trim()?.toDoubleOrNull()?.times(1000)?.toLong()
                 ?.coerceIn(DEFAULT_RETRY_MS / 2, MAX_RETRY_MS)

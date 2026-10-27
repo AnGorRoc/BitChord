@@ -66,11 +66,15 @@ object QualityUpgrade {
     /** What a revert tags its rendition with — see [Song.toDirectYouTubeMediaItem]. */
     private const val ORIGINAL = "original"
 
-    /** How long a throttled second look waits before it is made again. */
+    /**
+     * How long a throttled second look waits before it is made again: at least
+     * this, and until the server's quiet window is over with this much to spare.
+     */
     private const val THROTTLED_HOLD_MS = 15_000L
+    private const val THROTTLED_HOLD_SLACK_MS = 2_000L
 
     /** How often one track's second look may be held for that before it stands. */
-    private const val MAX_THROTTLED_HOLDS = 3
+    private const val MAX_THROTTLED_HOLDS = 4
 
     /**
      * A track playing on less than was asked for.
@@ -304,7 +308,7 @@ object QualityUpgrade {
     private fun heldByThrottle(mediaId: String, startedAtMs: Long): Boolean {
         if (!MonochromeSource.throttledSince(startedAtMs)) return false
         if (holds.merge(mediaId, 1, Int::plus)!! > MAX_THROTTLED_HOLDS) return false
-        heldUntil[mediaId] = System.currentTimeMillis() + THROTTLED_HOLD_MS
+        heldUntil[mediaId] = System.currentTimeMillis() + maxOf(THROTTLED_HOLD_MS, MonochromeSource.quietForMs() + THROTTLED_HOLD_SLACK_MS)
         return true
     }
 
