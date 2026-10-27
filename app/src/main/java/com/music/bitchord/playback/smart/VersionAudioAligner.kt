@@ -37,6 +37,18 @@ object VersionAudioAligner {
     private const val MAX_LAG_SECONDS = 40.0 // Search up to ±40s drift/intro
     private const val MIN_CONFIDENCE = 0.40 // Minimum normalized correlation
 
+    /** How much of each opening [findRenditionOffsetMs] decodes. */
+    const val RENDITION_WINDOW_SECONDS = 12.0
+
+    /** Two renditions of one master differ by a pad of silence, not by an intro. */
+    private const val RENDITION_MAX_LAG_SECONDS = 3.0
+
+    /** Same audio on both sides should correlate far above [MIN_CONFIDENCE]; less is a different cut. */
+    private const val RENDITION_MIN_CONFIDENCE = 0.6
+
+    /** A shift too small to hear inside a crossfade. */
+    private const val RENDITION_MIN_SHIFT_MS = 20L
+
     // Cache computed offsets so subsequent switches are instantaneous:
     // (sourceVideoId, targetVideoId) -> offsetMs
     private val offsetCache = ConcurrentHashMap<Pair<String, String>, Long>()
@@ -250,6 +262,75 @@ object VersionAudioAligner {
         }
 
         null
+    }
+
+    /**
+     * The shift from the playing rendition of a track to an upgraded one of
+     * the same recording — the YouTube Opus a track started on, and the FLAC
+     * a quality upgrade is about to crossfade into. Upgraded timestamp =
+     * playing timestamp + the result.
+     *
+     * Measured over both openings rather than around the swap point, for two
+     * reasons. Decoding from the middle of a FLAC that is only partly on disk
+     * needs the extractor to seek, and without a seek table that means reading
+     * bytes nobody has fetched; an opening is read straight through. And the
+     * shift between two renditions of one master is a constant — a pad of
+     * silence one of them added — so where it is measured does not change it.
+     *
+     * Narrower and stricter than [findOffsetMs]: the search covers a mastering
+     * pad, not an intro skit, and a weak peak is refused rather than applied,
+     * because a crossfade between two copies of the same audio already sounds
+     * clean at a shift of zero and only a wrong shift could make it worse.
+     *
+     * Null when either opening can't be decoded or the match isn't convincing.
+     */
+    suspend fun findRenditionOffsetMs(
+        playing: MediaDataSource,
+        upgraded: MediaDataSource,
+        label: String,
+    ): Long? = withContext(Dispatchers.IO) {
+        try {
+            val (source, target) = coroutineScope {
+                val source = async { AudioDecoder.decodeRegion(playing, 0.0, RENDITION_WINDOW_SECONDS) }
+                val target = async { AudioDecoder.decodeRegion(upgraded, 0.0, RENDITION_WINDOW_SECONDS) }
+                source.await() to target.await()
+            }
+            if (source == null || target == null) {
+                TrackLog.w(TAG, "Upgrade alignment for '$label': an opening wouldn't decode")
+                return@withContext null
+            }
+            val (pcmSource, startSourceSec) = source
+            val (pcmTarget, startTargetSec) = target
+            if (pcmSource.samples.isEmpty() || pcmTarget.samples.isEmpty()) return@withContext null
+            val offset = renditionOffsetMs(
+                sourceEnv = computeEnergyEnvelope(pcmSource.samples, pcmSource.sampleRate),
+                targetEnv = computeEnergyEnvelope(pcmTarget.samples, pcmTarget.sampleRate),
+                startDiffMs = ((startTargetSec - startSourceSec) * 1000.0).toLong(),
+            )
+            TrackLog.d(TAG, "Upgrade alignment for '$label': ${offset?.let { "${it}ms" } ?: "no convincing match"}")
+            offset
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to align upgrade for '$label'", e)
+            null
+        } finally {
+            safeClose(playing)
+            safeClose(upgraded)
+        }
+    }
+
+    /**
+     * The shift between two energy envelopes of one recording, or null when
+     * the correlation is too weak or sits on the edge of the search — see
+     * [findOffsetMs] for why an edge peak is a window too short, not a lag.
+     * Shifts below [RENDITION_MIN_SHIFT_MS] come back as zero: inside a
+     * crossfade they are inaudible, and applying one is a seek for nothing.
+     */
+    internal fun renditionOffsetMs(sourceEnv: FloatArray, targetEnv: FloatArray, startDiffMs: Long): Long? {
+        val correlation = crossCorrelate(sourceEnv, targetEnv, maxLagSec = RENDITION_MAX_LAG_SECONDS)
+        if (correlation.confidence < RENDITION_MIN_CONFIDENCE) return null
+        if (correlation.lagFrames == correlation.floor || correlation.lagFrames == correlation.ceiling) return null
+        val total = (correlation.lagFrames * HOP_MS).toLong() + startDiffMs
+        return if (kotlin.math.abs(total) < RENDITION_MIN_SHIFT_MS) 0L else total
     }
 
     /**
