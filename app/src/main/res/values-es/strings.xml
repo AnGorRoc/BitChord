@@ -1284,9 +1284,12 @@
     <string name="spotify_import_title">Importar playlist de Spotify</string>
     <string name="spotify_import_unmatched">%1$d canciones no se encontraron en YouTube Music</string>
     <string name="spotify_library_subtitle">Tus playlists de Spotify</string>
-    <string name="spotify_sync_all">Importar todo</string>
-    <string name="spotify_sync_update">Actualizar todo</string>
-    <string name="spotify_sync_hint">Copia todas tus playlists y tus Me gusta a este dispositivo, emparejadas en YouTube Music. Actualiza más tarde para traer las canciones nuevas.</string>
+    <string name="spotify_sync_title">Importar de Spotify</string>
+    <string name="spotify_sync_description">Elige las playlists que copiar a este dispositivo. Las canciones se emparejan en YouTube Music.</string>
+    <string name="spotify_sync_selected_count">%1$d de %2$d seleccionadas</string>
+    <string name="spotify_sync_select_none">Quitar</string>
+    <string name="spotify_sync_import_selected">Importar (%1$d)</string>
+    <string name="spotify_sync_hide">Ocultar</string>
     <string name="spotify_sync_running">Importando tu biblioteca</string>
     <string name="spotify_sync_step_reading">Playlist %1$d de %2$d · Leyendo canciones…</string>
     <string name="spotify_sync_step_matching">Playlist %1$d de %2$d · Emparejando %3$d de %4$d canciones</string>
@@ -1299,10 +1302,8 @@
     <string name="spotify_sync_error_signed_out">Tu sesión de Spotify caducó. Inicia sesión de nuevo para continuar.</string>
     <string name="spotify_sync_error_network">Sin conexión. Revisa tu internet e inténtalo de nuevo.</string>
     <string name="spotify_sync_error_other">Algo salió mal: %1$s</string>
-    <string name="spotify_sync_row_failed">No se pudo importar. Toca para reintentar.</string>
     <string name="spotify_sync_auto">Mantener al día</string>
-    <string name="spotify_sync_auto_subtitle">Actualiza la copia cada vez que se abre esta página</string>
-    <string name="spotify_sync_playlist">Importar esta playlist</string>
+    <string name="spotify_sync_auto_subtitle">Trae las canciones nuevas cada vez que se abre la página de Spotify</string>
     <string name="spotify_sync_imported">Importada</string>
     <string name="spotify_sign_in">Iniciar sesión con Spotify</string>
     <string name="spotify_use_spdc_token">Usar token sp_dc</string>

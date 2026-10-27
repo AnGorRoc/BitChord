@@ -164,6 +164,7 @@ import com.music.bitchord.ui.components.AccountProfileSelector
 import com.music.bitchord.ui.navigation.AppDestination
 import com.music.bitchord.ui.navigation.AppRoute
 import com.music.bitchord.ui.components.SpotifyImportAlert
+import com.music.bitchord.ui.components.SpotifyLibraryImportAlert
 import com.music.bitchord.ui.screens.WearOsScreen
 import com.music.bitchord.ui.screens.AccountAndScrobblingScreen
 import com.music.bitchord.ui.screens.DiscordDialog
@@ -677,6 +678,8 @@ private fun BitChordApp(
     var offlinePlaylistTarget by remember { mutableStateOf<Song?>(null) }
     var creatingOfflinePlaylist by remember { mutableStateOf(false) }
     var showSpotifyImportDialog by remember { mutableStateOf(false) }
+    // The Spotify page's playlists while its import chooser is open.
+    var spotifyLibraryImport by remember { mutableStateOf<List<com.music.bitchord.data.spotify.SpotifyPlaylist>?>(null) }
     // Which album or playlist the collection menu is open on, or null when it
     // is shut. One slot for every surface that can open it — the shelves on
     // three tabs, the search rows, the artist page's carousels, the release
@@ -2926,6 +2929,7 @@ private fun BitChordApp(
                                 },
                                 onOpenLogin = { showSpotifyLogin = true },
                                 onOpenTokenSetup = { showSpotifyCanvasAuth = true },
+                                onOpenImport = { spotifyLibraryImport = it },
                                 contentPadding = listPadding,
                             )
                         } else if (pageRoute == AppRoute.Discord) {
@@ -4819,6 +4823,16 @@ private fun BitChordApp(
                     },
                 )
             }
+        }
+
+        spotifyLibraryImport?.let { spotifyPlaylists ->
+            BackHandler { spotifyLibraryImport = null }
+            SpotifyLibraryImportAlert(
+                hazeState = hazeState,
+                playlists = spotifyPlaylists,
+                onSignIn = { showSpotifyLogin = true },
+                onDismiss = { spotifyLibraryImport = null },
+            )
         }
 
         if (showSpotifyImportDialog) {
