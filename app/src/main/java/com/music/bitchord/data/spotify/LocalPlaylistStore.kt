@@ -12,6 +12,10 @@ data class LocalPlaylist(
     val id: String,
     val title: String,
     val songs: List<Song>,
+    /** The Spotify playlist this one mirrors, or null for a playlist made here. */
+    val spotifyId: String? = null,
+    /** Spotify track ids parallel to [songs]; the matches a re-sync does not need to look up again. */
+    val spotifyTrackIds: List<String> = emptyList(),
 ) {
     val browseId: String get() = "local:playlist:$id"
 }
@@ -57,7 +61,18 @@ object LocalPlaylistStore {
                     )
                     songs.add(song)
                 }
-                list.add(LocalPlaylist(id, title, songs))
+                val trackIds = obj.optJSONArray("spotifyTrackIds")?.let { ids ->
+                    List(ids.length()) { ids.optString(it, "") }
+                }.orEmpty()
+                list.add(
+                    LocalPlaylist(
+                        id = id,
+                        title = title,
+                        songs = songs,
+                        spotifyId = obj.optString("spotifyId", "").takeIf { it.isNotBlank() },
+                        spotifyTrackIds = trackIds,
+                    ),
+                )
             }
             _playlists.value = list
         }
@@ -67,6 +82,37 @@ object LocalPlaylistStore {
         val id = "sp_local_" + System.currentTimeMillis()
         val playlist = LocalPlaylist(id = id, title = title, songs = songs)
         val updated = listOf(playlist) + _playlists.value.filterNot { it.id == id }
+        _playlists.value = updated
+        persist(updated)
+        return playlist
+    }
+
+    fun findBySpotifyId(spotifyId: String): LocalPlaylist? =
+        _playlists.value.firstOrNull { it.spotifyId == spotifyId }
+
+    /**
+     * Writes the copy of a Spotify playlist, replacing the one a previous sync
+     * made so the playlist keeps its place and id in the library.
+     */
+    fun saveSpotifyPlaylist(
+        spotifyId: String,
+        title: String,
+        songs: List<Song>,
+        trackIds: List<String>,
+    ): LocalPlaylist {
+        val existing = findBySpotifyId(spotifyId)
+        val playlist = LocalPlaylist(
+            id = existing?.id ?: ("sp_local_" + System.currentTimeMillis()),
+            title = title,
+            songs = songs,
+            spotifyId = spotifyId,
+            spotifyTrackIds = trackIds,
+        )
+        val updated = if (existing == null) {
+            listOf(playlist) + _playlists.value
+        } else {
+            _playlists.value.map { if (it.id == existing.id) playlist else it }
+        }
         _playlists.value = updated
         persist(updated)
         return playlist
@@ -117,6 +163,8 @@ object LocalPlaylistStore {
                     songsArray.put(sObj)
                 }
                 pObj.put("songs", songsArray)
+                playlist.spotifyId?.let { pObj.put("spotifyId", it) }
+                pObj.put("spotifyTrackIds", JSONArray(playlist.spotifyTrackIds))
                 jsonArray.put(pObj)
             }
             prefs.edit().putString(KEY_PLAYLISTS, jsonArray.toString()).apply()

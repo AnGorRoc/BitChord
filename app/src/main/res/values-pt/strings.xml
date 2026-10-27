@@ -1317,6 +1317,16 @@
     <string name="spotify_import_title">Importar playlist do Spotify</string>
     <string name="spotify_import_unmatched">%1$d músicas não foram encontradas no YouTube Music</string>
     <string name="spotify_library_subtitle">Suas playlists do Spotify</string>
+    <string name="spotify_sync_all">Importar tudo</string>
+    <string name="spotify_sync_update">Atualizar tudo</string>
+    <string name="spotify_sync_hint">Copia todas as suas playlists e as músicas curtidas para este dispositivo, combinadas no YouTube Music. Atualize depois para trazer as músicas novas.</string>
+    <string name="spotify_sync_running">Importando %1$d de %2$d · %3$s</string>
+    <string name="spotify_sync_done">%1$d playlists em dia · %2$d músicas novas · %3$d não encontradas</string>
+    <string name="spotify_sync_failed">Não foi possível importar sua biblioteca: %1$s</string>
+    <string name="spotify_sync_auto">Manter atualizado</string>
+    <string name="spotify_sync_auto_subtitle">Atualiza a cópia sempre que esta página é aberta</string>
+    <string name="spotify_sync_playlist">Importar esta playlist</string>
+    <string name="spotify_sync_imported">Importada</string>
     <string name="spotify_sign_in">Entrar com Spotify</string>
     <string name="spotify_use_spdc_token">Usar token sp_dc</string>
     <string name="spotify_track_unavailable">Não foi possível encontrar essa música no YouTube Music</string>

@@ -1200,6 +1200,16 @@
     <string name="spotify_import_language_preference" translatable="false">Language preference</string>
     <string name="spotify_import_language_hint" translatable="false">e.g. Punjabi, Marathi, Korean…</string>
     <string name="spotify_library_subtitle">Your Spotify playlists</string>
+    <string name="spotify_sync_all">Import all</string>
+    <string name="spotify_sync_update">Update all</string>
+    <string name="spotify_sync_hint">Copies every playlist and your Liked Songs to this device, matched on YouTube Music. Update later to bring in new songs.</string>
+    <string name="spotify_sync_running">Importing %1$d of %2$d · %3$s</string>
+    <string name="spotify_sync_done">%1$d playlists up to date · %2$d new songs · %3$d not found</string>
+    <string name="spotify_sync_failed">Couldn\'t import your library: %1$s</string>
+    <string name="spotify_sync_auto">Keep up to date</string>
+    <string name="spotify_sync_auto_subtitle">Update the copy every time this page opens</string>
+    <string name="spotify_sync_playlist">Import this playlist</string>
+    <string name="spotify_sync_imported">Imported</string>
     <string name="onboarding_title">Millions of songs, stream on BitChord</string>
     <string name="onboarding_name_prompt">What should we call you?</string>
     <string name="onboarding_name_hint">Your name</string>
