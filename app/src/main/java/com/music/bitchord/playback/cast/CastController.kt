@@ -57,11 +57,14 @@ object CastController {
     private var castContext: CastContext? = null
     private var router: MediaRouter? = null
     private var selector: MediaRouteSelector? = null
-    // [ensureStarted] is documented as callable from anywhere, and the framework
-    // hands its answer back on a background thread, so these are read and written
-    // off the main thread as well as on it.
+    // [ensureStarted] is documented as callable from anywhere, so deciding
+    // whether to start has to be one step: two callers that both saw "not
+    // started" would both start, and leave two executors and two sets of
+    // listeners behind. [started] is read by the framework's callbacks too and
+    // stays volatile for that; the field below is only touched under the lock.
+    private val startLock = Any()
     @Volatile private var started = false
-    @Volatile private var castExecutor: ExecutorService? = null
+    private var castExecutor: ExecutorService? = null
     private var playback: CastPlayback? = null
 
     /** The session whose volume is being followed, so it can be let go of. */
@@ -120,33 +123,37 @@ object CastController {
      * appearing. So a failure resets the flag and the next call tries again.
      */
     fun ensureStarted(context: Context) {
-        if (started) return
-        started = true
-        val app = context.applicationContext
-        if (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(app) != ConnectionResult.SUCCESS) {
-            Log.i(TAG, "Play Services unavailable; casting stays off until the next call")
-            started = false
-            return
-        }
-        try {
-            // The task form, so the framework's start-up work is not on the
-            // main thread of whichever screen happened to ask first.
-            // The executor is held: the framework keeps this one for the life of
-            // the process, so it has to be given back to it rather than dropped.
-            castExecutor = Executors.newSingleThreadExecutor()
-            CastContext.getSharedInstance(app, castExecutor!!)
-                .addOnSuccessListener { ctx -> onReady(app, ctx) }
-                .addOnFailureListener {
-                    Log.w(TAG, "Cast framework unavailable", it)
-                    started = false
-                    castExecutor?.shutdown()
-                    castExecutor = null
-                }
-        } catch (e: Exception) {
-            Log.w(TAG, "Cast framework unavailable", e)
-            started = false
-            castExecutor?.shutdown()
-            castExecutor = null
+        synchronized(startLock) {
+            if (started) return
+            started = true
+            val app = context.applicationContext
+            if (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(app) != ConnectionResult.SUCCESS) {
+                Log.i(TAG, "Play Services unavailable; casting stays off until the next call")
+                started = false
+                return
+            }
+            try {
+                // The task form, so the framework's start-up work is not on the
+                // main thread of whichever screen happened to ask first.
+                //
+                // One executor for the life of the process. The framework keeps
+                // the one it is given, so a retry must reuse it: creating a new
+                // one per attempt strands a thread behind every failure, and
+                // shutting the old one down leaves the framework holding a dead
+                // executor. It is never shut down here for that reason.
+                val executor = castExecutor ?: Executors.newSingleThreadExecutor().also { castExecutor = it }
+                CastContext.getSharedInstance(app, executor)
+                    .addOnSuccessListener { ctx -> onReady(app, ctx) }
+                    .addOnFailureListener {
+                        Log.w(TAG, "Cast framework unavailable", it)
+                        // A retry is allowed; it will ask for the same
+                        // executor again.
+                        started = false
+                    }
+            } catch (e: Exception) {
+                Log.w(TAG, "Cast framework unavailable", e)
+                started = false
+            }
         }
     }
 

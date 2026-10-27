@@ -83,13 +83,35 @@ class CastWindowTest {
     }
 
     @Test
-    fun `back onto something only this phone can play is nothing`() {
+    fun `back with only unusable tracks before is nothing`() {
         assertNull(windowBefore(queue("local:a", "b"), 1, isUsable))
+        assertNull(windowBefore(queue("local:a", "local:b", "c"), 2, isUsable))
+    }
+
+    /**
+     * The case the name promises: the immediate track before belongs to this
+     * phone, and the receiver has to look past it to find one it can play. A
+     * back that returned null here would fall through to the phone, which would
+     * move onto the local track, be refused, and skip forward again — a no-op
+     * with a "can't be cast" message.
+     */
+    @Test
+    fun `back steps over a track the receiver cannot open`() {
+        assertEquals("a", windowBefore(queue("a", "local:b", "c"), 2, isUsable))
+        assertEquals("a", windowBefore(queue("a", "local:b", "local:c", "d"), 3, isUsable))
     }
 
     @Test
-    fun `back steps over a track the receiver cannot open`() {
-        assertEquals("c", windowBefore(queue("a", "local:b", "c", "d"), 3, isUsable))
+    fun `back is the nearest usable track when several are between`() {
+        assertEquals("b", windowBefore(queue("a", "b", "local:c", "local:d", "e"), 4, isUsable))
+    }
+
+    @Test
+    fun `previous usable index is the same decision as the window`() {
+        val items = queue("a", "local:b", "c")
+        assertEquals(2, previousUsableIndex(items, 3, isUsable))
+        assertEquals(0, previousUsableIndex(items, 2, isUsable))
+        assertNull(previousUsableIndex(items, 0, isUsable))
     }
 
     // ---- the two together, as the receiver sees them -------------------------

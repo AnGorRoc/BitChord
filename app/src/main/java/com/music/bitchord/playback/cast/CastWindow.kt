@@ -14,15 +14,26 @@ package com.music.bitchord.playback.cast
  */
 
 /**
+ * The nearest index before [current] that [isUsable] accepts, or null at the top
+ * of the list and when everything before it is unusable.
+ *
+ * Stepping backwards over unusable tracks, like [nextUsableIndex] does forwards,
+ * is what makes back on a receiver a jump to something it can actually play
+ * rather than a reload of a track it must refuse.
+ */
+internal fun <T> previousUsableIndex(items: List<T>, current: Int, isUsable: (T) -> Boolean): Int? {
+    for (i in (current - 1) downTo 0) {
+        if (isUsable(items[i])) return i
+    }
+    return null
+}
+
+/**
  * The track before [current], if there is one and [isUsable] accepts it. Null at
- * the top of the list, and for a track a receiver would have to step over to
- * reach anything.
+ * the top of the list, and when everything before it is unusable.
  */
 internal fun <T> windowBefore(items: List<T>, current: Int, isUsable: (T) -> Boolean): T? =
-    (current - 1)
-        .takeIf { it >= 0 }
-        ?.let { items[it] }
-        ?.takeIf(isUsable)
+    previousUsableIndex(items, current, isUsable)?.let { items[it] }
 
 /**
  * The index of the first track after [current] that [isUsable] accepts, or null
