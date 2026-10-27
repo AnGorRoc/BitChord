@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SwapVert
@@ -46,6 +47,7 @@ import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.spotify.ExportState
 import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.icons.BitChordIcons
@@ -172,6 +174,17 @@ fun BrowseActionsSheet(
      */
     onDeleteDownload: (() -> Unit)? = null,
     /**
+     * Sends a playlist kept on this device to the signed-in YouTube Music
+     * account — set only for those, since anything else is already there or has
+     * no songs of its own to send. [exportState] is where the send stands, so
+     * the row reads as its progress and the same tap stops it ([onCancelExport]);
+     * [exported] is whether everything has gone before.
+     */
+    onExport: (() -> Unit)? = null,
+    onCancelExport: (() -> Unit)? = null,
+    exportState: ExportState? = null,
+    exported: Boolean = false,
+    /**
      * [SongActionsPresentation.Menu] draws only the rows, compact, for the
      * popup a held card lifts into — [HeldContextMenu] shows the card itself,
      * so the header here would only say the same thing twice.
@@ -263,6 +276,31 @@ fun BrowseActionsSheet(
                         else -> null
                     },
                     onClick = download,
+                )
+            }
+            if (onExport != null) {
+                val sending = exportState is ExportState.Queued || exportState is ExportState.Running
+                val failed = exportState is ExportState.Failed
+                ActionRow(
+                    icon = when {
+                        sending -> BitChordIcons.Clock
+                        exported || exportState is ExportState.Done -> BitChordIcons.Check
+                        else -> Icons.Rounded.FileUpload
+                    },
+                    label = stringResource(if (sending) R.string.yt_export_stop else R.string.yt_export),
+                    value = when (exportState) {
+                        ExportState.Queued -> stringResource(R.string.yt_export_value_queued)
+                        is ExportState.Running -> if (exportState.throttled) {
+                            stringResource(R.string.yt_export_value_waiting)
+                        } else {
+                            stringResource(R.string.yt_export_value_progress, exportState.done, exportState.total)
+                        }
+                        is ExportState.Failed -> stringResource(R.string.yt_export_value_retry)
+                        is ExportState.Done -> stringResource(R.string.yt_export_value_done)
+                        null -> if (exported) stringResource(R.string.yt_export_value_done) else null
+                    },
+                    tint = if (failed) MaterialTheme.colorScheme.error else null,
+                    onClick = if (sending) onCancelExport ?: {} else onExport,
                 )
             }
             onOpen?.let {

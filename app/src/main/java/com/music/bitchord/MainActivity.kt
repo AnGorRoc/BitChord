@@ -241,6 +241,7 @@ import com.music.bitchord.playback.rememberMediaController
 import com.music.bitchord.playback.rememberPlayerState
 import com.music.bitchord.playback.setQueueDragActive
 import com.music.bitchord.ui.MainViewModel
+import com.music.bitchord.ui.message
 import com.music.bitchord.ui.SearchSource
 import com.music.bitchord.ui.components.BottomFadeScrim
 import com.music.bitchord.ui.components.TopFadeBlur
@@ -1022,6 +1023,14 @@ private fun BitChordApp(
         if (queueNotice?.id == shown.id) {
             queueNotice = null
             shown.onExpire?.invoke()
+        }
+    }
+    // An export to YouTube Music ends long after the menu that started it is
+    // gone, so it says how it went here.
+    val exportContext = LocalContext.current
+    LaunchedEffect(Unit) {
+        com.music.bitchord.data.spotify.LocalPlaylistExporter.events.collect { event ->
+            showQueueNotice(event.message(exportContext))
         }
     }
 
@@ -4944,6 +4953,13 @@ private fun BitChordApp(
             // "local:all", …) are neither.
             val downloadable = remote ||
                 target.browseId?.startsWith("local:playlist:sp_local_") == true
+            // A playlist kept on this device, which is the only kind that can be
+            // sent to the account — read from collected state, like the rest.
+            val exportStates by com.music.bitchord.data.spotify.LocalPlaylistExporter.states
+                .collectAsStateWithLifecycle()
+            val exportable = target.browseId
+                ?.takeIf { it.startsWith("local:playlist:") }
+                ?.let { com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(it) }
             val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
             // Device playlists and directories have nowhere on the Library
             // page to be pinned to that would still mean anything off-device.
@@ -5112,6 +5128,28 @@ private fun BitChordApp(
                         scope.launch { Downloads.deleteCollection(context, id) }
                     }
                 },
+                onExport = exportable?.let { p ->
+                    {
+                        browseActions = null
+                        val exporter = com.music.bitchord.data.spotify.LocalPlaylistExporter
+                        if (!signedIn) {
+                            showQueueNotice(context.getString(R.string.yt_export_sign_in))
+                        } else {
+                            if (!exporter.isExported(p)) {
+                                showQueueNotice(context.getString(R.string.yt_export_started, p.title))
+                            }
+                            exporter.export(p)
+                        }
+                    }
+                },
+                onCancelExport = exportable?.let { p ->
+                    {
+                        browseActions = null
+                        com.music.bitchord.data.spotify.LocalPlaylistExporter.cancel(p.id)
+                    }
+                },
+                exportState = exportable?.let { exportStates[it.id] },
+                exported = exportable?.let { com.music.bitchord.data.spotify.LocalPlaylistExporter.isExported(it) } == true,
             )
         }
         browseActions?.takeIf { browseMenuOrigin == null }?.let { target ->
