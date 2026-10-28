@@ -2568,25 +2568,63 @@ class PlaybackService : MediaLibraryService() {
                 delay(5)
             }
             if (!standby.isPlaying) return
-            // Long enough for the output's own timestamps to take over from
-            // the estimate a freshly started AudioTrack reports.
-            delay(STANDBY_LOCK_SETTLE_MS)
-            val samples = LongArray(STANDBY_LOCK_SAMPLES) {
-                if (it > 0) delay(STANDBY_LOCK_SAMPLE_GAP_MS)
-                standby.currentPosition - (active.currentPosition + offsetMs)
-            }
-            samples.sort()
-            errorMs = samples[samples.size / 2]
+            errorMs = settledStandbyError(active, standby, index, offsetMs) ?: return
             if (abs(errorMs) <= STANDBY_LOCK_TOLERANCE_MS) {
                 standbySeekLatencyMs = latencyMs
                 TrackLog.d("BitChord", "version swap locked to ${errorMs}ms in $pass pass(es), seek latency ${latencyMs}ms")
                 return
             }
-            latencyMs = (latencyMs - (errorMs / speed).toLong()).coerceIn(0L, STANDBY_LOCK_MAX_LATENCY_MS)
+            latencyMs = (latencyMs - (errorMs / speed).toLong())
+                .coerceIn(-STANDBY_LOCK_MAX_EARLY_MS, STANDBY_LOCK_MAX_LATENCY_MS)
             if (SystemClock.elapsedRealtime() >= deadline) break
         }
         standbySeekLatencyMs = latencyMs
         TrackLog.w("BitChord", "version swap crossfading ${errorMs}ms off after $STANDBY_LOCK_MAX_PASSES passes")
+    }
+
+    /**
+     * How far [standby] sits from [active] plus [offsetMs], read only once the
+     * standby's position readout has stopped moving.
+     *
+     * A player that has just started or been seeked reports a position
+     * estimated from the AudioTrack's playhead, smoothed over its first few
+     * hundred milliseconds, before the output's own timestamps take over. The
+     * audio does not move when that happens, only the readout does, and by tens
+     * of milliseconds. Locking on the early readout therefore "locks" a standby
+     * that is really that far off, and the fade then plays the same bar twice
+     * a few milliseconds apart. So the difference is sampled until the last
+     * [STANDBY_LOCK_STABLE_SAMPLES] agree within [STANDBY_LOCK_STABLE_SPREAD_MS]
+     * and the median of those is the answer; if it never settles inside
+     * [STANDBY_LOCK_SETTLE_WINDOW_MS] the median of the latest samples stands.
+     *
+     * @return the error, or null when either player stopped being the pair
+     *   this was started for.
+     */
+    private suspend fun settledStandbyError(
+        active: ExoPlayer,
+        standby: ExoPlayer,
+        index: Int,
+        offsetMs: Long,
+    ): Long? {
+        delay(STANDBY_LOCK_SETTLE_MS)
+        val errors = ArrayList<Long>()
+        val windowEnd = SystemClock.elapsedRealtime() + STANDBY_LOCK_SETTLE_WINDOW_MS
+        while (true) {
+            if (!active.isPlaying || !standby.isPlaying || active.currentMediaItemIndex != index) return null
+            errors += standby.currentPosition - (active.currentPosition + offsetMs)
+            if (errors.size >= STANDBY_LOCK_STABLE_SAMPLES) {
+                val recent = errors.takeLast(STANDBY_LOCK_STABLE_SAMPLES)
+                val stable = recent.max() - recent.min() <= STANDBY_LOCK_STABLE_SPREAD_MS
+                if (stable || SystemClock.elapsedRealtime() >= windowEnd) {
+                    val median = recent.sorted()[recent.size / 2]
+                    if (!stable) {
+                        TrackLog.w("BitChord", "standby position still moving after ${errors.size} samples: $recent")
+                    }
+                    return median
+                }
+            }
+            delay(STANDBY_LOCK_SAMPLE_GAP_MS)
+        }
     }
 
     private fun adoptPlayerForVersionSwap(outgoing: ExoPlayer, incoming: ExoPlayer) {
@@ -9611,14 +9649,25 @@ class PlaybackService : MediaLibraryService() {
          * copy arrives; the tolerance is a few milliseconds above what the
          * position readout itself can resolve, which no further pass could beat.
          */
-        const val STANDBY_LOCK_MAX_PASSES = 4
-        const val STANDBY_LOCK_BUDGET_MS = 2_500L
+        const val STANDBY_LOCK_MAX_PASSES = 3
+        const val STANDBY_LOCK_BUDGET_MS = 6_000L
         const val STANDBY_LOCK_RESUME_MS = 500L
-        const val STANDBY_LOCK_SETTLE_MS = 120L
-        const val STANDBY_LOCK_SAMPLES = 3
-        const val STANDBY_LOCK_SAMPLE_GAP_MS = 25L
-        const val STANDBY_LOCK_TOLERANCE_MS = 8L
+
+        /**
+         * How long after a seek the standby's position readout is left alone —
+         * see [settledStandbyError]. The output's smoothing window alone is
+         * ~300 ms, and its first timestamps arrive a little after that.
+         */
+        const val STANDBY_LOCK_SETTLE_MS = 600L
+        const val STANDBY_LOCK_SETTLE_WINDOW_MS = 800L
+        const val STANDBY_LOCK_STABLE_SAMPLES = 6
+        const val STANDBY_LOCK_STABLE_SPREAD_MS = 3L
+        const val STANDBY_LOCK_SAMPLE_GAP_MS = 40L
+        const val STANDBY_LOCK_TOLERANCE_MS = 6L
         const val STANDBY_LOCK_MAX_LATENCY_MS = 1_500L
+
+        /** How far behind "now" a seek may aim, for a device whose seeks resume early. */
+        const val STANDBY_LOCK_MAX_EARLY_MS = 500L
 
         /**
          * The most an alignment will fetch of an upgrade's opening: thirteen
