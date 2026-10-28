@@ -45,6 +45,32 @@ class MonochromeGateTest {
 
     private fun answer(code: Int) = server.enqueue(MockResponse().setResponseCode(code))
 
+    /**
+     * A client whose first request is held, past the gate, until [release] is
+     * counted down; [entered] says when it is being held. Held on a latch and
+     * not for a while, so that "while that one is in flight" is a fact the test
+     * waits for and not a guess about timing.
+     */
+    private class HeldFirst {
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        private val calls = java.util.concurrent.atomic.AtomicInteger()
+
+        val interceptor = Interceptor { chain ->
+            if (calls.getAndIncrement() == 0) {
+                entered.countDown()
+                check(release.await(10, java.util.concurrent.TimeUnit.SECONDS)) { "never released" }
+            }
+            chain.proceed(chain.request())
+        }
+    }
+
+    private fun clientHolding(held: HeldFirst) =
+        OkHttpClient.Builder().addInterceptor(gate).addInterceptor(held.interceptor).build()
+
+    private fun getWith(client: OkHttpClient, path: String = "/track/1"): okhttp3.Response =
+        client.newCall(Request.Builder().url(server.url(path)).build()).execute().also { it.close() }
+
     @Test
     fun `a 429 opens the circuit and the next file is refused without a request`() {
         answer(429)
@@ -87,11 +113,14 @@ class MonochromeGateTest {
         answer(429)
         get()
         clock += MonochromeGate.BASE_WINDOW_MS
-        server.enqueue(MockResponse().setResponseCode(206).setHeadersDelay(300, java.util.concurrent.TimeUnit.MILLISECONDS))
+        answer(206)
+        val held = HeldFirst()
+        val holding = clientHolding(held)
 
-        val trial = Thread { get() }.apply { start() }
-        Thread.sleep(100)
-        val second = get()
+        val trial = Thread { getWith(holding) }.apply { start() }
+        check(held.entered.await(10, java.util.concurrent.TimeUnit.SECONDS)) { "the trial never started" }
+        val second = getWith(holding)
+        held.release.countDown()
         trial.join()
 
         assertNotNull(second.header(MonochromeGate.SYNTHETIC_HEADER))
@@ -133,14 +162,17 @@ class MonochromeGateTest {
     /** Stragglers from the burst that tripped it don't count as further refusals. */
     @Test
     fun `a 429 while already open doesn't lengthen the window`() {
-        // The slow one is asked first and answers last, after the quick one
+        // The held one is asked first and answers last, after the quick one
         // has already opened the circuit.
-        server.enqueue(MockResponse().setResponseCode(429).setHeadersDelay(300, java.util.concurrent.TimeUnit.MILLISECONDS))
         answer(429)
+        answer(429)
+        val held = HeldFirst()
+        val holding = clientHolding(held)
 
-        val straggler = Thread { get() }.apply { start() }
-        Thread.sleep(100)
-        get()
+        val straggler = Thread { getWith(holding) }.apply { start() }
+        check(held.entered.await(10, java.util.concurrent.TimeUnit.SECONDS)) { "the first request never started" }
+        getWith(holding)
+        held.release.countDown()
         straggler.join()
 
         assertEquals(2, server.requestCount)
