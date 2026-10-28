@@ -189,7 +189,8 @@ import com.music.bitchord.ui.screens.SpotifyLibraryScreen
 import com.music.bitchord.ui.screens.SpotifyLibraryState
 import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX
 import com.music.bitchord.playback.AudioCache
-import com.music.bitchord.playback.ExternalLink
+import com.music.bitchord.playback.SharedLinkOutcome
+import com.music.bitchord.playback.SharedLinkResolver
 import com.music.bitchord.playback.LinkRequest
 import com.music.bitchord.playback.MusicLink
 import com.music.bitchord.playback.OriginalVersion
@@ -1994,20 +1995,21 @@ private fun BitChordApp(
             // A song from another service: find its name, then treat it as a
             // spoken "play <title> <artist>".
             is LinkRequest.External -> {
-                val resolved = ExternalLink.resolve(request.uri)
-                val top = resolved?.takeIf { it.isTrack }?.let {
-                    YtMusicRepository.search(it.query, SearchFilter.SONGS).getOrNull()
-                        ?.filterIsInstance<SearchResult.Track>()?.firstOrNull()?.song
-                }
-                when {
-                    top != null -> playRadio(top, QueueSource(sharedLinkLabel, PlaybackSourceType.SHARED_LINK, top.videoId))
-                    resolved != null -> {
+                // Reading the page and searching can take a while on a slow
+                // connection; say so rather than leave the tap looking ignored.
+                showQueueNotice(context.getString(R.string.opening_link))
+                when (val outcome = SharedLinkResolver.default.open(request.uri.toString())) {
+                    is SharedLinkOutcome.Play -> playRadio(
+                        outcome.song,
+                        QueueSource(sharedLinkLabel, PlaybackSourceType.SHARED_LINK, outcome.song.videoId),
+                    )
+                    is SharedLinkOutcome.Search -> {
                         dismissPlayer()
                         navigator.clear()
                         selectedTab = TAB_SEARCH
-                        viewModel.searchFor(resolved.query)
+                        viewModel.searchFor(outcome.query)
                     }
-                    else -> Toast.makeText(
+                    SharedLinkOutcome.Unresolved -> Toast.makeText(
                         context,
                         context.getString(R.string.couldnt_open_link),
                         Toast.LENGTH_SHORT,

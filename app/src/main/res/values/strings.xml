@@ -442,6 +442,7 @@
     <string name="copy_log">Copy log</string>
     <string name="couldnt_find">Couldn\'t find %1$s</string>
     <string name="couldnt_open_link">Couldn\'t open that link</string>
+    <string name="opening_link">Opening link…</string>
     <string name="create_playlist">Create playlist</string>
     <string name="customize_card">Customize the card</string>
     <string name="customize_card_subtitle">Status, wording and both buttons</string>

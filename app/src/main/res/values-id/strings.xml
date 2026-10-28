@@ -293,6 +293,7 @@
     <string name="copy_log">Salin log</string>
     <string name="couldnt_find">Tidak dapat menemukan %1$s</string>
     <string name="couldnt_open_link">Tidak dapat membuka tautan itu</string>
+    <string name="opening_link">Membuka tautan…</string>
     <string name="create_playlist">Buat playlist</string>
     <string name="customize_card">Sesuaikan kartu</string>
     <string name="customize_card_subtitle">Status, teks, dan kedua tombol</string>

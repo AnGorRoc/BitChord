@@ -299,6 +299,7 @@
     <string name="copy_log">Copier le journal</string>
     <string name="couldnt_find">Impossible de trouver %1$s</string>
     <string name="couldnt_open_link">Impossible d\'ouvrir ce lien</string>
+    <string name="opening_link">Ouverture du lien…</string>
     <string name="create_playlist">Créer une playlist</string>
     <string name="customize_card">Personnaliser la carte</string>
     <string name="customize_card_subtitle">Statut, texte et les deux boutons</string>

@@ -296,6 +296,7 @@
     <string name="copy_log">Kopiuj log</string>
     <string name="couldnt_find">Nie znaleziono %1$s</string>
     <string name="couldnt_open_link">Nie udało się otworzyć tego linku</string>
+    <string name="opening_link">Otwieranie linku…</string>
     <string name="create_playlist">Utwórz playlistę</string>
     <string name="customize_card">Dostosuj kartę</string>
     <string name="customize_card_subtitle">Status, treść i oba przyciski</string>

@@ -437,6 +437,7 @@
     <string name="copy_log">로그 복사</string>
     <string name="couldnt_find">%1$s 찾을 수 없음</string>
     <string name="couldnt_open_link">링크를 열 수 없음</string>
+    <string name="opening_link">링크 여는 중…</string>
     <string name="create_playlist">재생목록 생성</string>
     <string name="customize_card">카드 맞춤 설정</string>
     <string name="customize_card_subtitle">상태, 단어, 버튼 2개 설정</string>

@@ -317,6 +317,7 @@
     <string name="copy_log">คัดลอกล็อก</string>
     <string name="couldnt_find">หา %1$s ไม่พบ</string>
     <string name="couldnt_open_link">เปิดลิงก์นั้นไม่ได้</string>
+    <string name="opening_link">กำลังเปิดลิงก์…</string>
     <string name="create_playlist">สร้างเพลย์ลิสต์</string>
     <string name="customize_card">ปรับแต่งการ์ด</string>
     <string name="customize_card_subtitle">สถานะ ข้อความ และปุ่มทั้งสอง</string>

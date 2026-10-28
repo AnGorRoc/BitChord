@@ -341,6 +341,7 @@
     <string name="copy_log">Copia log</string>
     <string name="couldnt_find">Impossibile trovare %1$s</string>
     <string name="couldnt_open_link">Impossibile aprire quel link</string>
+    <string name="opening_link">Apertura del link…</string>
     <string name="create_playlist">Crea playlist</string>
     <string name="customize_card">Personalizza la scheda</string>
     <string name="customize_card_subtitle">Stato, testo ed entrambi i pulsanti</string>

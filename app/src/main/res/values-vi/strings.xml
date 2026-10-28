@@ -332,6 +332,7 @@
     <string name="copy_log">Sao chép nhật ký</string>
     <string name="couldnt_find">Không thể tìm thấy %1$s</string>
     <string name="couldnt_open_link">Không thể mở liên kết đó</string>
+    <string name="opening_link">Đang mở liên kết…</string>
     <string name="create_playlist">Tạo danh sách phát</string>
     <string name="customize_card">Tùy chỉnh thẻ</string>
     <string name="customize_card_subtitle">Trạng thái, câu từ và cả hai nút</string>

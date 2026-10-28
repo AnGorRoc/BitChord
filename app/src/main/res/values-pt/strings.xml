@@ -300,6 +300,7 @@
     <string name="copy_log">Copiar log</string>
     <string name="couldnt_find">Não foi possível encontrar %1$s</string>
     <string name="couldnt_open_link">Não foi possível abrir esse link</string>
+    <string name="opening_link">Abrindo link…</string>
     <string name="create_playlist">Criar playlist</string>
     <string name="customize_card">Personalizar o cartão</string>
     <string name="customize_card_subtitle">Status, texto e ambos os botões</string>

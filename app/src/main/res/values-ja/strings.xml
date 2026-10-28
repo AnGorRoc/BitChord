@@ -293,6 +293,7 @@
     <string name="copy_log">ログをコピー</string>
     <string name="couldnt_find">%1$sが見つかりませんでした</string>
     <string name="couldnt_open_link">リンクを開けませんでした</string>
+    <string name="opening_link">リンクを開いています…</string>
     <string name="create_playlist">プレイリストを作成</string>
     <string name="customize_card">カードをカスタマイズ</string>
     <string name="customize_card_subtitle">ステータス、文言、両方のボタン</string>

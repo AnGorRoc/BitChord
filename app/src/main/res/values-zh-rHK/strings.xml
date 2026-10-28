@@ -293,6 +293,7 @@
     <string name="copy_log">複製日誌</string>
     <string name="couldnt_find">找不到%1$s</string>
     <string name="couldnt_open_link">無法開啟該連結</string>
+    <string name="opening_link">正在開啟連結…</string>
     <string name="create_playlist">建立播放列表</string>
     <string name="customize_card">自定義卡片</string>
     <string name="customize_card_subtitle">狀態、文字和兩個按鈕</string>
