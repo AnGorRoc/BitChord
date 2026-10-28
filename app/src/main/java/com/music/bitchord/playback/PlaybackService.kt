@@ -5447,7 +5447,23 @@ class PlaybackService : MediaLibraryService() {
             // it — the one read nothing can start without. Ahead of the audition
             // rather than beside it, since Media3 locks a cache entry to a
             // single writer.
-            AudioCache.warmRange(Uri.parse(upgradedUri), 0, UPGRADE_HEADER_BYTES)
+            //
+            // Sized for the alignment that follows rather than for the header
+            // alone. That measurement used to fetch its own opening inside a
+            // six-second budget shared with two decodes and a correlation, and
+            // a lossless opening — two megabytes of CD quality, eight of a
+            // hi-res master, from a server that rate-limits — does not reliably
+            // arrive in it. Out of time it fell back to no shift, silently, and
+            // two copies a few tens of milliseconds apart crossfaded as an
+            // echo. Fetched here the cost is absorbed: the audition below aims
+            // at wherever the listener is *when it finishes*, so seconds spent
+            // before it cost nothing, where seconds spent after it come out of
+            // the buffer the swap lands on.
+            AudioCache.warmRange(
+                Uri.parse(upgradedUri),
+                0,
+                maxOf(UPGRADE_HEADER_BYTES, upgradeAlignmentHeadBytes(stream.format.kbps)),
+            )
         }
         val audition = withContext(Dispatchers.Main) {
             buildAuditionPlayer(meter).apply {
@@ -5528,13 +5544,19 @@ class PlaybackService : MediaLibraryService() {
     ): Long = withContext(Dispatchers.IO) {
         val playing = Uri.parse(playingUri)
         val upgraded = Uri.parse(upgradedUri)
+        val began = SystemClock.elapsedRealtime()
+        var concluded = false
         val measured = withTimeoutOrNull(UPGRADE_ALIGN_TIMEOUT_MS) {
+            // Normally already on disk: [auditionUpgrade] fetched this opening
+            // before it started. Kept for a copy it did not reach, and cheap
+            // when there is nothing left to fetch.
             AudioCache.warmRange(upgraded, 0, upgradeAlignmentHeadBytes(upgradedKbps))
             val playingKey = AudioCache.cacheKeyOf(playing)
             val upgradedKey = AudioCache.cacheKeyOf(upgraded)
             val source = AudioCache.renditionsOf(playing).firstOrNull { it.key == playingKey }
             val target = AudioCache.renditionsOf(upgraded).firstOrNull { it.key == upgradedKey }
             if (source == null || target == null) {
+                concluded = true
                 TrackLog.d("BitChord", "upgrade alignment: no opening on disk for $mediaId", about = mediaId)
                 return@withTimeoutOrNull null
             }
@@ -5542,6 +5564,17 @@ class PlaybackService : MediaLibraryService() {
                 playing = AudioCache.renditionDataSource(playing, source),
                 upgraded = AudioCache.renditionDataSource(upgraded, target),
                 label = title,
+            ).also { concluded = true }
+        }
+        // Said out loud because it used to be the one way of not knowing that
+        // left nothing in the log, and what it costs is audible: an unshifted
+        // crossfade of two copies that are not on the same sample.
+        if (!concluded) {
+            TrackLog.w(
+                "BitChord",
+                "upgrade alignment for '$title' ran out of time after " +
+                    "${SystemClock.elapsedRealtime() - began}ms; crossfading with no shift",
+                about = mediaId,
             )
         }
         measured ?: 0L
