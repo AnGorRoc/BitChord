@@ -229,6 +229,8 @@
     <string name="lossless_cache_limit_subtitle">सॉन्ग कैश से अलग</string>
     <string name="improve_cached_songs">कैश किए गाने बेहतर करें</string>
     <string name="improve_cached_songs_subtitle">Wi-Fi पर, या मोबाइल डेटा पर जब उसकी क्वालिटी अनुमति दे, बेहतर कॉपी से बदलें</string>
+    <string name="smart_preload">गाने पहले से तैयार करें</string>
+    <string name="smart_preload_subtitle">रुकावट और खाली समय में चल रहा गाना पूरा करें, उसकी lossless कॉपी पर बदलें और अगले दो गाने डाउनलोड करें। पहले से पूरे डाउनलोड सिर्फ़ Wi-Fi पर</string>
     <string name="lossless_downgrade">ज़रूरत हो तो क्वालिटी घटाएँ</string>
     <string name="lossless_downgrade_subtitle">जब कनेक्शन लॉसलेस नहीं संभाल पाता</string>
     <string name="lossless_from_start">शुरू से लॉसलेस</string>

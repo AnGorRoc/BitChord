@@ -254,6 +254,8 @@
     <string name="lossless_cache_limit_subtitle">Şarkı önbelleğinden ayrı</string>
     <string name="improve_cached_songs">Önbellekteki şarkıları iyileştir</string>
     <string name="improve_cached_songs_subtitle">Wi-Fi\'da, ya da mobil veri kalitesi izin verdiğinde daha iyi bir kopyayla değiştir</string>
+    <string name="smart_preload">Şarkıları önceden hazırla</string>
+    <string name="smart_preload_subtitle">Duraklatmaları ve boş zamanı, çalan şarkıyı tamamlamak, lossless kopyasına geçmek ve sonraki iki şarkıyı indirmek için kullanır. Önceden tam indirme yalnızca Wi-Fi\'da</string>
     <string name="lossless_downgrade">Gerekirse kaliteyi düşür</string>
     <string name="lossless_downgrade_subtitle">Bağlantı kayıpsıza yetmediğinde</string>
     <string name="lossless_from_start">Baştan kayıpsız</string>

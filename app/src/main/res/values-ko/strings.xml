@@ -346,6 +346,8 @@
     <string name="lossless_cache_limit_subtitle">음악 캐시와 별도</string>
     <string name="improve_cached_songs">캐시된 음악 개선</string>
     <string name="improve_cached_songs_subtitle">Wi-Fi에서, 또는 모바일 데이터 음질이 허용할 때 더 좋은 버전으로 교체</string>
+    <string name="smart_preload">곡 미리 준비하기</string>
+    <string name="smart_preload_subtitle">일시정지와 남는 시간에 재생 중인 곡을 끝까지 받고, 무손실 버전으로 바꾸고, 다음 두 곡을 다운로드합니다. 미리 전체 다운로드는 Wi-Fi에서만</string>
     <string name="lossless_downgrade">필요하면 음질 낮추기</string>
     <string name="lossless_downgrade_subtitle">연결이 무손실을 감당하지 못할 때</string>
     <string name="lossless_from_start">처음부터 무손실</string>

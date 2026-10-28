@@ -227,6 +227,8 @@
     <string name="lossless_cache_limit_subtitle">Oddzielnie od pamięci utworów</string>
     <string name="improve_cached_songs">Ulepszaj zapisane utwory</string>
     <string name="improve_cached_songs_subtitle">Zastępuj lepszą kopią przez Wi-Fi lub danych komórkowych, gdy pozwala ich jakość</string>
+    <string name="smart_preload">Przygotowuj utwory z wyprzedzeniem</string>
+    <string name="smart_preload_subtitle">Wykorzystuje pauzy i wolny czas, by dokończyć bieżący utwór, przełączyć go na kopię lossless i pobrać dwa następne. Pełne pobieranie z wyprzedzeniem tylko przez Wi-Fi</string>
     <string name="lossless_downgrade">Obniżaj jakość w razie potrzeby</string>
     <string name="lossless_downgrade_subtitle">Gdy połączenie nie nadąża za lossless</string>
     <string name="lossless_from_start">Lossless od początku</string>

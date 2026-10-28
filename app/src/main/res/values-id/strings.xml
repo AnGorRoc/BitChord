@@ -224,6 +224,8 @@
     <string name="lossless_cache_limit_subtitle">Terpisah dari cache lagu</string>
     <string name="improve_cached_songs">Tingkatkan lagu di cache</string>
     <string name="improve_cached_songs_subtitle">Ganti dengan salinan lebih baik saat Wi-Fi, atau data seluler jika kualitasnya mengizinkan</string>
+    <string name="smart_preload">Siapkan lagu lebih awal</string>
+    <string name="smart_preload_subtitle">Manfaatkan jeda dan waktu luang untuk menyelesaikan lagu yang diputar, beralih ke salinan lossless-nya, dan mengunduh dua lagu berikutnya. Unduhan penuh lebih awal hanya lewat Wi-Fi</string>
     <string name="lossless_downgrade">Turunkan kualitas jika perlu</string>
     <string name="lossless_downgrade_subtitle">Saat koneksi tidak sanggup untuk lossless</string>
     <string name="lossless_from_start">Lossless dari awal</string>

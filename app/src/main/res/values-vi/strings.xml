@@ -260,6 +260,8 @@
     <string name="lossless_cache_limit_subtitle">Tách riêng khỏi bộ nhớ đệm bài hát</string>
     <string name="improve_cached_songs">Cải thiện bài trong bộ nhớ đệm</string>
     <string name="improve_cached_songs_subtitle">Thay bằng bản tốt hơn khi dùng Wi-Fi, hoặc dữ liệu di động nếu chất lượng cho phép</string>
+    <string name="smart_preload">Chuẩn bị bài hát trước</string>
+    <string name="smart_preload_subtitle">Tận dụng lúc tạm dừng và thời gian rảnh để tải xong bài đang phát, chuyển sang bản lossless và tải hai bài tiếp theo. Chỉ tải trọn bài trước khi dùng Wi-Fi</string>
     <string name="lossless_downgrade">Giảm chất lượng khi cần</string>
     <string name="lossless_downgrade_subtitle">Khi kết nối không theo kịp lossless</string>
     <string name="lossless_from_start">Lossless ngay từ đầu</string>

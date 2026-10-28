@@ -230,6 +230,8 @@
     <string name="lossless_cache_limit_subtitle">בנפרד ממטמון השירים</string>
     <string name="improve_cached_songs">שיפור שירים במטמון</string>
     <string name="improve_cached_songs_subtitle">להחליף בעותק טוב יותר ב-Wi-Fi, או בחבילת גלישה כשהאיכות שלה מאפשרת</string>
+    <string name="smart_preload">הכנת שירים מראש</string>
+    <string name="smart_preload_subtitle">מנצל הפסקות וזמן פנוי כדי להשלים את השיר המתנגן, להחליף לעותק ה-lossless שלו ולהוריד את שני הבאים. הורדות מלאות מראש רק ב-Wi-Fi</string>
     <string name="lossless_downgrade">להוריד איכות בעת הצורך</string>
     <string name="lossless_downgrade_subtitle">כשהחיבור לא עומד ב-Lossless</string>
     <string name="lossless_from_start">Lossless מההתחלה</string>

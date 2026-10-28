@@ -224,6 +224,8 @@
     <string name="lossless_cache_limit_subtitle">与歌曲缓存分开计算</string>
     <string name="improve_cached_songs">改善缓存歌曲</string>
     <string name="improve_cached_songs_subtitle">使用 Wi-Fi 时，或移动数据音质允许时，换成更好的版本</string>
+    <string name="smart_preload">提前准备歌曲</string>
+    <string name="smart_preload_subtitle">利用暂停和空闲时间下载完当前歌曲、换成无损版本，并下载接下来两首。提前完整下载仅限 Wi-Fi</string>
     <string name="lossless_downgrade">必要时降低音质</string>
     <string name="lossless_downgrade_subtitle">网络跟不上无损音质时</string>
     <string name="lossless_from_start">从头无损</string>

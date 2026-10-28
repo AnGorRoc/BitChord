@@ -231,6 +231,8 @@
     <string name="lossless_cache_limit_subtitle">Separado do cache de músicas</string>
     <string name="improve_cached_songs">Melhorar músicas no cache</string>
     <string name="improve_cached_songs_subtitle">Trocar por uma cópia melhor no Wi-Fi, ou nos dados móveis se a qualidade deles permitir</string>
+    <string name="smart_preload">Preparar músicas com antecedência</string>
+    <string name="smart_preload_subtitle">Aproveita pausas e tempo livre para terminar a música atual, trocá-la pela cópia lossless e baixar as duas seguintes. Downloads completos antecipados só no Wi-Fi</string>
     <string name="lossless_downgrade">Baixar a qualidade se preciso</string>
     <string name="lossless_downgrade_subtitle">Quando a conexão não dá conta da versão sem perdas</string>
     <string name="lossless_from_start">Sem perdas desde o início</string>

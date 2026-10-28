@@ -229,6 +229,8 @@
     <string name="lossless_cache_limit_subtitle">Getrennt vom Song-Cache</string>
     <string name="improve_cached_songs">Gecachte Songs verbessern</string>
     <string name="improve_cached_songs_subtitle">Mit WLAN durch eine bessere Kopie ersetzen, mit mobilen Daten nur wenn deren Qualität es erlaubt</string>
+    <string name="smart_preload">Songs im Voraus vorbereiten</string>
+    <string name="smart_preload_subtitle">Nutzt Pausen und freie Zeit, um den laufenden Song fertig zu laden, auf seine Lossless-Kopie zu wechseln und die nächsten zwei herunterzuladen. Vollständige Downloads im Voraus nur im WLAN</string>
     <string name="lossless_downgrade">Qualität bei Bedarf senken</string>
     <string name="lossless_downgrade_subtitle">Wenn die Verbindung für verlustfrei nicht reicht</string>
     <string name="lossless_from_start">Verlustfrei von Anfang an</string>

@@ -248,6 +248,8 @@
     <string name="lossless_cache_limit_subtitle">แยกจากแคชเพลง</string>
     <string name="improve_cached_songs">ปรับปรุงเพลงในแคช</string>
     <string name="improve_cached_songs_subtitle">เปลี่ยนเป็นสำเนาที่ดีกว่าเมื่อใช้ Wi-Fi หรือเน็ตมือถือเมื่อคุณภาพที่ตั้งไว้อนุญาต</string>
+    <string name="smart_preload">เตรียมเพลงล่วงหน้า</string>
+    <string name="smart_preload_subtitle">ใช้ช่วงหยุดชั่วคราวและเวลาว่างเพื่อโหลดเพลงที่กำลังเล่นให้ครบ เปลี่ยนเป็นสำเนา lossless และดาวน์โหลดสองเพลงถัดไป ดาวน์โหลดเต็มล่วงหน้าเฉพาะ Wi-Fi</string>
     <string name="lossless_downgrade">ลดคุณภาพเมื่อจำเป็น</string>
     <string name="lossless_downgrade_subtitle">เมื่อการเชื่อมต่อไม่พอสำหรับแบบไม่สูญเสียคุณภาพ</string>
     <string name="lossless_from_start">ไม่สูญเสียคุณภาพตั้งแต่ต้น</string>

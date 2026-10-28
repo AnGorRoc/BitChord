@@ -239,6 +239,8 @@
     <string name="lossless_cache_limit_subtitle">Отдельно от кэша треков</string>
     <string name="improve_cached_songs">Улучшать треки в кэше</string>
     <string name="improve_cached_songs_subtitle">Заменять лучшей копией по Wi-Fi или по мобильной сети, если её качество позволяет</string>
+    <string name="smart_preload">Готовить треки заранее</string>
+    <string name="smart_preload_subtitle">Использует паузы и свободное время, чтобы докачать текущий трек, переключить его на lossless-копию и скачать два следующих. Полная загрузка заранее — только по Wi-Fi</string>
     <string name="lossless_downgrade">Снижать качество при необходимости</string>
     <string name="lossless_downgrade_subtitle">Когда соединение не тянет без потерь</string>
     <string name="lossless_from_start">Без потерь с самого начала</string>

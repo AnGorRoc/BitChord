@@ -224,6 +224,8 @@
     <string name="lossless_cache_limit_subtitle">曲キャッシュとは別枠</string>
     <string name="improve_cached_songs">キャッシュ曲を高音質に</string>
     <string name="improve_cached_songs_subtitle">Wi-Fi 時、またはモバイルデータの音質設定が許す場合に、より良い版に置き換える</string>
+    <string name="smart_preload">曲を先回りで準備</string>
+    <string name="smart_preload_subtitle">一時停止中や空き時間に再生中の曲を読み込み終え、ロスレス版に切り替え、次の2曲をダウンロードします。先回りの完全ダウンロードは Wi-Fi のみ</string>
     <string name="lossless_downgrade">必要なら音質を下げる</string>
     <string name="lossless_downgrade_subtitle">回線がロスレスに追いつかないとき</string>
     <string name="lossless_from_start">最初からロスレス</string>
