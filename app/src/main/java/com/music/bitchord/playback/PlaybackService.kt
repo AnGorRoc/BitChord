@@ -11,8 +11,10 @@ import android.media.MediaMetadataRetriever
 import android.media.audiofx.AudioEffect
 import android.net.Uri
 import android.widget.Toast
+import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.os.Handler
+import android.os.PowerManager
 import android.os.SystemClock
 import com.music.bitchord.data.TelemetryProvenance
 import kotlinx.coroutines.sync.Mutex
@@ -1332,13 +1334,23 @@ class PlaybackService : MediaLibraryService() {
         // paused service drops out of the foreground after ten minutes — after
         // which Android may freeze the process mid-stream. Held up for the
         // length of the session instead.
+        //
+        // The same holds for a pause with downloads still to make: the rest of
+        // the track, its better copy, the next tracks. Media3 arms its timer at
+        // the moment playback stops, with whatever timeout is set *then*, so
+        // the answer is kept current all along rather than decided at pause —
+        // see [DownloadScheduler.Host.onPendingChanged]. One collector for
+        // both, so neither can reset the other's value.
         scope.launch {
-            WearBridge.watchSession.collect { onWatch ->
-                setForegroundServiceTimeoutMs(
-                    if (onWatch) WATCH_SESSION_FOREGROUND_MS else DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS,
-                )
-            }
+            combine(WearBridge.watchSession, downloadsPending) { onWatch, pending -> onWatch || pending }
+                .distinctUntilChanged()
+                .collect { held ->
+                    setForegroundServiceTimeoutMs(
+                        if (held) WATCH_SESSION_FOREGROUND_MS else DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS,
+                    )
+                }
         }
+        holdAwakeWhileDownloading()
         // Signing in or out adds or removes Like everywhere at once.
         scope.launch {
             SignedIn.state(this@PlaybackService)
@@ -3516,7 +3528,50 @@ class PlaybackService : MediaLibraryService() {
         // Back restarts the track once you're this far into it; only a
         // press before that steps to the previous one.
         .setMaxSeekToPreviousPositionMs(BACK_RESTARTS_AFTER_MS)
+        // CPU and Wi-Fi held while playing or buffering, so a screen-off phone
+        // keeps streaming at full speed. Released on pause by the player
+        // itself; a download in flight then holds its own — see
+        // [holdAwakeWhileDownloading].
+        .setWakeMode(C.WAKE_MODE_NETWORK)
         .build()
+
+    /**
+     * Keeps the CPU and Wi-Fi up for as long as the download scheduler has a
+     * download in flight, which during a pause nothing else does — the player
+     * lets its own locks go the moment it stops. Re-taken on a timeout rather
+     * than held open-ended, so a lock can never outlive the process's interest
+     * in it by more than [DOWNLOAD_LOCK_MS].
+     */
+    private fun holdAwakeWhileDownloading() {
+        val power = getSystemService(PowerManager::class.java) ?: return
+        val wifi = applicationContext.getSystemService(WifiManager::class.java)
+        val cpu = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BitChord:downloads").apply {
+            setReferenceCounted(false)
+        }
+        @Suppress("DEPRECATION")
+        val radio = wifi?.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "BitChord:downloads")?.apply {
+            setReferenceCounted(false)
+        }
+        scope.launch {
+            downloadsBusy.collectLatest { busy ->
+                if (!busy) {
+                    if (cpu.isHeld) cpu.release()
+                    if (radio?.isHeld == true) radio.release()
+                    return@collectLatest
+                }
+                try {
+                    while (true) {
+                        cpu.acquire(DOWNLOAD_LOCK_MS)
+                        radio?.acquire()
+                        delay(DOWNLOAD_LOCK_MS / 2)
+                    }
+                } finally {
+                    if (cpu.isHeld) cpu.release()
+                    if (radio?.isHeld == true) radio.release()
+                }
+            }
+        }
+    }
 
     /**
      * Moves the session onto the player the crossfade has just started the
@@ -6808,10 +6863,17 @@ class PlaybackService : MediaLibraryService() {
         override fun onBusyChanged(busy: Boolean) {
             downloadsBusy.value = busy
         }
+
+        override fun onPendingChanged(pending: Boolean) {
+            downloadsPending.value = pending
+        }
     }
 
     /** Whether the scheduler has a download in flight; see [DownloadScheduler.Host.onBusyChanged]. */
     private val downloadsBusy = MutableStateFlow(false)
+
+    /** Whether a pause now would leave downloads to make; see [DownloadScheduler.Host.onPendingChanged]. */
+    private val downloadsPending = MutableStateFlow(false)
 
     /**
      * The next [count] tracks in the order they will play — repeat and
@@ -9518,6 +9580,9 @@ class PlaybackService : MediaLibraryService() {
 
         /** How many tracks ahead smart preloading gets ready — inside [FOREIGN_CACHE_KEEP_AHEAD], so what it fetches is kept. */
         const val UPCOMING_FOR_DOWNLOAD = 2
+
+        /** How long one take of the download wake lock lasts; it is re-taken at half that while downloads run. */
+        const val DOWNLOAD_LOCK_MS = 2 * 60 * 1000L
         const val MEDIA_DOWNLOADS_ID = "downloads"
         const val MEDIA_LOCAL_MUSIC_ID = "local_music"
         const val MAX_AUTO_PAGE_SIZE = 50

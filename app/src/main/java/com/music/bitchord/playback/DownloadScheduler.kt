@@ -54,6 +54,14 @@ class DownloadScheduler(
 
         /** Whether the scheduler has a download in flight, so the service can keep the process awake for it. */
         fun onBusyChanged(busy: Boolean)
+
+        /**
+         * Whether a pause right now would leave downloads to make — so the
+         * service stays in the foreground through that pause. Kept current
+         * while playing, because the foreground timeout is read at the moment
+         * playback stops, not after.
+         */
+        fun onPendingChanged(pending: Boolean)
     }
 
     /** One read of the player. */
@@ -122,12 +130,21 @@ class DownloadScheduler(
         running = null
         runningTask = null
         setBusy(false)
+        setPending(false)
     }
 
     private fun setBusy(value: Boolean) {
         if (busy == value) return
         busy = value
         host.onBusyChanged(value)
+    }
+
+    private var pending = false
+
+    private fun setPending(value: Boolean) {
+        if (pending == value) return
+        pending = value
+        host.onPendingChanged(value)
     }
 
     private suspend fun step() {
@@ -147,6 +164,12 @@ class DownloadScheduler(
         }
         val snapshot = withContext(Dispatchers.IO) { snapshotOf(view, now) }
         val task = DownloadPlan.next(snapshot)
+        val pausedTask = if (snapshot.playWhenReady) {
+            DownloadPlan.next(snapshot.copy(playWhenReady = false, stalled = false, loading = false))
+        } else {
+            task
+        }
+        setPending(pausedTask != null || running?.isActive == true)
         val subject = task?.let { subjectOf(it, view) }
         val wanted = if (task != null && subject != null) task to subject else null
         if (wanted != null && wanted == runningTask && running?.isActive == true) return
