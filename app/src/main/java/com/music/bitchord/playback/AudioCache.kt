@@ -189,6 +189,9 @@ object AudioCache {
     /** A chunk one read of a slow connection gets through in a couple of seconds. */
     private const val SLOW_CHUNK_BYTES = 512L * 1024
 
+    /** How much of an opening counts as ready to start from — Direct Source Stream's figure. */
+    private const val HEAD_READY_BYTES = 512L * 1024
+
     /** Enough to cover a hand-over, not enough to keep chasing a lost race. */
     private const val MAX_ATTEMPTS = 4
 
@@ -1631,6 +1634,49 @@ object AudioCache {
         }
     }
 
+    /**
+     * Whether read-ahead may write [videoId]'s bytes right now: a YouTube id
+     * — a source-backed row resolves through its own source — that is not a
+     * download or reverted to its original, and whose stream is settled, or
+     * has nothing to be settled against. See [prefetchQueue] for why bytes
+     * for a track that might still be substituted must wait for its pin.
+     */
+    fun readAheadAllowed(videoId: String): Boolean {
+        if (SourceRegistry.parseTrackKey(videoId) != null) return false
+        if (videoId in Downloads.saved.value || OriginalVersion.isPinned(videoId)) return false
+        return !SourceResolver.canSubstituteForYouTube() || StreamChoice.of(videoId) != null
+    }
+
+    /**
+     * Settles the stream upcoming track [upcoming] will play from, the way
+     * [prefetchQueue] does, then puts its opening on disk when that is safe —
+     * see [readAheadAllowed]. For [DownloadScheduler].
+     *
+     * @return whether its bytes may be read ahead.
+     */
+    suspend fun prepareUpcoming(upcoming: Upcoming): Boolean {
+        val id = upcoming.mediaId
+        if (SourceRegistry.parseTrackKey(id) != null || id in Downloads.saved.value) return false
+        if (SourceResolver.canSubstituteForYouTube() && StreamChoice.of(id) == null && !OriginalVersion.isPinned(id)) {
+            runCatching { SourceResolver.prefetchSubstitute(upcoming.target) }
+                .onFailure {
+                    if (it is kotlinx.coroutines.CancellationException) throw it
+                    TrackLog.d(TAG, "warm-up substitute failed for $id: ${it.message}", about = id)
+                }
+                .getOrNull()
+                ?.let { pinForReadAhead(id, it, substituted = true) }
+        }
+        if (!readAheadAllowed(id)) return false
+        fetch(id, 0, PRELOAD_BYTES)
+        return true
+    }
+
+    /** Whether enough of [uri]'s opening is on disk for it to start without waiting on the network. */
+    fun headReady(uri: Uri): Boolean = cachedPrefixBytes(uri) >= HEAD_READY_BYTES || isFullyCached(uri)
+
+    /** The cache's effective size limit right now, songs and kept lossless together. */
+    fun cacheCeilingBytes(): Long = evictor.maxBytes
+
     /** Drops [prefetchDirect]'s work for a track the queue has moved away from. */
     fun cancelDirect() {
         directJob?.cancel()
@@ -1750,15 +1796,29 @@ object AudioCache {
      * How [BoundedCacheReads] and [fillRendition] split a stream: Monochrome's
      * own range size, which its server answers without pacing and which keeps
      * the request count — and the 429s that come with it — down; [CHUNK_BYTES]
-     * for everything else. 0 for anything that is not a `bitchord://` read,
-     * which is then left as it is.
+     * for everything else. 0 — read as it always was — for anything but a
+     * YouTube-queued track held to one stream by [StreamChoice] or
+     * [QualityUpgrade]: every segment is a fresh open, and a source-backed row
+     * or a reverted original is resolved anew on each one, with nothing to
+     * promise it lands on the same file.
      */
-    private fun segmentBytesFor(uri: Uri): Long {
-        if (uri.scheme != "bitchord") return 0L
+    internal fun segmentBytesFor(uri: Uri): Long {
+        if (!isPinnedRead(uri)) return 0L
         val url = QualityUpgrade.forcedStream(uri)?.url ?: mediaIdIn(uri)?.let { StreamChoice.of(it)?.url }
         val monochrome = url?.toHttpUrlOrNull()?.let(MonochromeGate.shared::gates) == true
         return if (monochrome) MONOCHROME_SEGMENT_BYTES else CHUNK_BYTES
     }
+
+    /**
+     * Whether every open of [uri] is answered by the same stream: a
+     * `bitchord://watch` read that is not a reverted original. Those are what
+     * [segmentBytesFor] segments and what [fillRendition] may fill alongside
+     * a player.
+     */
+    fun isPinnedRead(uri: Uri): Boolean =
+        uri.scheme == "bitchord" && uri.getQueryParameter("v") != null &&
+            uri.getQueryParameter(DIRECT_YOUTUBE_PARAMETER) != "1" &&
+            !AutomixAnalysisSource.requestsYouTubeOpus(uri.getQueryParameter(AutomixAnalysisSource.OPUS_QUERY_PARAMETER))
 
     /** What became of a [fillRendition]. */
     enum class Fill {

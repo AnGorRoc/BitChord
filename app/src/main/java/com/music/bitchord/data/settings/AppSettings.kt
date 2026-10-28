@@ -570,6 +570,15 @@ object AppSettings {
     val improveCachedSongs = MutableStateFlow(true)
 
     /**
+     * Whether time the player is not using the network — a pause, a track
+     * already on disk — goes to getting ready: the rest of the playing track,
+     * its better copy swapped in while paused, and the next tracks in good
+     * quality. Off falls back to reading ahead only the opening of the next
+     * track while playing. On by default.
+     */
+    val smartPreload = MutableStateFlow(true)
+
+    /**
      * Whether a lossless stream the connection can't keep up with is
      * crossfaded down to a lossy copy before the audio cuts out. Off by
      * default; on, lossless is retried on a schedule — see [LosslessRetryPlan].
@@ -1002,6 +1011,7 @@ object AppSettings {
         losslessCacheLimitBytes.value =
             clampLosslessCacheLimit(prefs.getLong(KEY_LOSSLESS_CACHE_LIMIT, DEFAULT_LOSSLESS_CACHE_LIMIT_BYTES))
         improveCachedSongs.value = prefs.getBoolean(KEY_IMPROVE_CACHED_SONGS, true)
+        smartPreload.value = prefs.getBoolean(KEY_SMART_PRELOAD, true)
         losslessDowngrade.value = prefs.getBoolean(KEY_LOSSLESS_DOWNGRADE, false)
         losslessFromStart.value = prefs.getBoolean(KEY_LOSSLESS_FROM_START, false)
         showCacheFolder.value = prefs.getBoolean(KEY_SHOW_CACHE_FOLDER, false)
@@ -1625,6 +1635,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_IMPROVE_CACHED_SONGS, value).apply()
     }
 
+    fun setSmartPreload(value: Boolean) {
+        smartPreload.value = value
+        prefs.edit().putBoolean(KEY_SMART_PRELOAD, value).apply()
+    }
+
     fun setLosslessDowngrade(value: Boolean) {
         losslessDowngrade.value = value
         prefs.edit().putBoolean(KEY_LOSSLESS_DOWNGRADE, value).apply()
@@ -2186,6 +2201,7 @@ object AppSettings {
     private const val KEY_LOSSLESS_CACHE_LEVEL = "lossless_cache_level"
     private const val KEY_LOSSLESS_CACHE_LIMIT = "lossless_cache_limit_bytes"
     private const val KEY_IMPROVE_CACHED_SONGS = "improve_cached_songs"
+    private const val KEY_SMART_PRELOAD = "smart_preload"
     private const val KEY_LOSSLESS_DOWNGRADE = "lossless_downgrade"
     private const val KEY_LOSSLESS_FROM_START = "lossless_from_start"
     private const val KEY_REDUCE_ANIMATION = "reduce_animation"

@@ -157,6 +157,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
@@ -884,9 +885,16 @@ class PlaybackService : MediaLibraryService() {
                 consecutiveErrorSkips = 0
             }
             if (isPlaying) registerCurrentPlay()
-            // Nothing to read ahead for while paused, and a pause is often
-            // the last thing that happens before the process goes idle.
-            if (isPlaying) prefetchAround(exoPlayer) else cancelPrefetch()
+            // With smart preloading a pause is time to get ready, not a reason
+            // to stop — see [DownloadScheduler]. Without it, nothing is read
+            // ahead while paused.
+            if (AppSettings.smartPreload.value) {
+                readAhead(exoPlayer)
+            } else if (isPlaying) {
+                prefetchAround(exoPlayer)
+            } else {
+                cancelPrefetch()
+            }
             if (isPlaying) lookForBetterCopy(exoPlayer)
             savePlaybackState(exoPlayer)
             // Not strictly needed for the glyph — onPlayWhenReadyChanged has
@@ -948,6 +956,8 @@ class PlaybackService : MediaLibraryService() {
             // already sends a listener's play to the receiver. The phone goes
             // quiet again and the receiver is asked instead.
             if (playWhenReady) player?.let(speakers::onLocalStartedPlaying)
+            if (playWhenReady) heldBySleepTimer = false
+            downloads?.kick()
             publishWidgetState(playing = playWhenReady)
             // The only place the *reason* can be read. A party has to tell a
             // pause the listener asked for from one another app imposed, and
@@ -970,6 +980,7 @@ class PlaybackService : MediaLibraryService() {
             val exoPlayer = player ?: return
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {
                 lastSeekAt = SystemClock.elapsedRealtime()
+                downloads?.kick()
                 if (exoPlayer.isPlaying) pushDiscordPresence(exoPlayer)
                 updateLyricSubtitle()
                 // The watch extrapolates its progress ring from the last
@@ -1131,7 +1142,7 @@ class PlaybackService : MediaLibraryService() {
             // The player this fired on, which is by definition the one the
             // session is currently pointed at.
             val exoPlayer = player ?: return
-            if (exoPlayer.isPlaying) prefetchAround(exoPlayer)
+            if (AppSettings.smartPreload.value) readAhead(exoPlayer) else if (exoPlayer.isPlaying) prefetchAround(exoPlayer)
             // A queue edit can change what follows gaplessly, and the loudness
             // stage switches to that track on its own at the boundary.
             activeLoudness().nextMediaId = nextMediaIdOf(exoPlayer)
@@ -1803,6 +1814,7 @@ class PlaybackService : MediaLibraryService() {
         reportProgress()
         watchLosslessKeepingUp()
         watchDirectWindow()
+        downloads = DownloadScheduler(scope, downloadHost).also { it.start() }
 
         val controller = createCrossfadeController()
         crossfade = controller
@@ -2310,7 +2322,12 @@ class PlaybackService : MediaLibraryService() {
             val targetLivePos = (livePos + alignmentOffsetMs).coerceAtLeast(0L)
             standbyPlayer.seekTo(currentIndex, targetLivePos)
 
-            val willPlay = wasPlaying && activePlayer.playWhenReady
+            // Read again rather than carried from before the standby prepared:
+            // a swap started while paused can take seconds to get here, and a
+            // listener who pressed play in between has an outgoing player
+            // running. Treated as paused, the incoming one was never locked to
+            // it and entered the fade a beat behind — a doubled phrase.
+            val willPlay = activePlayer.playWhenReady
             if (willPlay) {
                 // Start it right away rather than waiting the seek out first:
                 // the outgoing player keeps running through every one of these
@@ -3822,12 +3839,13 @@ class PlaybackService : MediaLibraryService() {
         // moment the track the user meant has finished. REPEAT counts
         // too, or the timer would never fire with repeat-one on.
         if (ended && SleepTimer.afterTrack.value) {
+            heldBySleepTimer = true
             exoPlayer.pause()
             SleepTimer.cancel()
         }
         if (exoPlayer.isPlaying) registerCurrentPlay()
         savePlaybackState(exoPlayer)
-        prefetchAround(exoPlayer)
+        readAhead(exoPlayer)
         // The second look belongs to the track it was started for; the
         // queue moving on ends it — unless it is already proving what it
         // found, see [cancelStaleUpgradeJob] — and starts the new
@@ -5233,7 +5251,9 @@ class PlaybackService : MediaLibraryService() {
                     // taken off the connection the party is syncing over.
                     if (!ListenTogether.state.value.inParty) {
                         val upgraded = Uri.parse(upgradedUri)
-                        scope.launch(Dispatchers.IO) {
+                        // Held as part of the upgrade, so the download scheduler
+                        // does not start filling the same rendition under it.
+                        upgradeHeadJob = scope.launch(Dispatchers.IO) {
                             AudioCache.warmRange(upgraded, 0, upgradeHeadBytes(upgraded, landedAt, now.duration))
                         }
                     }
@@ -6708,6 +6728,93 @@ class PlaybackService : MediaLibraryService() {
         AudioCache.prefetchDirect(AudioCache.Upcoming(song.videoId, TrackMatcher.targetOf(song)))
     }
 
+    /**
+     * The read-ahead for whichever mode is on: the [DownloadScheduler] with
+     * smart preloading, [prefetchAround] without it. Direct Source Stream keeps
+     * its own window for the tracks ahead either way.
+     */
+    private fun readAhead(player: ExoPlayer) {
+        if (!AppSettings.smartPreload.value) {
+            prefetchAround(player)
+            return
+        }
+        if (DirectSourceGate.isActive()) {
+            driveDirectWindow()
+        } else if (preferredPrefetchRequest != null) {
+            cancelPrefetch()
+        }
+        downloads?.kick()
+    }
+
+    /** Runs smart preloading; see [readAhead]. Null outside the service's life. */
+    private var downloads: DownloadScheduler? = null
+
+    /** The player was paused by the sleep timer, whose point is that nothing more happens. */
+    private var heldBySleepTimer = false
+
+    /** The head of an upgraded rendition, fetched after the swap — counted as part of the upgrade. */
+    private var upgradeHeadJob: Job? = null
+
+    private val downloadHost = object : DownloadScheduler.Host {
+        override fun read(): DownloadScheduler.View? {
+            val exoPlayer = player ?: return null
+            if (heldBySleepTimer && !exoPlayer.playWhenReady) return null
+            val item = exoPlayer.currentMediaItem ?: return null
+            val uri = item.localConfiguration?.uri
+            val id = item.mediaId
+            return DownloadScheduler.View(
+                current = item.toSong(),
+                currentUri = uri,
+                durationMs = exoPlayer.duration.takeIf { it > 0 } ?: 0L,
+                positionMs = exoPlayer.currentPosition,
+                bufferedPositionMs = exoPlayer.bufferedPosition,
+                speed = exoPlayer.playbackParameters.speed,
+                playWhenReady = exoPlayer.playWhenReady,
+                playbackState = exoPlayer.playbackState,
+                loading = exoPlayer.isLoading,
+                transitioning = crossfade?.isTransitioning() == true || versionSwapJob?.isActive == true,
+                upgradeBusy = upgradeJob?.isActive == true || upgradeHeadJob?.isActive == true,
+                canUpgrade = QualityUpgrade.shelvedFor(id) != null || QualityUpgrade.isPending(id) ||
+                    QualityUpgrade.couldStillUpgrade(id, uri),
+                elsewhere = speakers.active || WearBridge.watchSession.value,
+                direct = DirectSourceGate.isActive(),
+                upcoming = upcomingItems(exoPlayer, UPCOMING_FOR_DOWNLOAD),
+            )
+        }
+
+        override fun lookForBetterCopy() {
+            player?.let(::lookForBetterCopy)
+        }
+
+        override fun onBusyChanged(busy: Boolean) {
+            downloadsBusy.value = busy
+        }
+    }
+
+    /** Whether the scheduler has a download in flight; see [DownloadScheduler.Host.onBusyChanged]. */
+    private val downloadsBusy = MutableStateFlow(false)
+
+    /**
+     * The next [count] tracks in the order they will play — repeat and
+     * shuffle as the player has them — stopping at the playing one coming
+     * round again.
+     */
+    private fun upcomingItems(player: ExoPlayer, count: Int): List<Pair<Song, Uri?>> {
+        val timeline = player.currentTimeline
+        if (timeline.isEmpty) return emptyList()
+        val currentId = player.currentMediaItem?.mediaId
+        val out = mutableListOf<Pair<Song, Uri?>>()
+        var index = player.currentMediaItemIndex
+        repeat(count) {
+            index = timeline.getNextWindowIndex(index, player.repeatMode, player.shuffleModeEnabled)
+            if (index == C.INDEX_UNSET || index >= player.mediaItemCount) return out
+            val item = player.getMediaItemAt(index)
+            if (item.mediaId == currentId) return out
+            out += item.toSong() to item.localConfiguration?.uri
+        }
+        return out
+    }
+
     /** Stops both rendition selection and byte read-ahead, and makes resume retry. */
     private fun cancelPrefetch() {
         preferredPrefetchRequest = null
@@ -6773,6 +6880,7 @@ class PlaybackService : MediaLibraryService() {
                 if (deadline == null) return@collectLatest
                 val remaining = deadline - SystemClock.elapsedRealtime()
                 if (remaining > 0) delay(remaining)
+                heldBySleepTimer = true
                 player?.pause()
                 SleepTimer.cancel()
             }
@@ -7841,6 +7949,8 @@ class PlaybackService : MediaLibraryService() {
         serviceLyricsJob = null
         serviceLyrics = null
         cancelPrefetch()
+        downloads?.stop()
+        downloads = null
         trackAnalyzer.release()
         loudnessRetryJob?.cancel()
         // The YouTube Music history entry for whatever was playing, closed out
@@ -9386,6 +9496,9 @@ class PlaybackService : MediaLibraryService() {
         const val FOREIGN_CACHE_PURGE_DELAY_MS = 30_000L
         /** How many upcoming tracks [scheduleForeignCachePurge] leaves alone for read-ahead and Automix. */
         const val FOREIGN_CACHE_KEEP_AHEAD = 3
+
+        /** How many tracks ahead smart preloading gets ready — inside [FOREIGN_CACHE_KEEP_AHEAD], so what it fetches is kept. */
+        const val UPCOMING_FOR_DOWNLOAD = 2
         const val MEDIA_DOWNLOADS_ID = "downloads"
         const val MEDIA_LOCAL_MUSIC_ID = "local_music"
         const val MAX_AUTO_PAGE_SIZE = 50
