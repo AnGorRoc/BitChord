@@ -3542,6 +3542,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
 
+    /** Pops the detail page matching [browseId] if present; returns false when it wasn't on the stack. */
+    fun closeDetail(browseId: String): Boolean {
+        val stack = _detailStack.value
+        val updated = stack.filterNot { it.browseId == browseId }
+        if (updated.size == stack.size) return false
+        _detailStack.value = updated
+        navigator.onDetailStackShrunk(updated.size)
+        return true
+    }
+
     /**
      * Loads the channel list, unless it is already in hand.
      *

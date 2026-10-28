@@ -135,6 +135,24 @@ object LocalPlaylistStore {
         persist(updated)
     }
 
+    fun removeSong(id: String, videoId: String) {
+        val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
+        val updated = _playlists.value.map { playlist ->
+            if (playlist.id == cleanId || playlist.id == id || playlist.browseId == id) {
+                val idx = playlist.songs.indexOfFirst { it.videoId == videoId }
+                if (idx >= 0) {
+                    val newSongs = playlist.songs.toMutableList().apply { removeAt(idx) }
+                    val newTrackIds = if (idx < playlist.spotifyTrackIds.size) {
+                        playlist.spotifyTrackIds.toMutableList().apply { removeAt(idx) }
+                    } else playlist.spotifyTrackIds
+                    playlist.copy(songs = newSongs, spotifyTrackIds = newTrackIds)
+                } else playlist
+            } else playlist
+        }
+        _playlists.value = updated
+        persist(updated)
+    }
+
     fun getPlaylist(id: String): LocalPlaylist? {
         val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
         return _playlists.value.firstOrNull { it.id == cleanId || it.id == id || it.browseId == id }

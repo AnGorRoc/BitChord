@@ -3208,6 +3208,37 @@ private fun BitChordApp(
                                     continuationToken = latestPage?.continuation ?: page.continuation,
                                 )
                             }
+                            val localTarget = remember(page.browseId) {
+                                com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(page.browseId)
+                            }
+                            val offlineTarget = remember(page.browseId) {
+                                OfflinePlaylists.get(page.browseId)?.takeUnless { it.isLiked }
+                            }
+                            val downloadTargetId = remember(page.browseId, savedCollections) {
+                                downloadIdFor(page.browseId)
+                            }
+                            val onDeleteDetail: (() -> Unit)? = when {
+                                localTarget != null -> {
+                                    {
+                                        com.music.bitchord.data.spotify.LocalPlaylistExporter.cancel(localTarget.id)
+                                        viewModel.closeDetail(page.browseId)
+                                        com.music.bitchord.data.spotify.LocalPlaylistStore.deletePlaylist(localTarget.id)
+                                    }
+                                }
+                                offlineTarget != null -> {
+                                    {
+                                        viewModel.closeDetail(page.browseId)
+                                        OfflinePlaylists.delete(offlineTarget.browseId)
+                                    }
+                                }
+                                downloadTargetId != null -> {
+                                    {
+                                        viewModel.closeDetail(page.browseId)
+                                        scope.launch { Downloads.deleteCollection(context, downloadTargetId) }
+                                    }
+                                }
+                                else -> null
+                            }
                             // This page's songs being rearranged, drawn in place of its list.
                             val reordering = reorderTarget?.takeIf { it.browseId == page.browseId }
                             DetailScreen(
@@ -3315,6 +3346,7 @@ private fun BitChordApp(
                                 } else {
                                     null
                                 },
+                                onDelete = onDeleteDetail,
                             )
                         } else when ((destination as? AppDestination.Tab)?.index ?: selectedTab) {
                             TAB_HOME -> HomeScreen(
@@ -4009,7 +4041,9 @@ private fun BitChordApp(
                                         tint = MaterialTheme.colorScheme.onSurface,
                                     )
                                 }
-                                if (isReleaseDetail && releaseSongs.isNotEmpty()) {
+                                val isLocalPlaylist = detail.browseId.startsWith("local:playlist:") &&
+                                    com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(detail.browseId) != null
+                                if (isReleaseDetail && (releaseSongs.isNotEmpty() || detail.type == BrowseType.PLAYLIST || isLocalPlaylist)) {
                                     // The page's own tracks, in the order the page
                                     // shows them, so the sheet has them already and
                                     // Play, Shuffle and Open are the buttons beside
@@ -4627,6 +4661,14 @@ private fun BitChordApp(
                             songActions = null
                             OfflinePlaylists.remove(id, song)
                         }
+                    } ?: detail?.browseId
+                    ?.takeIf { !fromPlayer && it.startsWith("local:playlist:") && com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(it) != null }
+                    ?.let { id ->
+                        {
+                            songActions = null
+                            com.music.bitchord.data.spotify.LocalPlaylistStore.removeSong(id, song.videoId)
+                            viewModel.reloadLocalDetail(id)
+                        }
                     },
                 onRemoveFromCache = if (inCache) {
                     {
@@ -5017,6 +5059,8 @@ private fun BitChordApp(
                 target = target.copy(
                     playlist = playlist ?: offlineEditable?.let {
                         UserPlaylist(playlistId = it.id, title = it.title, subtitle = "", thumbnailUrl = null)
+                    } ?: exportable?.let {
+                        UserPlaylist(playlistId = it.id, title = it.title, subtitle = "", thumbnailUrl = null)
                     },
                 ),
                 presentation = presentation,
@@ -5123,6 +5167,12 @@ private fun BitChordApp(
                         OfflinePlaylists.rename(p.browseId, name)
                         viewModel.retitleDetail(p.browseId, name.trim())
                     }
+                } ?: exportable?.let { p ->
+                    { name: String ->
+                        browseActions = null
+                        com.music.bitchord.data.spotify.LocalPlaylistStore.renamePlaylist(p.id, name)
+                        viewModel.retitleDetail(p.browseId, name.trim())
+                    }
                 },
                 onReorder = playlist?.let { p ->
                     {
@@ -5159,14 +5209,22 @@ private fun BitChordApp(
                 } ?: offlineEditable?.let { p ->
                     {
                         browseActions = null
-                        // Its page has nothing left to show; take it away too.
-                        if (detail?.browseId == p.browseId) viewModel.closeDetail()
+                        viewModel.closeDetail(p.browseId)
                         OfflinePlaylists.delete(p.browseId)
+                    }
+                } ?: exportable?.let { p ->
+                    {
+                        browseActions = null
+                        com.music.bitchord.data.spotify.LocalPlaylistExporter.cancel(p.id)
+                        viewModel.closeDetail(p.browseId)
+                        com.music.bitchord.data.spotify.LocalPlaylistStore.deletePlaylist(p.id)
                     }
                 },
                 onDeleteDownload = target.downloadId?.let { id ->
                     {
                         browseActions = null
+                        viewModel.closeDetail(Downloads.pageIdFor(id))
+                        target.browseId?.let { viewModel.closeDetail(it) }
                         scope.launch { Downloads.deleteCollection(context, id) }
                     }
                 },

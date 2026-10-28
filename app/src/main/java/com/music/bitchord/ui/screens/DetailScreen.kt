@@ -54,6 +54,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Delete
+import com.music.bitchord.download.Downloads
 import com.music.bitchord.data.model.LibraryState
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
@@ -64,11 +66,13 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -353,6 +357,11 @@ fun DetailScreen(
      * [ArtworkPalette] so it reads as this page rather than a sheet over it.
      */
     reorder: (@Composable (ArtworkPalette) -> Unit)? = null,
+    /**
+     * Deletes this release/playlist if it belongs to the user or is stored on this device.
+     * Null hides the delete button.
+     */
+    onDelete: (() -> Unit)? = null,
 ) {
     val rawSongs = (page.songs as? UiState.Success)?.data.orEmpty()
     // A folder keeps its own sort — the one its top bar menu sets — rather
@@ -604,6 +613,7 @@ fun DetailScreen(
                         onArtistClick = onArtistClick.takeIf { folder == null },
                         onToggleLibrary = onToggleLibrary,
                         onDownloadAll = folder?.onDownload?.let { download -> { download(songs) } },
+                        onDelete = onDelete,
                     )
                 }
             }
@@ -928,6 +938,7 @@ private fun ReleaseHeader(
     onToggleLibrary: (() -> Unit)?,
     /** The Cached songs folder's: saves every track on it to Downloads. Null hides it. */
     onDownloadAll: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
 ) {
     val (credit, meta) = page.headerLines(songs.size, songs.playtime())
     // Every row on a release carries the same credit — see [pageCredit] — so
@@ -1030,7 +1041,7 @@ private fun ReleaseHeader(
             )
         }
 
-        if (songs.isNotEmpty()) {
+        if (songs.isNotEmpty() || onDelete != null) {
             // Only where YouTube said the release can be saved and the caller
             // is willing to take the write — see [onToggleLibrary].
             val library = page.library?.takeIf { onToggleLibrary != null }
@@ -1048,22 +1059,24 @@ private fun ReleaseHeader(
                     // playlist — so there is no library to add it to, and a
                     // greyed-out plus would only promise one. Apple Music's
                     // own pair for that case: Play and Shuffle, side by side.
-                    ActionPill(
-                        icon = BitChordIcons.Play,
-                        label = stringResource(R.string.play),
-                        onClick = onPlay,
-                        filled = true,
-                        size = RELEASE_SIDE_BUTTON,
-                        modifier = Modifier.weight(1f),
-                    )
-                    ActionPill(
-                        icon = BitChordIcons.Shuffle,
-                        label = stringResource(R.string.shuffle),
-                        onClick = onShuffle,
-                        filled = false,
-                        size = RELEASE_SIDE_BUTTON,
-                        modifier = Modifier.weight(1f),
-                    )
+                    if (songs.isNotEmpty()) {
+                        ActionPill(
+                            icon = BitChordIcons.Play,
+                            label = stringResource(R.string.play),
+                            onClick = onPlay,
+                            filled = true,
+                            size = RELEASE_SIDE_BUTTON,
+                            modifier = Modifier.weight(1f),
+                        )
+                        ActionPill(
+                            icon = BitChordIcons.Shuffle,
+                            label = stringResource(R.string.shuffle),
+                            onClick = onShuffle,
+                            filled = false,
+                            size = RELEASE_SIDE_BUTTON,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                     // The song cache's copies, saved to Downloads in one go —
                     // from disk, so it works offline. See [LocalFolder.onDownload].
                     onDownloadAll?.let {
@@ -1073,6 +1086,71 @@ private fun ReleaseHeader(
                             onClick = it,
                             size = RELEASE_SIDE_BUTTON,
                         )
+                    }
+                    onDelete?.let { deleteAction ->
+                        var confirmingDelete by remember { mutableStateOf(false) }
+                        val isDownloaded = Downloads.recordIdOf(page.browseId) != null
+                        if (confirmingDelete) {
+                            AlertDialog(
+                                onDismissRequest = { confirmingDelete = false },
+                                title = {
+                                    Text(
+                                        stringResource(
+                                            if (isDownloaded) R.string.delete_download else R.string.delete_playlist,
+                                        ),
+                                    )
+                                },
+                                text = {
+                                    Text(
+                                        stringResource(
+                                            if (isDownloaded) R.string.delete_download_confirmation else R.string.delete_playlist_confirmation,
+                                            page.title,
+                                        ),
+                                    )
+                                },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            confirmingDelete = false
+                                            deleteAction()
+                                        },
+                                    ) {
+                                        Text(
+                                            stringResource(R.string.delete),
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(
+                                        onClick = { confirmingDelete = false },
+                                    ) {
+                                        Text(stringResource(R.string.cancel))
+                                    }
+                                },
+                            )
+                        }
+                        if (songs.isEmpty()) {
+                            ActionPill(
+                                icon = Icons.Rounded.Delete,
+                                label = stringResource(
+                                    if (isDownloaded) R.string.delete_download else R.string.delete_playlist,
+                                ),
+                                onClick = { confirmingDelete = true },
+                                filled = false,
+                                size = RELEASE_SIDE_BUTTON,
+                                modifier = Modifier.weight(1f),
+                            )
+                        } else {
+                            CircleIconButton(
+                                icon = Icons.Rounded.Delete,
+                                contentDescription = stringResource(
+                                    if (isDownloaded) R.string.delete_download else R.string.delete_playlist,
+                                ),
+                                onClick = { confirmingDelete = true },
+                                size = RELEASE_SIDE_BUTTON,
+                            )
+                        }
                     }
                     return@Row
                 }
