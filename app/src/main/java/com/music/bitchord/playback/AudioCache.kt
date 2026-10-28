@@ -1861,9 +1861,18 @@ object AudioCache {
      *
      * @param key the entry to fill, when the caller knows it better than
      *   [keyFactory] would now — the key a player opened the track under.
+     * @param guardSegments how many segments just past a playing reader to
+     *   leave until last. A player that is playing reaches them next, and one
+     *   arriving at a range this fill is still writing reads it from the
+     *   network a second time, uncached. 0 while paused: nothing is coming.
      * @param stillWanted asked between chunks; false stops the fill.
      */
-    suspend fun fillRendition(uri: Uri, key: String? = null, stillWanted: () -> Boolean = { true }): Fill {
+    suspend fun fillRendition(
+        uri: Uri,
+        key: String? = null,
+        guardSegments: Int = 0,
+        stillWanted: () -> Boolean = { true },
+    ): Fill {
         if (!::cache.isInitialized || upstreamFactory == null) return Fill.PARTIAL
         val entry = key ?: keyFactory.buildCacheKey(DataSpec(uri))
         val total = renditionLength(entry, uri)
@@ -1873,8 +1882,13 @@ object AudioCache {
         }
         val chunk = fillChunkBytes(uri)
         val starts = (0L until total step chunk).toList()
-        val firstHeld = BoundedCacheReads.claimsOn(entry).minOfOrNull { it.start } ?: 0L
-        val ordered = starts.filter { it >= firstHeld } + starts.filter { it < firstHeld }
+        val held = BoundedCacheReads.claimsOn(entry).minByOrNull { it.start }
+        val firstHeld = held?.start ?: 0L
+        val guardEnd = held?.let { minOf(it.end, total) + guardSegments * (segmentBytesFor(uri).takeIf { s -> s > 0 } ?: chunk) }
+            ?: firstHeld
+        val ordered = starts.filter { it >= guardEnd } +
+            starts.filter { it in firstHeld until guardEnd } +
+            starts.filter { it < firstHeld }
         for (start in ordered) {
             if (!stillWanted()) return Fill.PARTIAL
             val length = minOf(chunk, total - start)

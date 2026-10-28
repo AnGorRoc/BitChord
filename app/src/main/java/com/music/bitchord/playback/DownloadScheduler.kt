@@ -218,7 +218,7 @@ class DownloadScheduler(
             DownloadPlan.Task.FillCurrent -> {
                 val uri = view.currentUri ?: return
                 val id = view.current.videoId
-                fill(id, uri, AudioCache.claimedKeyOf(id))
+                fill(id, uri, AudioCache.claimedKeyOf(id), guardSegments = if (view.playWhenReady) PLAYING_GUARD_SEGMENTS else 0)
             }
             is DownloadPlan.Task.Prepare -> {
                 val song = view.upcoming.getOrNull(task.index)?.first ?: return
@@ -245,9 +245,9 @@ class DownloadScheduler(
         }
     }
 
-    private suspend fun fill(id: String, uri: Uri, key: String?) {
+    private suspend fun fill(id: String, uri: Uri, key: String?, guardSegments: Int = 0) {
         val before = AudioCache.missingBytes(uri, key)
-        val result = AudioCache.fillRendition(uri, key)
+        val result = AudioCache.fillRendition(uri, key, guardSegments)
         if (result == AudioCache.Fill.COMPLETE) {
             retryLevel.remove(id)
             retryAt.remove(id)
@@ -347,6 +347,9 @@ class DownloadScheduler(
         const val WARM_STAGGER_MS = 500L
         const val UNKNOWN_REMAINING_MS = 10 * 60 * 1000L
         const val RENDITION_SEPARATOR = "@"
+
+        /** Segments just ahead of a playing reader that a fill of its track leaves until last. */
+        const val PLAYING_GUARD_SEGMENTS = 2
 
         /** Waits after a task that got nowhere: soon at first, then less often. */
         val RETRY_STEPS_MS = longArrayOf(5_000L, 15_000L, 30_000L, 60_000L)
