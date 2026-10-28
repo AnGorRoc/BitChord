@@ -73,6 +73,9 @@ class MonochromeGate(
         hosts += host
     }
 
+    /** Whether [host] is one this gates, whatever the path. For code that is handed a host rather than a request. */
+    fun watches(host: String): Boolean = host in hosts
+
     /** Whether [url] is one of the files this gates. The search is limited apart and never was refused. */
     fun gates(url: HttpUrl): Boolean = url.host in hosts && url.encodedPath.startsWith("/track/")
 

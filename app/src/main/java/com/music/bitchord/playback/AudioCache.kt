@@ -1001,7 +1001,7 @@ object AudioCache {
     private fun originOf(uri: Uri, mediaId: String, servedUrl: String): Origin {
         val host = runCatching { Uri.parse(servedUrl).host }.getOrNull()?.lowercase(Locale.ROOT).orEmpty()
         if (host.endsWith("googlevideo.com") || host.endsWith("youtube.com")) return Origin.YOUTUBE
-        if (host.endsWith("monochrome.st")) return Origin.MONOCHROME
+        if (MonochromeGate.shared.watches(host)) return Origin.MONOCHROME
         if (host.endsWith("saavncdn.com") || host.endsWith("jiosaavn.com")) return Origin.JIOSAAVN
         val upgrade = QualityUpgrade.forcedStream(uri)
         val configId = when {

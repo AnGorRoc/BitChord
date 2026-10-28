@@ -2626,43 +2626,36 @@ class PlaybackService : MediaLibraryService() {
     ) {
         val speed = AppSettings.playbackSpeed.value.coerceAtLeast(0.1f)
         val before = settledStandbyError(
-            active, standby, index, offsetMs, STANDBY_LOCK_QUIET_MS, STANDBY_LOCK_WINDOW_MS,
+            active, standby, index, offsetMs, StandbyLock.QUIET_MS, StandbyLock.WINDOW_MS,
         ) ?: return
-        // Moves most of the way each swap rather than all of it, since one
-        // reading is still one reading.
-        val learned = standbySeekLatencyMs - (before / speed).toLong()
-        standbySeekLatencyMs = (standbySeekLatencyMs + ((learned - standbySeekLatencyMs) * 0.7).toLong())
-            .coerceIn(-STANDBY_LOCK_MAX_EARLY_MS, STANDBY_LOCK_MAX_LATENCY_MS)
-        if (abs(before) <= STANDBY_LOCK_TOLERANCE_MS) {
-            TrackLog.d("BitChord", "version swap locked to ${before}ms, seek latency now ${standbySeekLatencyMs}ms")
-            return
+        standbySeekLatencyMs = StandbyLock.learnedLatencyMs(standbySeekLatencyMs, before, speed)
+        val nudge = when (val correction = StandbyLock.correctionFor(before, speed)) {
+            StandbyLock.Correction.None -> {
+                TrackLog.d("BitChord", "version swap locked to ${before}ms, seek latency now ${standbySeekLatencyMs}ms")
+                return
+            }
+            StandbyLock.Correction.TooFar -> {
+                TrackLog.w("BitChord", "version swap crossfading ${before}ms off: too far to take up without a seek")
+                return
+            }
+            is StandbyLock.Correction.Nudge -> correction
         }
-        if (abs(before) > STANDBY_NUDGE_MAX_ERROR_MS) {
-            TrackLog.w("BitChord", "version swap crossfading ${before}ms off: too far to take up without a seek")
-            return
-        }
-
-        // Running at `1 - error / (speed * span)` for `span` closes `error`:
-        // a standby that is ahead (positive) slows down, one behind speeds up.
-        val spanMs = (abs(before) / STANDBY_NUDGE_MAX_RATE).toLong().coerceAtLeast(STANDBY_NUDGE_MIN_SPAN_MS)
-        val rate = (1f - before.toFloat() / (speed * spanMs))
-            .coerceIn(1f - STANDBY_NUDGE_MAX_RATE, 1f + STANDBY_NUDGE_MAX_RATE)
         try {
-            standby.setPlaybackSpeed(speed * rate)
-            val until = SystemClock.elapsedRealtime() + spanMs
+            standby.setPlaybackSpeed(speed * nudge.rate)
+            val until = SystemClock.elapsedRealtime() + nudge.spanMs
             while (SystemClock.elapsedRealtime() < until) {
                 if (!active.isPlaying || !standby.isPlaying || active.currentMediaItemIndex != index) return
-                delay(STANDBY_LOCK_SAMPLE_GAP_MS)
+                delay(StandbyLock.SAMPLE_GAP_MS)
             }
         } finally {
             standby.setPlaybackSpeed(speed)
         }
         val after = settledStandbyError(
-            active, standby, index, offsetMs, STANDBY_VERIFY_QUIET_MS, STANDBY_VERIFY_WINDOW_MS,
+            active, standby, index, offsetMs, StandbyLock.VERIFY_QUIET_MS, StandbyLock.VERIFY_WINDOW_MS,
         ) ?: return
         TrackLog.d(
             "BitChord",
-            "version swap locked: ${before}ms off, ran at ${"%.2f".format(rate)}x for ${spanMs}ms, " +
+            "version swap locked: ${before}ms off, ran at ${"%.2f".format(nudge.rate)}x for ${nudge.spanMs}ms, " +
                 "${after}ms off now, seek latency ${standbySeekLatencyMs}ms",
         )
     }
@@ -2673,17 +2666,17 @@ class PlaybackService : MediaLibraryService() {
      *
      * A player that has just started reports a position estimated from the
      * AudioTrack's playhead, and swaps it for the output's own timestamps some
-     * way in. The audio does not move when that happens, only the readout does
-     * — and by up to a quarter of a second, more than once in the first
-     * second or two, on a USB output. Locking on an early readout therefore
-     * "locks" a standby that is really that far off, and the fade then plays
-     * the same bar twice a few hundred milliseconds apart.
+     * way in. On the USB output this was tuned on that moved the readout by up
+     * to a quarter of a second, more than once in the first second or two.
+     * Locking on an early readout would "lock" a standby that is really that
+     * far off, and the fade would then play the same bar twice a few hundred
+     * milliseconds apart. What is described here is the position the player
+     * reports; it is not a measurement of the sound itself.
      *
      * So nothing is read for [quietMs], and then the difference is sampled
-     * until the last [STANDBY_LOCK_STABLE_SAMPLES] agree within
-     * [STANDBY_LOCK_STABLE_SPREAD_MS]; the median of those is the answer. If it
-     * never settles inside [windowMs] the median of the latest samples stands
-     * and the log says so.
+     * until [StandbyLock.settledError] finds the last readings agreeing. If it
+     * never settles inside [windowMs] the value the readings gather around
+     * stands - see [StandbyLock.densestCluster] - and the log says so.
      *
      * @return the error, or null when either player stopped being the pair
      *   this was started for.
@@ -2702,49 +2695,18 @@ class PlaybackService : MediaLibraryService() {
         while (true) {
             if (!active.isPlaying || !standby.isPlaying || active.currentMediaItemIndex != index) return null
             errors += standby.currentPosition - (active.currentPosition + offsetMs)
-            if (errors.size >= STANDBY_LOCK_STABLE_SAMPLES) {
-                val recent = errors.takeLast(STANDBY_LOCK_STABLE_SAMPLES)
-                val stable = recent.max() - recent.min() <= STANDBY_LOCK_STABLE_SPREAD_MS
-                if (stable || SystemClock.elapsedRealtime() >= windowEnd) {
-                    if (stable) return recent.sorted()[recent.size / 2]
-                    // Never held still: every sample, not the last few, and the
-                    // value they gather around rather than their middle. The
-                    // readout sits on a base level and jumps ~280 ms off it
-                    // every half second or so; a median of fifteen samples
-                    // lands on the jumps when they make up a third of them.
-                    val center = densestCluster(errors, STANDBY_LOCK_CLUSTER_MS)
-                    TrackLog.w(
-                        "BitChord",
-                        "standby position still moving after ${errors.size} samples, " +
-                            "settling on ${center}ms: ${errors.filterIndexed { i, _ -> i % 5 == 0 }}",
-                    )
-                    return center
-                }
+            StandbyLock.settledError(errors)?.let { return it }
+            if (errors.size >= StandbyLock.STABLE_SAMPLES && SystemClock.elapsedRealtime() >= windowEnd) {
+                val center = StandbyLock.densestCluster(errors)
+                TrackLog.w(
+                    "BitChord",
+                    "standby position still moving after ${errors.size} samples, " +
+                        "settling on ${center}ms: ${errors.filterIndexed { i, _ -> i % 5 == 0 }}",
+                )
+                return center
             }
-            delay(STANDBY_LOCK_SAMPLE_GAP_MS)
+            delay(StandbyLock.SAMPLE_GAP_MS)
         }
-    }
-
-    /**
-     * The value [samples] gather around: the middle of the [widthMs]-wide
-     * stretch of the sorted samples that holds the most of them. Unlike a
-     * median it is not pulled toward a minority of outliers on one side.
-     */
-    private fun densestCluster(samples: List<Long>, widthMs: Long): Long {
-        val sorted = samples.sorted()
-        var bestStart = 0
-        var bestCount = 0
-        var end = 0
-        for (start in sorted.indices) {
-            if (end < start) end = start
-            while (end + 1 < sorted.size && sorted[end + 1] - sorted[start] <= widthMs) end++
-            if (end - start + 1 > bestCount) {
-                bestCount = end - start + 1
-                bestStart = start
-            }
-        }
-        val cluster = sorted.subList(bestStart, bestStart + bestCount)
-        return cluster[cluster.size / 2]
     }
 
     private fun adoptPlayerForVersionSwap(outgoing: ExoPlayer, incoming: ExoPlayer) {
@@ -3605,37 +3567,10 @@ class PlaybackService : MediaLibraryService() {
      * download in flight, which during a pause nothing else does — the player
      * lets its own locks go the moment it stops. Re-taken on a timeout rather
      * than held open-ended, so a lock can never outlive the process's interest
-     * in it by more than [DOWNLOAD_LOCK_MS].
+     * in it by more than [DownloadKeepAwake.LOCK_MS].
      */
     private fun holdAwakeWhileDownloading() {
-        val power = getSystemService(PowerManager::class.java) ?: return
-        val wifi = applicationContext.getSystemService(WifiManager::class.java)
-        val cpu = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BitChord:downloads").apply {
-            setReferenceCounted(false)
-        }
-        @Suppress("DEPRECATION")
-        val radio = wifi?.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "BitChord:downloads")?.apply {
-            setReferenceCounted(false)
-        }
-        scope.launch {
-            downloadsBusy.collectLatest { busy ->
-                if (!busy) {
-                    if (cpu.isHeld) cpu.release()
-                    if (radio?.isHeld == true) radio.release()
-                    return@collectLatest
-                }
-                try {
-                    while (true) {
-                        cpu.acquire(DOWNLOAD_LOCK_MS)
-                        radio?.acquire()
-                        delay(DOWNLOAD_LOCK_MS / 2)
-                    }
-                } finally {
-                    if (cpu.isHeld) cpu.release()
-                    if (radio?.isHeld == true) radio.release()
-                }
-            }
-        }
+        DownloadKeepAwake(this, scope, downloadsBusy).start()
     }
 
     /**
@@ -4851,14 +4786,22 @@ class PlaybackService : MediaLibraryService() {
             stallWatchFor = about
             noFallbackFor = null
         }
-        if (item == null || uri == null || !AppSettings.losslessDowngrade.value) return
+        if (item == null || uri == null) return
         val mediaId = item.mediaId
-        if (mediaId == noFallbackFor) return
-        if (NerdStats.declaredFormat(mediaId)?.isLossless != true) return
-        if (QualityUpgrade.cacheTag(uri) == "original" || OriginalVersion.isPinned(mediaId)) return
-        if (downgradeJob?.isActive == true || versionSwapJob?.isActive == true || swappingMediaId != null) return
-        if (crossfade?.isTransitioning() == true || ListenTogether.state.value.inParty) return
-        if (AudioCache.isFullyCached(uri)) return
+        val watching = LosslessGuard.shouldSample(
+            LosslessGuard.State(
+                hasItem = true,
+                downgradeEnabled = AppSettings.losslessDowngrade.value,
+                declaredLossless = NerdStats.declaredFormat(mediaId)?.isLossless == true,
+                onOriginal = QualityUpgrade.cacheTag(uri) == "original" || OriginalVersion.isPinned(mediaId),
+                swapping = downgradeJob?.isActive == true || versionSwapJob?.isActive == true || swappingMediaId != null,
+                transitioning = crossfade?.isTransitioning() == true,
+                inParty = ListenTogether.state.value.inParty,
+                fullyCached = AudioCache.isFullyCached(uri),
+                noFallback = mediaId == noFallbackFor,
+            ),
+        )
+        if (!watching) return
         val duration = player.duration
         val buffered = player.bufferedPosition
         val position = player.currentPosition
@@ -5581,7 +5524,7 @@ class PlaybackService : MediaLibraryService() {
             AudioCache.warmRange(
                 Uri.parse(upgradedUri),
                 0,
-                maxOf(UPGRADE_HEADER_BYTES, upgradeAlignmentHeadBytes(stream.format.kbps)),
+                maxOf(UPGRADE_HEADER_BYTES, UpgradeSizing.alignmentHeadBytes(stream.format.kbps)),
             )
         }
         val audition = withContext(Dispatchers.Main) {
@@ -5669,7 +5612,7 @@ class PlaybackService : MediaLibraryService() {
             // Normally already on disk: [auditionUpgrade] fetched this opening
             // before it started. Kept for a copy it did not reach, and cheap
             // when there is nothing left to fetch.
-            AudioCache.warmRange(upgraded, 0, upgradeAlignmentHeadBytes(upgradedKbps))
+            AudioCache.warmRange(upgraded, 0, UpgradeSizing.alignmentHeadBytes(upgradedKbps))
             val playingKey = AudioCache.cacheKeyOf(playing)
             val upgradedKey = AudioCache.cacheKeyOf(upgraded)
             val source = AudioCache.renditionsOf(playing).firstOrNull { it.key == playingKey }
@@ -5703,27 +5646,14 @@ class PlaybackService : MediaLibraryService() {
      * landed, so a track played to the end leaves the better copy on disk in
      * full and the next play starts on it. See [AudioCache.promotedCopy].
      */
-    private fun upgradeHeadBytes(uri: Uri, landedAtMs: Long, durationMs: Long): Long {
-        if (!AppSettings.improveCachedSongs.value || durationMs <= 0 || !AudioCache.keepsRendition(uri)) {
-            return ANALYSIS_HEAD_BYTES
-        }
-        val length = AudioCache.contentLengthOf(uri).takeIf { it > 0 } ?: return ANALYSIS_HEAD_BYTES
-        val throughSwap = (length.toDouble() * landedAtMs / durationMs).toLong() + UPGRADE_HEAD_MARGIN_BYTES
-        return maxOf(ANALYSIS_HEAD_BYTES, throughSwap.coerceAtMost(length))
-    }
-
-    /**
-     * The upgrade's opening worth fetching to align against: a little over
-     * [VersionAudioAligner.RENDITION_WINDOW_SECONDS] of audio at the bitrate
-     * the source stated, so a 24-bit/192 kHz master and a CD-quality FLAC
-     * each get the seconds they need and no more. Without a stated bitrate,
-     * the head Automix asks for.
-     */
-    private fun upgradeAlignmentHeadBytes(kbps: Int?): Long {
-        val seconds = VersionAudioAligner.RENDITION_WINDOW_SECONDS + 1
-        val wanted = kbps?.let { (it * 125L * seconds).toLong() } ?: ANALYSIS_HEAD_BYTES
-        return wanted.coerceIn(UPGRADE_HEADER_BYTES, UPGRADE_ALIGN_MAX_HEAD_BYTES)
-    }
+    private fun upgradeHeadBytes(uri: Uri, landedAtMs: Long, durationMs: Long): Long =
+        UpgradeSizing.headBytes(
+            improveCachedSongs = AppSettings.improveCachedSongs.value,
+            keepsRendition = AudioCache.keepsRendition(uri),
+            durationMs = durationMs,
+            landedAtMs = landedAtMs,
+            lengthBytes = { AudioCache.contentLengthOf(uri) },
+        )
 
     /**
      * Tells Media3 the type of a stream found behind one of our virtual
@@ -9730,8 +9660,6 @@ class PlaybackService : MediaLibraryService() {
         /** How many tracks ahead smart preloading gets ready — inside [FOREIGN_CACHE_KEEP_AHEAD], so what it fetches is kept. */
         const val UPCOMING_FOR_DOWNLOAD = 2
 
-        /** How long one take of the download wake lock lasts; it is re-taken at half that while downloads run. */
-        const val DOWNLOAD_LOCK_MS = 2 * 60 * 1000L
         const val MEDIA_DOWNLOADS_ID = "downloads"
         const val MEDIA_LOCAL_MUSIC_ID = "local_music"
         const val MAX_AUTO_PAGE_SIZE = 50
@@ -9974,7 +9902,7 @@ class PlaybackService : MediaLibraryService() {
          * the first audio frame routinely run to hundreds of kilobytes, and a
          * range that stops short of the first frame buys nothing at all.
          */
-        const val UPGRADE_HEADER_BYTES = 1L * 1024 * 1024
+        const val UPGRADE_HEADER_BYTES = UpgradeSizing.HEADER_BYTES
 
         /** Loaded media bytes an audition needs before its buffered position is believed. */
         const val MIN_PROVEN_LOAD_BYTES = UPGRADE_HEADER_BYTES
@@ -9985,10 +9913,10 @@ class PlaybackService : MediaLibraryService() {
          * window Automix's head pass accepts — and many times that for a
          * compressed rendition, which simply finishes sooner.
          */
-        const val ANALYSIS_HEAD_BYTES = 4L * 1024 * 1024
+        const val ANALYSIS_HEAD_BYTES = UpgradeSizing.ANALYSIS_HEAD_BYTES
 
         /** Past the swap point, so the head fill overlaps what playback fetched. */
-        const val UPGRADE_HEAD_MARGIN_BYTES = 1L * 1024 * 1024
+        const val UPGRADE_HEAD_MARGIN_BYTES = UpgradeSizing.HEAD_MARGIN_BYTES
 
         /** How often [checkLosslessKeepingUp] samples the buffer. */
         const val STALL_SAMPLE_MS = 1_000L
@@ -10006,45 +9934,6 @@ class PlaybackService : MediaLibraryService() {
          */
         const val UPGRADE_ALIGN_TIMEOUT_MS = 6_000L
 
-        /**
-         * [lockStandbyToActive]'s limits. The outgoing player keeps playing
-         * through all of it, so they cost nothing but the moment the better
-         * copy arrives. The quiet period is longer than it looks like it needs
-         * to be because the readout's corrections have been seen as late as a
-         * second and a half in; the tolerance is a few milliseconds above what
-         * the readout itself can resolve, which nothing further could beat.
-         */
-        const val STANDBY_LOCK_QUIET_MS = 1_800L
-        const val STANDBY_LOCK_WINDOW_MS = 3_000L
-        const val STANDBY_LOCK_STABLE_SAMPLES = 15
-        const val STANDBY_LOCK_STABLE_SPREAD_MS = 6L
-        const val STANDBY_LOCK_CLUSTER_MS = 40L
-        const val STANDBY_LOCK_SAMPLE_GAP_MS = 40L
-        const val STANDBY_LOCK_TOLERANCE_MS = 8L
-        const val STANDBY_LOCK_MAX_LATENCY_MS = 1_500L
-
-        /** How far behind "now" a seek may aim, for a device whose seeks resume early. */
-        const val STANDBY_LOCK_MAX_EARLY_MS = 500L
-
-        /**
-         * Taking up what is left over by running the silent standby fast or
-         * slow: no further than [STANDBY_NUDGE_MAX_ERROR_MS], at no more than
-         * [STANDBY_NUDGE_MAX_RATE] off real time, and for at least
-         * [STANDBY_NUDGE_MIN_SPAN_MS] so a small error is a gentle one. Checked
-         * again after [STANDBY_VERIFY_QUIET_MS] for the log's sake.
-         */
-        const val STANDBY_NUDGE_MAX_ERROR_MS = 600L
-        const val STANDBY_NUDGE_MAX_RATE = 0.25f
-        const val STANDBY_NUDGE_MIN_SPAN_MS = 800L
-        const val STANDBY_VERIFY_QUIET_MS = 600L
-        const val STANDBY_VERIFY_WINDOW_MS = 2_000L
-
-        /**
-         * The most an alignment will fetch of an upgrade's opening: thirteen
-         * seconds of a 24-bit/192 kHz master, which is ten megabytes. Anything
-         * lighter fetches proportionally less — see upgradeAlignmentHeadBytes.
-         */
-        const val UPGRADE_ALIGN_MAX_HEAD_BYTES = 10L * 1024 * 1024
 
         /**
          * The audition's own buffer, in time and in bytes.
@@ -10166,22 +10055,4 @@ private open class FfmpegFallbackRenderersFactory(context: Context) : DefaultRen
         )
         out.add(FfmpegAudioRenderer(eventHandler, eventListener, audioSink))
     }
-}
-
-/**
- * Whether [error] is Monochrome's file endpoint answering 429 — the
- * server's own, or [MonochromeGate]'s while its circuit is open. Never a
- * statement about the track: the same file plays once the episode passes.
- */
-private fun isMonochromeRefusal(error: Throwable?): Boolean {
-    var cause = error
-    var depth = 0
-    while (cause != null && depth++ < 8) {
-        if (cause is HttpDataSource.InvalidResponseCodeException && cause.responseCode == 429) {
-            val url = cause.dataSpec.uri.toString().toHttpUrlOrNull()
-            return url != null && MonochromeGate.shared.gates(url)
-        }
-        cause = cause.cause?.takeIf { it !== cause }
-    }
-    return false
 }
