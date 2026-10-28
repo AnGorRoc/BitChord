@@ -154,8 +154,10 @@ enum class SourceKind(
      */
     MONOCHROME(
         label = "Monochrome",
-        detail = "Lossless FLAC, up to 24-bit, for the songs Monochrome has. No account needed.",
-        labels = listOf("FLAC", "Lossless", "Hi-Res"),
+        detail = "Lossless FLAC for the songs Monochrome has, at the bit depth and sample rate each file states, up to 24-bit. Off until you switch it on. No account needed.",
+        // What the file's own header states, nothing more: "Hi-Res" would claim
+        // a master the header cannot vouch for.
+        labels = listOf("FLAC", "Lossless"),
         needsServer = false,
         canServeLossless = true,
         // One search and one 42-byte read: cheap enough to ask about the next

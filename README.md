@@ -45,7 +45,7 @@
 
 #### Playback
 - **Search, browse and play** anything available on YouTube Music.
-- **Hi-Res lossless audio** — FLAC up to 24-bit from [Monochrome](https://monochrome.st), a built-in source that is off until you opt in, plus FLAC/ALAC from your own addons, with YouTube Music as fallback.
+- **Hi-Res lossless audio** — FLAC/ALAC from your own addons, plus FLAC from [Monochrome](https://monochrome.st), a built-in source that is off until you opt in (up to 24-bit, as each file states), with YouTube Music as fallback.
 - **Gapless playback with true crossfade**, adjustable 0–12s.
 - **Automix [Beta]** — DJ-style transitions with beat-matching and tempo-stretching.
 - **Offline downloads** — save tracks with embedded metadata.
