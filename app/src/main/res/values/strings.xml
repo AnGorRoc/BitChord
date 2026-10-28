@@ -491,7 +491,7 @@
     <string name="pipeline_resampler">Resampler</string>
     <string name="pipeline_dsp">DSP</string>
     <string name="pipeline_output_device">Output Device</string>
-    <string name="pipeline_sources_status">Source Inspection</string>
+    <string name="pipeline_sources_status" translatable="false">Source Inspection</string>
     <string name="pipeline_source">Source</string>
     <string name="pipeline_format">Format</string>
     <string name="pipeline_bit_depth">Bit Depth</string>

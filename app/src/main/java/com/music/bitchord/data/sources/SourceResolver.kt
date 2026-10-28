@@ -1044,6 +1044,8 @@ object SourceResolver {
     ): SourceStream? {
         var searchedAny = false
         var hadAnyCandidates = false
+        var hadRelevantCandidates = false
+        var hadFailedStream = false
         for (query in TrackMatcher.queries(target)) {
             searchedAny = true
             val candidates = attempt(source) {
@@ -1057,7 +1059,12 @@ object SourceResolver {
                     request = request,
                 )
             } ?: return null
-            if (candidates.isNotEmpty()) hadAnyCandidates = true
+            if (candidates.isNotEmpty()) {
+                hadAnyCandidates = true
+                if (candidates.any { TrackMatcher.sharesArtist(target.artist, it.artist) }) {
+                    hadRelevantCandidates = true
+                }
+            }
             var matches = TrackMatcher.ranked(candidates, target)
             if (requireSharedArtist) {
                 matches = matches.filter { TrackMatcher.sharesArtist(target.artist, it.artist) }
@@ -1102,7 +1109,19 @@ object SourceResolver {
                 matches = matches.filter { TrackMatcher.withinSeconds(it, target, UPGRADE_DRIFT_SEC) }
             }
             if (matches.isEmpty()) continue
-            val stream = streamBest(source, matches, target, request)
+            val stream = try {
+                streamBest(source, matches, target, request)
+            } catch (e: SourceThrottled) {
+                hadFailedStream = true
+                SourceResolutionTracker.record(
+                    sourceId = source.configId,
+                    displayName = source.displayName,
+                    kind = source.kind,
+                    status = "Servidor con límite de peticiones (429)",
+                    detail = e.message,
+                )
+                break
+            }
             if (stream != null) {
                 val statusText = if (stream.format.isLossless == true) "Disponible en FLAC Lossless" else "Disponible en ${stream.format.summary}"
                 SourceResolutionTracker.record(
@@ -1114,6 +1133,7 @@ object SourceResolver {
                 )
                 return stream
             } else {
+                hadFailedStream = true
                 SourceResolutionTracker.record(
                     sourceId = source.configId,
                     displayName = source.displayName,
@@ -1123,7 +1143,11 @@ object SourceResolver {
             }
         }
         if (searchedAny) {
-            val status = if (!hadAnyCandidates) "No se encontró en su catálogo" else "Versión no coincide (duración distinta o artista)"
+            val status = when {
+                hadFailedStream -> "No se pudo obtener enlace de audio"
+                !hadAnyCandidates || !hadRelevantCandidates -> "No se encontró en su catálogo"
+                else -> "Versión no coincide (duración distinta o artista)"
+            }
             SourceResolutionTracker.record(
                 sourceId = source.configId,
                 displayName = source.displayName,
@@ -1234,7 +1258,8 @@ object SourceResolver {
                 // would be refused the same way, and asking is what extends
                 // the refusal. Settle for what was already found, if anything.
                 TrackLog.w(TAG, "${source.displayName} is asking to be left alone (${e.message}); not opening its other rows")
-                break
+                if (settleFor != null) return settleFor
+                throw e
             } catch (e: Exception) {
                 // As [attempt] would, which can't be used here: it would
                 // swallow the throttle above along with everything else.
@@ -1374,10 +1399,11 @@ object SourceResolver {
      *
      * Far tighter than [TrackMatcher]'s own tolerance, and deliberately: that
      * one is deciding what to play, this one is deciding whether to cut the
-     * audio a listener is in the middle of. Two seconds allows for a service
-     * rounding a runtime differently and nothing else.
+     * audio a listener is in the middle of. Five seconds allows for slight
+     * mastering differences (such as CD pre-gap padding or slightly longer fadeouts)
+     * while safely rejecting alternate takes, radio edits or extended cuts.
      */
-    private const val UPGRADE_DRIFT_SEC = 2
+    private const val UPGRADE_DRIFT_SEC = 5
 
     /**
      * How close two runtimes have to be to be the same cut of a song.

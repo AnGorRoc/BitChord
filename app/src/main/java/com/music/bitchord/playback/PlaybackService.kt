@@ -5140,6 +5140,17 @@ class PlaybackService : MediaLibraryService() {
             // Turned away by Monochrome rather than found wanting: the same
             // FLAC is worth another try once the circuit closes.
             QualityUpgrade.holdIfRefused(mediaId, auditionStartedAtMs)
+            val sourceId = stream.sourceConfigId ?: "module"
+            val config = SourceRegistry.config(sourceId)
+            val sourceName = config?.displayName ?: "Fuente"
+            val sourceKind = config?.kind ?: SourceKind.ADDON
+            SourceResolutionTracker.record(
+                sourceId = sourceId,
+                displayName = sourceName,
+                kind = sourceKind,
+                status = "Error en prueba de audio (audición)",
+                detail = "El servidor rechazó o no respondió a tiempo la prueba de reproducción",
+            )
             return
         }
 
@@ -5178,6 +5189,17 @@ class PlaybackService : MediaLibraryService() {
             // Not asked for again for a while, so the same opening is not
             // fetched, measured and thrown away at every retry.
             QualityUpgrade.holdUnaligned(mediaId)
+            val sourceId = stream.sourceConfigId ?: "module"
+            val config = SourceRegistry.config(sourceId)
+            val sourceName = config?.displayName ?: "Fuente"
+            val sourceKind = config?.kind ?: SourceKind.ADDON
+            SourceResolutionTracker.record(
+                sourceId = sourceId,
+                displayName = sourceName,
+                kind = sourceKind,
+                status = "Disponible (desfase con audio actual)",
+                detail = "No se pudo sincronizar la posición con la copia en reproducción sin salto perceptible",
+            )
             return
         }
 

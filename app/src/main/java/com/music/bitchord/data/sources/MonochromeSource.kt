@@ -348,10 +348,10 @@ class MonochromeSource(
          * and the next source is always there to fall back to.
          */
         private val searchClient: OkHttpClient by lazy {
-            Http.client.newBuilder().callTimeout(6, TimeUnit.SECONDS).build()
+            Http.client.newBuilder().callTimeout(8, TimeUnit.SECONDS).build()
         }
         private val probeClient: OkHttpClient by lazy {
-            Http.client.newBuilder().callTimeout(5, TimeUnit.SECONDS).build()
+            Http.client.newBuilder().callTimeout(8, TimeUnit.SECONDS).build()
         }
 
         private val json = Json {
