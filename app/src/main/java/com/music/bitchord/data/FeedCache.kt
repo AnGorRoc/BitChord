@@ -7,13 +7,13 @@ import com.music.bitchord.data.model.MoodGenre
 import com.music.bitchord.data.model.MoodGenreSection
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.ShelfLayout
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -38,16 +38,38 @@ data class CachedHomeFeed(
  * Caches Home shelves and Explore sections in memory and persistently in disk
  * so that both tabs open instantly upon app launch or navigation, and revalidates
  * in the background updating the view smoothly when content changes.
+ *
+ * A Home feed older than [MAX_AGE_MS] is not shown: stale-while-revalidate is
+ * for a feed that is a little behind, not one from last month. [touchHome]
+ * renews a feed the network has just confirmed unchanged, which is what keeps
+ * an unchanged feed young. What is written is versioned by [SCHEMA_VERSION]
+ * and bounded: mood and genre pages are kept for the last [MAX_MOOD_GENRES]
+ * opened.
  */
 object FeedCache {
     private const val PREFS_NAME = "bitchord_feed_cache"
     private const val KEY_HOME_PREFIX = "home_"
     private const val KEY_EXPLORE = "explore_sections"
     private const val KEY_MOOD_GENRE_PREFIX = "mood_genre_"
+    private const val KEY_MOOD_GENRE_INDEX = "mood_genre_index"
+
+    /** Bumped whenever what is written here changes shape; see [CacheSchema]. */
+    const val SCHEMA_VERSION = 1
+
+    /** Older than this and a Home feed is treated as absent. */
+    const val MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
+
+    const val MAX_MOOD_GENRES = 24
 
     private var prefs: SharedPreferences? = null
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var writer: PrefsWriter? = null
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+
+    /** The mood and genre pages held, oldest first. */
+    private val moodGenreIndex = mutableListOf<String>()
+
+    /** The clock the age of a feed is read on; replaceable so a test can move it. */
+    internal var clock: () -> Long = System::currentTimeMillis
 
     private val homeMemoryCache = ConcurrentHashMap<String, CachedHomeFeed>()
     @Volatile
@@ -56,10 +78,33 @@ object FeedCache {
 
     fun init(context: Context) {
         if (prefs != null) return
-        val sp = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        initWith(context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE))
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    internal fun initWith(sp: SharedPreferences, lane: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1)) {
+        CacheSchema.ensure(sp, SCHEMA_VERSION)
+        homeMemoryCache.clear()
+        exploreMemoryCache = null
+        moodGenreMemoryCache.clear()
+        synchronized(moodGenreIndex) { moodGenreIndex.clear() }
         prefs = sp
+        writer = PrefsWriter(sp, lane)
+        loadMoodGenreIndex(sp)
         loadExploreFromPrefs(sp)
     }
+
+    private fun loadMoodGenreIndex(sp: SharedPreferences) {
+        runCatching {
+            val arr = sp.getString(KEY_MOOD_GENRE_INDEX, null)?.let { json.parseToJsonElement(it).jsonArray } ?: return
+            synchronized(moodGenreIndex) {
+                moodGenreIndex.clear()
+                arr.forEach { el -> el.jsonPrimitive.contentOrNull?.let(moodGenreIndex::add) }
+            }
+        }.onFailure { TrackLog.w(TAG, "feed cache: unreadable mood index: ${it.message}") }
+    }
+
+    private fun isFresh(feed: CachedHomeFeed) = clock() - feed.timestamp <= MAX_AGE_MS
 
     private fun homePrefKey(listenerKey: String?): String =
         KEY_HOME_PREFIX + (listenerKey?.replace(":", "_") ?: "signed_out")
@@ -77,15 +122,15 @@ object FeedCache {
 
     fun getHome(listenerKey: String?): CachedHomeFeed? {
         val key = homePrefKey(listenerKey)
-        homeMemoryCache[key]?.let { return it }
+        homeMemoryCache[key]?.let { return it.takeIf(::isFresh) }
 
         val sp = prefs ?: return null
         val raw = sp.getString(key, null) ?: return null
         return runCatching {
             val parsed = cachedHomeFeedFromJson(json.parseToJsonElement(raw).jsonObject)
             homeMemoryCache[key] = parsed
-            parsed
-        }.getOrNull()
+            parsed.takeIf(::isFresh)
+        }.onFailure { TrackLog.w(TAG, "feed cache: unreadable home feed $key: ${it.message}") }.getOrNull()
     }
 
     fun saveHome(listenerKey: String?, shelves: List<HomeShelf>, continuation: String?) {
@@ -94,29 +139,18 @@ object FeedCache {
             listenerKey = listenerKey,
             shelves = shelves,
             continuation = continuation,
-            timestamp = System.currentTimeMillis(),
+            timestamp = clock(),
         )
         homeMemoryCache[key] = feed
-
-        val sp = prefs ?: return
-        scope.launch {
-            runCatching {
-                sp.edit().putString(key, feed.toJsonObject().toString()).apply()
-            }
-        }
+        writer?.put(key, feed.toJsonObject().toString())
     }
 
     fun touchHome(listenerKey: String?) {
         val key = homePrefKey(listenerKey)
         val existing = homeMemoryCache[key] ?: return
-        val updated = existing.copy(timestamp = System.currentTimeMillis())
+        val updated = existing.copy(timestamp = clock())
         homeMemoryCache[key] = updated
-        val sp = prefs ?: return
-        scope.launch {
-            runCatching {
-                sp.edit().putString(key, updated.toJsonObject().toString()).apply()
-            }
-        }
+        writer?.put(key, updated.toJsonObject().toString())
     }
 
     fun getExplore(): List<MoodGenreSection>? {
@@ -135,15 +169,11 @@ object FeedCache {
 
     fun saveExplore(sections: List<MoodGenreSection>) {
         exploreMemoryCache = sections
-        val sp = prefs ?: return
-        scope.launch {
-            runCatching {
-                val array = buildJsonArray {
-                    sections.forEach { add(it.toJsonObject()) }
-                }
-                sp.edit().putString(KEY_EXPLORE, array.toString()).apply()
-            }
+        val w = writer ?: return
+        val array = buildJsonArray {
+            sections.forEach { add(it.toJsonObject()) }
         }
+        w.put(KEY_EXPLORE, array.toString())
     }
 
     fun getMoodGenreShelves(key: String): List<HomeShelf>? {
@@ -162,14 +192,23 @@ object FeedCache {
 
     fun saveMoodGenreShelves(key: String, shelves: List<HomeShelf>) {
         moodGenreMemoryCache[key] = shelves
-        val sp = prefs ?: return
-        scope.launch {
-            runCatching {
-                val array = buildJsonArray {
-                    shelves.forEach { add(it.toJsonObject()) }
-                }
-                sp.edit().putString(KEY_MOOD_GENRE_PREFIX + key, array.toString()).apply()
-            }
+        val w = writer ?: return
+        val array = buildJsonArray {
+            shelves.forEach { add(it.toJsonObject()) }
+        }
+        // Only the last few are kept: every genre ever opened would otherwise
+        // stay on disk for good.
+        val dropped = synchronized(moodGenreIndex) {
+            moodGenreIndex.remove(key)
+            moodGenreIndex.add(key)
+            buildList { while (moodGenreIndex.size > MAX_MOOD_GENRES) add(moodGenreIndex.removeAt(0)) }
+        }
+        dropped.forEach { moodGenreMemoryCache.remove(it) }
+        val index = buildJsonArray { synchronized(moodGenreIndex) { moodGenreIndex.forEach { add(it) } } }
+        w.write {
+            putString(KEY_MOOD_GENRE_PREFIX + key, array.toString())
+            dropped.forEach { remove(KEY_MOOD_GENRE_PREFIX + it) }
+            putString(KEY_MOOD_GENRE_INDEX, index.toString())
         }
     }
 
@@ -220,8 +259,14 @@ object FeedCache {
         homeMemoryCache.clear()
         exploreMemoryCache = null
         moodGenreMemoryCache.clear()
-        prefs?.edit()?.clear()?.apply()
+        synchronized(moodGenreIndex) { moodGenreIndex.clear() }
+        writer?.write {
+            clear()
+            putInt(CacheSchema.KEY, SCHEMA_VERSION)
+        }
     }
+
+    private const val TAG = "BitChord"
 
     // JSON serialization functions
     fun ShelfItem.toJsonObject(): JsonObject = buildJsonObject {
