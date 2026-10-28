@@ -36,6 +36,8 @@ import com.music.bitchord.data.spotify.SpotifyImporter
 import com.music.bitchord.data.spotify.SpotifyLibrary
 import com.music.bitchord.data.spotify.SpotifyCache
 import com.music.bitchord.data.spotify.SpotifyTrack
+import com.music.bitchord.data.spotify.SpotifyTrackMatcher
+import com.music.bitchord.data.spotify.TrackMatch
 import com.music.bitchord.data.model.isUnresolvedSpotify
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
 import com.music.bitchord.data.lyrics.LyricLine
@@ -2772,7 +2774,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val ADDON_SEARCH_LIMIT = 20
 
         /** How many Spotify tracks are looked up on YouTube Music at once. */
-        private const val SPOTIFY_MATCH_PARALLELISM = 6
 
         /**
          * How long a keystroke waits before the typeahead is asked about it.
@@ -3146,7 +3147,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             val knownSongs = mutableMapOf<String, Song>()
-            if (cached != null) {
+            // Paired only when the two lists line up: a cache that lost a song
+            // on the way in would otherwise attach ids to the wrong ones.
+            if (cached != null && cachedTrackIds.size == cached.songs.size) {
                 cachedTrackIds.zip(cached.songs).forEach { (id, song) ->
                     if (!song.isUnresolvedSpotify) knownSongs[id] = song
                 }
@@ -3164,30 +3167,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
             val needsMatching = tracks.indices.filter { currentList[it].isUnresolvedSpotify }
             if (needsMatching.isNotEmpty()) {
-                val gate = Semaphore(SPOTIFY_MATCH_PARALLELISM)
+                val matcher = SpotifyTrackMatcher(SpotifyImporter::lookUp)
                 coroutineScope {
                     needsMatching.forEach { index ->
                         launch {
+                            // The page was closed: the rest of its songs are not worth asking for.
+                            if (!open()) return@launch
                             val track = tracks[index]
-                            gate.withPermit {
-                                val match = runCatching { SpotifyImporter.matchTrack(track) }.getOrNull()
-                                val found = match?.copy(thumbnailUrl = match.thumbnailUrl ?: track.imageUrl)
-                                    ?: track.asPendingSong().let {
-                                        it.copy(videoId = SPOTIFY_MISSING_PREFIX + track.id)
-                                    }
+                            // A lookup that failed is shown like one that found
+                            // nothing, but is never remembered as a match, so
+                            // the next visit asks again.
+                            val found = when (val outcome = matcher.match(track)) {
+                                is TrackMatch.Found -> outcome.song
+                                else -> track.asPendingSong().copy(videoId = SPOTIFY_MISSING_PREFIX + track.id)
+                            }
 
-                                if (!found.isUnresolvedSpotify) {
-                                    SpotifyCache.putMatch(track.id, found)
+                            if (!found.isUnresolvedSpotify) {
+                                SpotifyCache.putMatch(track.id, found)
+                            }
+
+                            synchronized(currentList) {
+                                if (index < currentList.size) {
+                                    currentList[index] = found
                                 }
+                            }
 
-                                synchronized(currentList) {
-                                    if (index < currentList.size) {
-                                        currentList[index] = found
-                                    }
-                                }
-
-                                if (open()) {
-                                    _detailStack.value = _detailStack.value.map { page ->
+                            if (open()) {
+                                _detailStack.update { stack ->
+                                    stack.map { page ->
                                         val list = (page.songs as? UiState.Success<List<Song>>)?.data
                                         if (page.browseId == browseId && list != null && index < list.size) {
                                             page.copy(songs = UiState.Success(list.toMutableList().also { it[index] = found }))

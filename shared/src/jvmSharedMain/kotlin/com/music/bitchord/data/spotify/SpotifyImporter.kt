@@ -160,12 +160,25 @@ object SpotifyImporter {
      * best candidate by title, artist, length and album, and failing that the
      * search's first hit.
      */
-    suspend fun matchTrack(track: SpotifyTrack): Song? {
+    suspend fun matchTrack(track: SpotifyTrack): Song? =
+        try {
+            lookUp(track)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+
+    /**
+     * As [matchTrack], but a search that could not be made is thrown rather
+     * than answered with null, so that "no such song" and "could not ask" stay
+     * apart.
+     */
+    suspend fun lookUp(track: SpotifyTrack): Song? {
         val query = listOf(track.title, track.artist).filter { it.isNotBlank() }.joinToString(" ")
-        val candidates = YtMusicRepository.search(query, SearchFilter.SONGS).getOrNull()
-            ?.filterIsInstance<SearchResult.Track>()
-            ?.map { it.song }
-            .orEmpty()
+        val candidates = YtMusicRepository.search(query, SearchFilter.SONGS).getOrThrow()
+            .filterIsInstance<SearchResult.Track>()
+            .map { it.song }
         return TrackMatcher.best(
             candidates,
             TrackMatcher.Target(

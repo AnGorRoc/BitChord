@@ -15,8 +15,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -28,10 +26,11 @@ enum class SyncErrorKind { SIGNED_OUT, NETWORK, OTHER }
  * 401/403, or no token to send) is theirs to fix, a dropped connection passes.
  */
 fun syncErrorKind(e: Throwable): SyncErrorKind {
-    val message = e.message.orEmpty()
+    val status = httpStatusOf(e)
     return when {
-        message.contains("sign-in expired", ignoreCase = true) ||
-            message.contains("(401)") || message.contains("(403)") -> SyncErrorKind.SIGNED_OUT
+        e is SpotifySignInExpiredException ||
+            e.message.orEmpty().contains("sign-in expired", ignoreCase = true) ||
+            status == 401 || status == 403 -> SyncErrorKind.SIGNED_OUT
         e is IOException -> SyncErrorKind.NETWORK
         else -> SyncErrorKind.OTHER
     }
@@ -96,10 +95,9 @@ sealed interface SpotifySyncState {
  * would fail the same way.
  */
 object SpotifySync {
-    /** How many Spotify tracks are looked up on YouTube Music at once. */
-    private const val MATCH_PARALLELISM = 6
-
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    @Volatile
     private var job: Job? = null
 
     private val _state = MutableStateFlow<SpotifySyncState>(SpotifySyncState.Idle)
@@ -151,6 +149,13 @@ object SpotifySync {
                     imported++
                     added += result.added
                     unmatched += result.unmatched
+                    if (result.lookupFailures > 0) {
+                        failures += SyncFailure(
+                            playlist,
+                            SyncErrorKind.NETWORK,
+                            "${result.lookupFailures} songs could not be looked up",
+                        )
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -169,41 +174,44 @@ object SpotifySync {
         }
     }
 
-    private class Result(val added: Int, val unmatched: Int)
+    private class Result(val added: Int, val unmatched: Int, val lookupFailures: Int)
+
+    private val matcher = SpotifyTrackMatcher(SpotifyImporter::lookUp)
 
     private suspend fun syncPlaylist(playlist: SpotifyPlaylist): Result {
         val tracks = SpotifyLibrary.tracks(playlist.id)
-        val known = LocalPlaylistStore.findBySpotifyId(playlist.id)
-            ?.let { local -> local.spotifyTrackIds.zip(local.songs).toMap() }
-            .orEmpty()
+        val known = LocalPlaylistStore.findBySpotifyId(playlist.id)?.matchedSongs().orEmpty()
         publishProgress(playlist, 0, tracks.size)
         val done = AtomicInteger(0)
-        val gate = Semaphore(MATCH_PARALLELISM)
-        val matched: List<Song?> = coroutineScope {
+        val outcomes: List<TrackMatch> = coroutineScope {
             tracks.map { track ->
                 async {
-                    val song = known[track.id] ?: SpotifyCache.getMatch(track.id) ?: gate.withPermit {
-                        runCatching { SpotifyImporter.matchTrack(track) }.getOrNull()
-                            ?.let { it.copy(thumbnailUrl = it.thumbnailUrl ?: track.imageUrl) }
-                    }
-                    if (song != null && !song.isUnresolvedSpotify) {
-                        SpotifyCache.putMatch(track.id, song)
+                    val outcome = (known[track.id] ?: SpotifyCache.getMatch(track.id))
+                        ?.let { TrackMatch.Found(it) }
+                        ?: matcher.match(track)
+                    if (outcome is TrackMatch.Found && !outcome.song.isUnresolvedSpotify) {
+                        SpotifyCache.putMatch(track.id, outcome.song)
                     }
                     publishProgress(playlist, done.incrementAndGet(), tracks.size)
-                    song
+                    outcome
                 }
             }.awaitAll()
         }
-        val kept = tracks.indices.filter { matched[it] != null }
+        val kept = tracks.indices.filter { outcomes[it] is TrackMatch.Found }
+        val failed = outcomes.count { it is TrackMatch.Failed }
+        // A song whose lookup failed is not kept out for good: it is simply not
+        // saved yet, and the playlist is reported as incomplete so a retry
+        // looks those up again.
         LocalPlaylistStore.saveSpotifyPlaylist(
             spotifyId = playlist.id,
             title = playlist.name,
-            songs = kept.map { matched[it]!! },
+            songs = kept.map { (outcomes[it] as TrackMatch.Found).song },
             trackIds = kept.map { tracks[it].id },
         )
         return Result(
             added = kept.count { tracks[it].id !in known },
-            unmatched = tracks.size - kept.size,
+            unmatched = outcomes.count { it is TrackMatch.NotFound },
+            lookupFailures = failed,
         )
     }
 

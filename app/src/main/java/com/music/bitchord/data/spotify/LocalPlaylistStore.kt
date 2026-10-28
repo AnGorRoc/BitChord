@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
 data class LocalPlaylist(
     val id: String,
@@ -18,6 +19,15 @@ data class LocalPlaylist(
     val spotifyTrackIds: List<String> = emptyList(),
 ) {
     val browseId: String get() = "local:playlist:$id"
+
+    /**
+     * The songs this playlist holds against the Spotify track each one matched,
+     * for a re-sync to reuse. Empty when the two lists do not line up, as after
+     * a partly unreadable save: pairing them anyway would attach tracks to the
+     * wrong songs.
+     */
+    fun matchedSongs(): Map<String, Song> =
+        if (spotifyTrackIds.size == songs.size) spotifyTrackIds.zip(songs).toMap() else emptyMap()
 }
 
 object LocalPlaylistStore {
@@ -78,12 +88,23 @@ object LocalPlaylistStore {
         }
     }
 
-    fun savePlaylist(title: String, songs: List<Song>): LocalPlaylist {
-        val id = "sp_local_" + System.currentTimeMillis()
-        val playlist = LocalPlaylist(id = id, title = title, songs = songs)
-        val updated = listOf(playlist) + _playlists.value.filterNot { it.id == id }
+    /**
+     * Changes the list and writes the result away as one step. Held so that two
+     * writers — a sync on IO and an edit from the screen — cannot each read the
+     * list, change their copy and have the later write undo the earlier one.
+     */
+    @Synchronized
+    private fun mutate(change: (List<LocalPlaylist>) -> List<LocalPlaylist>) {
+        val updated = change(_playlists.value)
         _playlists.value = updated
         persist(updated)
+    }
+
+    private fun newId() = "sp_local_" + UUID.randomUUID().toString().replace("-", "")
+
+    fun savePlaylist(title: String, songs: List<Song>): LocalPlaylist {
+        val playlist = LocalPlaylist(id = newId(), title = title, songs = songs)
+        mutate { listOf(playlist) + it }
         return playlist
     }
 
@@ -100,44 +121,43 @@ object LocalPlaylistStore {
         songs: List<Song>,
         trackIds: List<String>,
     ): LocalPlaylist {
-        val existing = findBySpotifyId(spotifyId)
-        val playlist = LocalPlaylist(
-            id = existing?.id ?: ("sp_local_" + System.currentTimeMillis()),
-            title = title,
-            songs = songs,
-            spotifyId = spotifyId,
-            spotifyTrackIds = trackIds,
-        )
-        val updated = if (existing == null) {
-            listOf(playlist) + _playlists.value
-        } else {
-            _playlists.value.map { if (it.id == existing.id) playlist else it }
+        var saved: LocalPlaylist? = null
+        mutate { current ->
+            val existing = current.firstOrNull { it.spotifyId == spotifyId }
+            val playlist = LocalPlaylist(
+                id = existing?.id ?: newId(),
+                title = title,
+                songs = songs,
+                spotifyId = spotifyId,
+                spotifyTrackIds = trackIds,
+            )
+            saved = playlist
+            if (existing == null) listOf(playlist) + current
+            else current.map { if (it.id == existing.id) playlist else it }
         }
-        _playlists.value = updated
-        persist(updated)
-        return playlist
+        return saved!!
     }
 
     fun deletePlaylist(id: String) {
-        val updated = _playlists.value.filterNot { it.id == id || it.browseId == id || it.id == id.removePrefix("local:playlist:") }
-        _playlists.value = updated
-        persist(updated)
+        val cleanId = id.removePrefix("local:playlist:")
+        val gone = _playlists.value.filter { it.id == id || it.browseId == id || it.id == cleanId }
+        mutate { list -> list.filterNot { it.id == id || it.browseId == id || it.id == cleanId } }
+        // What was exported from it is no longer anyone's to carry on from.
+        gone.forEach { YouTubeExportLedger.remove(it.id) }
     }
 
     fun renamePlaylist(id: String, newTitle: String) {
         val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
-        val updated = _playlists.value.map {
-            if (it.id == cleanId || it.id == id || it.browseId == id) {
-                it.copy(title = newTitle)
-            } else it
+        mutate { list ->
+            list.map {
+                if (it.id == cleanId || it.id == id || it.browseId == id) it.copy(title = newTitle) else it
+            }
         }
-        _playlists.value = updated
-        persist(updated)
     }
 
     fun removeSong(id: String, videoId: String) {
         val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
-        val updated = _playlists.value.map { playlist ->
+        mutate { list -> list.map { playlist ->
             if (playlist.id == cleanId || playlist.id == id || playlist.browseId == id) {
                 val idx = playlist.songs.indexOfFirst { it.videoId == videoId }
                 if (idx >= 0) {
@@ -148,9 +168,7 @@ object LocalPlaylistStore {
                     playlist.copy(songs = newSongs, spotifyTrackIds = newTrackIds)
                 } else playlist
             } else playlist
-        }
-        _playlists.value = updated
-        persist(updated)
+        } }
     }
 
     fun getPlaylist(id: String): LocalPlaylist? {

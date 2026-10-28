@@ -181,4 +181,34 @@ class PlaylistUploaderTest {
         assertEquals(ExportErrorKind.NETWORK, exportErrorKind(IllegalStateException("Server error: 503")))
         assertEquals(ExportErrorKind.OTHER, exportErrorKind(IllegalStateException("YouTube Music refused the edit (STATUS_FAILED)")))
     }
+
+    @Test
+    fun aStatusNumberInsideATitleIsNotTakenForAStatus() {
+        assertEquals(ExportErrorKind.OTHER, exportErrorKind(IllegalStateException("Could not add \"Route 401 Blues\"")))
+        assertEquals(ExportErrorKind.OTHER, exportErrorKind(IllegalStateException("video id a403b429c5d was refused as a duplicate")))
+    }
+
+    @Test
+    fun aRepeatedAddAsksWhatTheFirstTryLeftBehind() {
+        val adds = mutableListOf<List<String>>()
+        var failOnce = true
+        val landing = object : YouTubeTarget {
+            override suspend fun create(title: String, videoIds: List<String>) = "PL1"
+            override suspend fun add(playlistId: String, videoIds: List<String>) {
+                adds += videoIds
+                // The songs arrive, and the answer is lost on the way back.
+                if (failOnce) { failOnce = false; throw IOException("connection reset") }
+            }
+            override suspend fun contents(playlistId: String): Set<String>? = adds.flatten().toSet()
+        }
+        val result = runBlocking {
+            PlaylistUploader(landing, ledger, pause = { pauses += it }, jitter = { it })
+                .upload("local", "Mix", ids(40)) {}
+        }
+
+        assertEquals(ExportState.Done(40, 0, upToDate = false), result)
+        // One add, not two: the retry found the batch already there.
+        assertEquals(1, adds.size)
+        assertEquals(40, ledger.get("local")!!.exported.size)
+    }
 }

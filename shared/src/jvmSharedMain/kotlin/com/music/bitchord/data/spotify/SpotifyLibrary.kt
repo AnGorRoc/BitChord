@@ -175,7 +175,7 @@ object SpotifyLibrary {
 
     private suspend fun authHeaders(): Map<String, String> {
         val tokens = auth?.tokens()
-            ?: throw IllegalStateException("Spotify sign-in expired")
+            ?: throw SpotifySignInExpiredException()
         return buildMap {
             put("Authorization", "Bearer ${tokens.bearer}")
             put("Accept", "application/json")
@@ -206,7 +206,7 @@ object SpotifyLibrary {
         val text = Http.client.newCall(request).execute().use { response ->
             val payload = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                throw IllegalStateException("Spotify $operation failed (${response.code})")
+                throw SpotifyHttpException(operation, response.code)
             }
             payload
         }

@@ -15,20 +15,22 @@ enum class ExportErrorKind { SIGNED_OUT, RATE_LIMITED, NETWORK, OTHER }
  * the same way changes nothing.
  */
 fun exportErrorKind(e: Throwable): ExportErrorKind {
+    val status = httpStatusOf(e)
     val message = e.message.orEmpty()
     return when {
         e is Innertube.NotSignedInException ||
-            message.contains("401") || message.contains("403") ||
+            status == 401 || status == 403 ||
             message.contains("rejected", ignoreCase = true) -> ExportErrorKind.SIGNED_OUT
-        message.contains("429") ||
+        status == 429 ||
             message.contains("Too Many", ignoreCase = true) ||
             message.contains("RESOURCE_EXHAUSTED", ignoreCase = true) ||
             message.contains("quota", ignoreCase = true) -> ExportErrorKind.RATE_LIMITED
-        e is IOException ||
-            Regex("""\b50[0234]\b""").containsMatchIn(message) -> ExportErrorKind.NETWORK
+        e is IOException || status in TRANSIENT_STATUSES -> ExportErrorKind.NETWORK
         else -> ExportErrorKind.OTHER
     }
 }
+
+private val TRANSIENT_STATUSES = setOf(500, 502, 503, 504)
 
 /** Where one playlist's export stands. */
 sealed interface ExportState {
@@ -54,6 +56,13 @@ interface YouTubeTarget {
     /** Makes a playlist already holding [videoIds] and returns its id. */
     suspend fun create(title: String, videoIds: List<String>): String
     suspend fun add(playlistId: String, videoIds: List<String>)
+
+    /**
+     * The video ids [playlistId] holds right now, or null when that can't be
+     * asked. Used to tell, after a request whose answer was lost, whether the
+     * songs went through before sending them a second time.
+     */
+    suspend fun contents(playlistId: String): Set<String>? = null
 }
 
 /** What has been uploaded for each local playlist, so an export can carry on rather than start over. */
@@ -68,12 +77,19 @@ data class LedgerEntry(val youtubeId: String, val exported: Set<String>)
 /**
  * Uploads a playlist to YouTube Music a little at a time.
  *
- * YouTube Music has no published write quota, so the safe course is to look
- * like a person: small batches, a pause with jitter between every request, and
- * when it pushes back, a long wait that grows — and a wider gap from then on —
- * rather than hammering on. What is uploaded is written to the [ledger] after
- * each batch, so a stop (rate limit, no signal, the user's) loses nothing and
- * the next export only sends what is missing.
+ * YouTube Music has no published write quota, so the safe course is to stay
+ * well inside whatever it enforces: small batches, a pause with jitter between
+ * every request so that many clients do not fall into step, and when it
+ * pushes back, a long wait that grows — and a wider gap from then on — rather
+ * than hammering on. What is uploaded is written to the [ledger] after each
+ * batch, so a stop (rate limit, no signal, the user's) loses nothing and the
+ * next export only sends what is missing.
+ *
+ * A request whose answer is lost may still have been carried out. Before an
+ * `add` is repeated the playlist is asked what it holds, so the same songs are
+ * not added twice. A `create` has no id to ask about yet: if its answer is
+ * lost and the retry succeeds, one orphan copy of that first batch is left on
+ * the account.
  *
  * [pause] and [jitter] are parameters so tests can run it without the waiting.
  */
@@ -86,7 +102,7 @@ class PlaylistUploader(
     private var gapMs = BASE_GAP_MS
     private var cleanRequests = 0
 
-    private class Stop(val kind: ExportErrorKind, val detail: String) : Exception(detail)
+    private class Stop(val kind: ExportErrorKind, val detail: String, val status: Int?) : Exception(detail)
 
     /**
      * Sends [songIds] to the playlist this [localId] was exported to before, or
@@ -124,17 +140,25 @@ class PlaylistUploader(
             pending.chunked(BATCH).forEachIndexed { index, batch ->
                 if (index > 0) pause(jitter(gapMs))
                 val before = youtubeId
-                youtubeId = withBackoff(uploaded(), ids.size, report) {
-                    if (before == null) target.create(title, batch) else before.also { target.add(it, batch) }
+                val landedOn = withBackoff(uploaded(), ids.size, report) { attempt ->
+                    if (before == null) {
+                        target.create(title, batch)
+                    } else {
+                        // A repeated add first asks what the first try left behind.
+                        val missing = if (attempt == 0) batch else missingFrom(before, batch)
+                        if (missing.isNotEmpty()) target.add(before, missing)
+                        before
+                    }
                 }
+                youtubeId = landedOn
                 sent += batch
-                ledger.put(localId, LedgerEntry(youtubeId!!, sent))
+                ledger.put(localId, LedgerEntry(landedOn, sent))
                 report(ExportState.Running(uploaded(), ids.size))
             }
         } catch (e: Stop) {
             // A playlist that was deleted on YouTube Music: the link is dead, so
             // drop it and send everything to a new one — once.
-            if (mayRelink && entry != null && e.detail.contains("404")) {
+            if (mayRelink && entry != null && e.status == 404) {
                 ledger.remove(localId)
                 return upload(localId, title, songIds, report, mayRelink = false)
             }
@@ -148,12 +172,12 @@ class PlaylistUploader(
         done: Int,
         total: Int,
         report: (ExportState) -> Unit,
-        request: suspend () -> T,
+        request: suspend (attempt: Int) -> T,
     ): T {
         var attempt = 0
         while (true) {
             try {
-                return request().also { settle() }
+                return request(attempt).also { settle() }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -163,7 +187,7 @@ class PlaylistUploader(
                     ExportErrorKind.NETWORK -> NETWORK_WAITS_MS
                     else -> emptyList()
                 }
-                if (attempt >= waits.size) throw Stop(kind, e.message.orEmpty())
+                if (attempt >= waits.size) throw Stop(kind, e.message.orEmpty(), httpStatusOf(e))
                 // Slower from here on, not only for this one wait.
                 gapMs = minOf(gapMs * 2, MAX_GAP_MS)
                 cleanRequests = 0
@@ -172,6 +196,18 @@ class PlaylistUploader(
                 report(ExportState.Running(done, total))
             }
         }
+    }
+
+    /** What of [batch] [playlistId] does not hold yet; all of it when that can't be asked. */
+    private suspend fun missingFrom(playlistId: String, batch: List<String>): List<String> {
+        val held = try {
+            target.contents(playlistId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        } ?: return batch
+        return batch.filter { it !in held }
     }
 
     /** A run of clean requests earns the normal pace back. */
