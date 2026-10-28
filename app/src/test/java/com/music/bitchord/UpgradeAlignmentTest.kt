@@ -16,8 +16,8 @@ import kotlin.random.Random
  */
 class UpgradeAlignmentTest {
 
-    /** Twelve seconds of envelope at the aligner's 10 ms hop. */
-    private fun envelope(seed: Int, frames: Int = 1_200) = Random(seed).let { r -> FloatArray(frames) { r.nextFloat() } }
+    /** Eighteen seconds of envelope at the aligner's 10 ms hop. */
+    private fun envelope(seed: Int, frames: Int = 1_800) = Random(seed).let { r -> FloatArray(frames) { r.nextFloat() } }
 
     /** [source] with [padFrames] of near-silence in front: the upgraded copy's shape. */
     private fun padded(source: FloatArray, padFrames: Int) = FloatArray(source.size) { i ->
@@ -119,6 +119,6 @@ class UpgradeAlignmentTest {
     @Test
     fun `a lag beyond the search is refused rather than clipped`() {
         val source = envelope(seed = 7)
-        assertNull(VersionAudioAligner.renditionOffsetMs(source, padded(source, 600), startDiffMs = 0))
+        assertNull(VersionAudioAligner.renditionOffsetMs(source, padded(source, 900), startDiffMs = 0))
     }
 }

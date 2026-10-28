@@ -41,10 +41,10 @@ object VersionAudioAligner {
     private const val MIN_CONFIDENCE = 0.40 // Minimum normalized correlation
 
     /** How much of each opening [findRenditionOffsetMs] decodes. */
-    const val RENDITION_WINDOW_SECONDS = 12.0
+    const val RENDITION_WINDOW_SECONDS = 18.0
 
-    /** Two renditions of one master differ by a pad of silence, not by an intro. */
-    private const val RENDITION_MAX_LAG_SECONDS = 3.0
+    /** Two renditions of one master differ by a pad of silence or video intro. */
+    private const val RENDITION_MAX_LAG_SECONDS = 8.0
 
     /** Same audio on both sides should correlate far above [MIN_CONFIDENCE]; less is a different cut. */
     private const val RENDITION_MIN_CONFIDENCE = 0.6

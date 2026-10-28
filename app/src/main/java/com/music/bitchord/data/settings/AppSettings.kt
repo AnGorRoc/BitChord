@@ -591,7 +591,7 @@ object AppSettings {
      * Off by default: it trades a longer silence at every start for the
      * whole track in lossless.
      */
-    val losslessFromStart = MutableStateFlow(false)
+    val losslessFromStart = MutableStateFlow(true)
 
     /**
      * Whether Library's "On device" shelf carries the Cached songs folder —
@@ -1015,7 +1015,7 @@ object AppSettings {
         improveCachedSongs.value = prefs.getBoolean(KEY_IMPROVE_CACHED_SONGS, true)
         smartPreload.value = prefs.getBoolean(KEY_SMART_PRELOAD, true)
         losslessDowngrade.value = prefs.getBoolean(KEY_LOSSLESS_DOWNGRADE, false)
-        losslessFromStart.value = prefs.getBoolean(KEY_LOSSLESS_FROM_START, false)
+        losslessFromStart.value = prefs.getBoolean(KEY_LOSSLESS_FROM_START, true)
         showCacheFolder.value = prefs.getBoolean(KEY_SHOW_CACHE_FOLDER, false)
         lastfmEnabled.value = prefs.getBoolean(KEY_LASTFM_ENABLED, false)
         lastfmUsername.value = prefs.getString(KEY_LASTFM_USERNAME, "").orEmpty()

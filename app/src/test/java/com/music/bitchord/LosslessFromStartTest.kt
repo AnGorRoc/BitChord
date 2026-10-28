@@ -40,7 +40,7 @@ class LosslessFromStartTest {
     }
 
     @Test
-    fun `off by default`() {
+    fun `respects when turned off`() {
         AppSettings.meteredConnection.value = false
         AppSettings.audioQualityWifi.value = AudioQuality.LOSSLESS
         AppSettings.losslessFromStart.value = false

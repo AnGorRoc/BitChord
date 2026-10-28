@@ -23,11 +23,15 @@
 
 package com.music.bitchord.playback.smart
 
+import android.media.AudioFormat
 import android.media.MediaCodec
+import android.media.MediaCodecList
 import android.media.MediaDataSource
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.util.Log
+import com.music.bitchord.data.TrackLog
+import com.music.bitchord.playback.AudioOutputPolicy
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.max
@@ -49,6 +53,7 @@ object AudioDecoder {
 
     private const val TAG = "BitChordAudioDecoder"
     private const val TIMEOUT_US = 10_000L
+    private const val FLAC_MIME = "audio/flac"
 
     /** Decoded mono PCM at the container's own sample rate; the caller resamples. */
     data class Pcm(val samples: FloatArray, val sampleRate: Double)
@@ -114,8 +119,8 @@ object AudioDecoder {
         abort: () -> Boolean = { false },
     ): Pair<Pcm, Double>? {
         val chunks = ArrayList<FloatArray>()
-        val decoded = decodeRaw(source, startSeconds, endSeconds, abort) { buffer, info, channels, _ ->
-            chunks += toMono(buffer, info, channels)
+        val decoded = decodeRaw(source, startSeconds, endSeconds, abort) { buffer, info, channels, _, encoding ->
+            chunks += toMono(buffer, info, channels, encoding)
         } ?: return null
         return Pcm(flatten(chunks), decoded.first) to decoded.second
     }
@@ -136,8 +141,8 @@ object AudioDecoder {
     ): Pair<StereoPcm, Double>? {
         val left = ArrayList<FloatArray>()
         val right = ArrayList<FloatArray>()
-        val decoded = decodeRaw(source, startSeconds, endSeconds, abort) { buffer, info, channels, _ ->
-            toStereo(buffer, info, channels, left, right)
+        val decoded = decodeRaw(source, startSeconds, endSeconds, abort) { buffer, info, channels, _, encoding ->
+            toStereo(buffer, info, channels, encoding, left, right)
         } ?: return null
         return StereoPcm(flatten(left), flatten(right), decoded.first) to decoded.second
     }
@@ -154,8 +159,8 @@ object AudioDecoder {
         abort: () -> Boolean = { false },
         onChunk: (samples: FloatArray, atSeconds: Double, sampleRate: Int) -> Unit,
     ): Pair<Double, Double>? =
-        decodeRaw(source, startSeconds, endSeconds, abort) { buffer, info, channels, rate ->
-            onChunk(toMono(buffer, info, channels), info.presentationTimeUs / 1_000_000.0, rate)
+        decodeRaw(source, startSeconds, endSeconds, abort) { buffer, info, channels, rate, encoding ->
+            onChunk(toMono(buffer, info, channels, encoding), info.presentationTimeUs / 1_000_000.0, rate)
         }
 
     /** Concatenates the decoded chunks into one contiguous buffer. */
@@ -182,7 +187,7 @@ object AudioDecoder {
         startSeconds: Double,
         endSeconds: Double,
         abort: () -> Boolean,
-        onBuffer: (ByteBuffer, MediaCodec.BufferInfo, Int, Int) -> Unit,
+        onBuffer: (ByteBuffer, MediaCodec.BufferInfo, Int, Int, Int) -> Unit,
     ): Pair<Double, Double>? {
         if (endSeconds <= startSeconds) return null
         val extractor = MediaExtractor()
@@ -198,17 +203,28 @@ object AudioDecoder {
 
             val startUs = (startSeconds * 1_000_000).toLong()
             val endUs = (endSeconds * 1_000_000).toLong()
-            extractor.seekTo(startUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+            // Not for the very start: the extractor is already there, and a
+            // seek is the one thing a FLAC held only in part cannot do. It has
+            // no seek table to jump by, so the platform extractor searches the
+            // file for the frame — reads past what is cached, which the cache
+            // reader turns into end of stream — and the decode that follows
+            // is handed nothing: `fed=0`, "an opening wouldn't decode", and
+            // an upgrade crossfaded with no shift at all.
+            if (startUs > 0L) extractor.seekTo(startUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+            // Where the extractor stands after the seek: -1 is end of stream
+            // before a single sample was read, which looks exactly like a
+            // decoder that produced nothing.
+            val sampleTimeAfterSeek = extractor.sampleTime
+            var queued = 0
 
-            codec = runCatching { MediaCodec.createDecoderByType(mime) }
-                .onFailure { Log.w(TAG, "No decoder for $mime", it) }
-                .getOrNull() ?: return null
+            codec = createDecoder(mime) ?: return null
             codec.configure(format, null, null, 0)
             codec.start()
 
             val bufferInfo = MediaCodec.BufferInfo()
             var outputChannels = format.intOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: 1
             var outputRate = format.intOrNull(MediaFormat.KEY_SAMPLE_RATE) ?: 0
+            var outputEncoding = format.intOrNull(MediaFormat.KEY_PCM_ENCODING) ?: AudioFormat.ENCODING_PCM_16BIT
             var actualStartSeconds = -1.0
             var sawFirstSample = false
             var inputDone = false
@@ -240,6 +256,7 @@ object AudioDecoder {
                         inputDone = true
                     } else {
                         codec.queueInputBuffer(inputIndex, 0, sampleSize, sampleTimeUs, 0)
+                        queued++
                         extractor.advance()
                     }
                 }
@@ -254,6 +271,7 @@ object AudioDecoder {
                             val newFormat = codec.outputFormat
                             outputRate = newFormat.intOrNull(MediaFormat.KEY_SAMPLE_RATE) ?: outputRate
                             outputChannels = newFormat.intOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: outputChannels
+                            outputEncoding = newFormat.intOrNull(MediaFormat.KEY_PCM_ENCODING) ?: outputEncoding
                         }
                         MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED -> Unit
                         else -> if (outputIndex >= 0) {
@@ -266,7 +284,7 @@ object AudioDecoder {
                                     sawFirstSample = true
                                 }
                                 codec.getOutputBuffer(outputIndex)?.let { output ->
-                                    onBuffer(output, bufferInfo, outputChannels, outputRate)
+                                    onBuffer(output, bufferInfo, outputChannels, outputRate, outputEncoding)
                                 }
                                 if (bufferInfo.presentationTimeUs > endUs) outputDone = true
                             }
@@ -276,10 +294,17 @@ object AudioDecoder {
                 }
             }
 
-            if (!sawFirstSample || outputRate <= 0) return null
+            if (!sawFirstSample || outputRate <= 0) {
+                TrackLog.w(
+                    TAG,
+                    "$mime decode produced no audio: codec=${codec.name} rate=$outputRate " +
+                        "fed=$queued firstSampleAfterSeekUs=$sampleTimeAfterSeek",
+                )
+                return null
+            }
             return outputRate.toDouble() to actualStartSeconds
         } catch (error: Exception) {
-            Log.w(TAG, "Region decode failed", error)
+            TrackLog.w(TAG, "Region decode failed", error)
             return null
         } finally {
             runCatching { codec?.stop() }
@@ -288,60 +313,184 @@ object AudioDecoder {
         }
     }
 
-    /** Downmixes one 16-bit PCM output buffer to mono float in [-1, 1]. */
-    private fun toMono(buffer: ByteBuffer, info: MediaCodec.BufferInfo, channels: Int): FloatArray {
+    /**
+     * The decoder for [mime], which for FLAC is the one playback uses.
+     *
+     * [MediaCodec.createDecoderByType] hands back whichever the platform lists
+     * first, and on a Samsung that is the vendor FLAC decoder — the one
+     * playback filters out because it advances its timestamps by a spurious
+     * 232 ms per buffer. Measuring the shift between two copies on a timeline
+     * the player never hears would put the error back in through the side door.
+     */
+    private fun createDecoder(mime: String): MediaCodec? = runCatching {
+        val named = if (mime == FLAC_MIME) {
+            val usable = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
+                .filter { info ->
+                    !info.isEncoder &&
+                        info.supportedTypes.any { it.equals(mime, ignoreCase = true) } &&
+                        !AudioOutputPolicy.isUnsafeFloatFlacDecoder(info.name)
+                }
+            (usable.firstOrNull { it.name.startsWith("c2.android.") } ?: usable.firstOrNull())?.name
+        } else {
+            null
+        }
+        if (named != null) MediaCodec.createByCodecName(named) else MediaCodec.createDecoderByType(mime)
+    }.onFailure { TrackLog.w(TAG, "No decoder for $mime", it) }.getOrNull()
+
+    /** Downmixes one PCM output buffer to mono float in [-1, 1]. */
+    private fun toMono(
+        buffer: ByteBuffer,
+        info: MediaCodec.BufferInfo,
+        channels: Int,
+        encoding: Int = AudioFormat.ENCODING_PCM_16BIT,
+    ): FloatArray {
         val safeChannels = max(1, channels)
-        val shorts = buffer.duplicate().apply {
+        val dup = buffer.duplicate().apply {
             order(ByteOrder.LITTLE_ENDIAN)
             position(info.offset)
             limit(info.offset + info.size)
-        }.asShortBuffer()
-        val frames = shorts.remaining() / safeChannels
-        val mono = FloatArray(frames)
-        val frame = ShortArray(safeChannels)
-        for (index in 0 until frames) {
-            shorts.get(frame, 0, safeChannels)
-            var sum = 0
-            for (value in frame) sum += value
-            mono[index] = (sum / safeChannels.toFloat()) / 32768f
         }
-        return mono
+        return when (encoding) {
+            AudioFormat.ENCODING_PCM_FLOAT -> {
+                val floats = dup.asFloatBuffer()
+                val frames = floats.remaining() / safeChannels
+                val mono = FloatArray(frames)
+                val frame = FloatArray(safeChannels)
+                for (index in 0 until frames) {
+                    floats.get(frame, 0, safeChannels)
+                    var sum = 0f
+                    for (value in frame) sum += value
+                    mono[index] = (sum / safeChannels).coerceIn(-1f, 1f)
+                }
+                mono
+            }
+            21 /* AudioFormat.ENCODING_PCM_24BIT_PACKED */ -> {
+                val bytesPerFrame = 3 * safeChannels
+                val frames = dup.remaining() / bytesPerFrame
+                val mono = FloatArray(frames)
+                for (index in 0 until frames) {
+                    var sum = 0.0
+                    for (c in 0 until safeChannels) {
+                        val b0 = dup.get().toInt() and 0xFF
+                        val b1 = dup.get().toInt() and 0xFF
+                        val b2 = dup.get().toInt() // signed high byte
+                        val sample = (b2 shl 16) or (b1 shl 8) or b0
+                        sum += sample / 8388608.0
+                    }
+                    mono[index] = (sum / safeChannels).toFloat().coerceIn(-1f, 1f)
+                }
+                mono
+            }
+            22 /* AudioFormat.ENCODING_PCM_32BIT */ -> {
+                val ints = dup.asIntBuffer()
+                val frames = ints.remaining() / safeChannels
+                val mono = FloatArray(frames)
+                val frame = IntArray(safeChannels)
+                for (index in 0 until frames) {
+                    ints.get(frame, 0, safeChannels)
+                    var sum = 0.0
+                    for (value in frame) sum += value / 2147483648.0
+                    mono[index] = (sum / safeChannels).toFloat().coerceIn(-1f, 1f)
+                }
+                mono
+            }
+            else -> {
+                val shorts = dup.asShortBuffer()
+                val frames = shorts.remaining() / safeChannels
+                val mono = FloatArray(frames)
+                val frame = ShortArray(safeChannels)
+                for (index in 0 until frames) {
+                    shorts.get(frame, 0, safeChannels)
+                    var sum = 0
+                    for (value in frame) sum += value
+                    mono[index] = (sum / safeChannels.toFloat()) / 32768f
+                }
+                mono
+            }
+        }
     }
 
     /**
-     * Splits one 16-bit PCM output buffer into planar left/right float in
+     * Splits one PCM output buffer into planar left/right float in
      * [-1, 1], appending each to its own accumulator.
-     *
-     * A mono source is widened by giving both sides the same samples, and
-     * anything above two channels keeps only the first two: the model's input
-     * is stereo, and a downmix of a 5.1 track would put the centre channel —
-     * where the vocal usually is — into both sides at half level, which is
-     * the opposite of helpful for telling a vocal apart from the bed.
      */
     private fun toStereo(
         buffer: ByteBuffer,
         info: MediaCodec.BufferInfo,
         channels: Int,
+        encoding: Int,
         left: MutableList<FloatArray>,
         right: MutableList<FloatArray>,
     ) {
         val safeChannels = max(1, channels)
-        val shorts = buffer.duplicate().apply {
+        val dup = buffer.duplicate().apply {
             order(ByteOrder.LITTLE_ENDIAN)
             position(info.offset)
             limit(info.offset + info.size)
-        }.asShortBuffer()
-        val frames = shorts.remaining() / safeChannels
-        val leftChunk = FloatArray(frames)
-        val rightChunk = FloatArray(frames)
-        val frame = ShortArray(safeChannels)
-        for (index in 0 until frames) {
-            shorts.get(frame, 0, safeChannels)
-            leftChunk[index] = frame[0] / 32768f
-            rightChunk[index] = (if (safeChannels > 1) frame[1] else frame[0]) / 32768f
         }
-        left += leftChunk
-        right += rightChunk
+        when (encoding) {
+            AudioFormat.ENCODING_PCM_FLOAT -> {
+                val floats = dup.asFloatBuffer()
+                val frames = floats.remaining() / safeChannels
+                val leftChunk = FloatArray(frames)
+                val rightChunk = FloatArray(frames)
+                val frame = FloatArray(safeChannels)
+                for (index in 0 until frames) {
+                    floats.get(frame, 0, safeChannels)
+                    leftChunk[index] = frame[0].coerceIn(-1f, 1f)
+                    rightChunk[index] = (if (safeChannels > 1) frame[1] else frame[0]).coerceIn(-1f, 1f)
+                }
+                left += leftChunk
+                right += rightChunk
+            }
+            21 /* AudioFormat.ENCODING_PCM_24BIT_PACKED */ -> {
+                val bytesPerFrame = 3 * safeChannels
+                val frames = dup.remaining() / bytesPerFrame
+                val leftChunk = FloatArray(frames)
+                val rightChunk = FloatArray(frames)
+                for (index in 0 until frames) {
+                    for (c in 0 until safeChannels) {
+                        val b0 = dup.get().toInt() and 0xFF
+                        val b1 = dup.get().toInt() and 0xFF
+                        val b2 = dup.get().toInt()
+                        val sample = (((b2 shl 16) or (b1 shl 8) or b0) / 8388608.0f).coerceIn(-1f, 1f)
+                        if (c == 0) leftChunk[index] = sample
+                        if (c == 1) rightChunk[index] = sample
+                    }
+                    if (safeChannels == 1) rightChunk[index] = leftChunk[index]
+                }
+                left += leftChunk
+                right += rightChunk
+            }
+            22 /* AudioFormat.ENCODING_PCM_32BIT */ -> {
+                val ints = dup.asIntBuffer()
+                val frames = ints.remaining() / safeChannels
+                val leftChunk = FloatArray(frames)
+                val rightChunk = FloatArray(frames)
+                val frame = IntArray(safeChannels)
+                for (index in 0 until frames) {
+                    ints.get(frame, 0, safeChannels)
+                    leftChunk[index] = (frame[0] / 2147483648.0f).coerceIn(-1f, 1f)
+                    rightChunk[index] = ((if (safeChannels > 1) frame[1] else frame[0]) / 2147483648.0f).coerceIn(-1f, 1f)
+                }
+                left += leftChunk
+                right += rightChunk
+            }
+            else -> {
+                val shorts = dup.asShortBuffer()
+                val frames = shorts.remaining() / safeChannels
+                val leftChunk = FloatArray(frames)
+                val rightChunk = FloatArray(frames)
+                val frame = ShortArray(safeChannels)
+                for (index in 0 until frames) {
+                    shorts.get(frame, 0, safeChannels)
+                    leftChunk[index] = frame[0] / 32768f
+                    rightChunk[index] = (if (safeChannels > 1) frame[1] else frame[0]) / 32768f
+                }
+                left += leftChunk
+                right += rightChunk
+            }
+        }
     }
 
     private fun MediaFormat.intOrNull(key: String): Int? = if (containsKey(key)) getInteger(key) else null

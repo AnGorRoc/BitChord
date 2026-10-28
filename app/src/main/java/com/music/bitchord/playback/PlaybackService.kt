@@ -2345,17 +2345,26 @@ class PlaybackService : MediaLibraryService() {
                 return@launch
             }
 
-            // Sync playback position with exact live position right before starting playback on standby
-            val livePos = activePlayer.currentPosition
-            val targetLivePos = (livePos + alignmentOffsetMs).coerceAtLeast(0L)
-            standbyPlayer.seekTo(currentIndex, targetLivePos)
-
             // Read again rather than carried from before the standby prepared:
             // a swap started while paused can take seconds to get here, and a
             // listener who pressed play in between has an outgoing player
             // running. Treated as paused, the incoming one was never locked to
             // it and entered the fade a beat behind — a doubled phrase.
             val willPlay = activePlayer.playWhenReady
+
+            // Sync playback position with exact live position right before starting playback on standby.
+            // This is the only seek the standby gets while the outgoing track
+            // plays (see [lockStandbyToActive]), so it aims as far ahead as the
+            // last swap found a seek takes to become sound.
+            val livePos = activePlayer.currentPosition
+            val aheadMs = if (willPlay) {
+                (standbySeekLatencyMs * AppSettings.playbackSpeed.value).toLong()
+            } else {
+                0L
+            }
+            val targetLivePos = (livePos + alignmentOffsetMs + aheadMs).coerceAtLeast(0L)
+            standbyPlayer.seekTo(currentIndex, targetLivePos)
+
             if (willPlay) {
                 // Start it right away rather than waiting the seek out first:
                 // the outgoing player keeps running through every one of these
@@ -2370,14 +2379,14 @@ class PlaybackService : MediaLibraryService() {
                 }
                 if (standbyPlayer.isPlaying) {
                     // Now that it is producing audio — still at zero volume —
-                    // put it exactly where the outgoing player is, and check
-                    // that it is. A seek is not instant: the incoming player
-                    // resumes some tens of milliseconds after it is asked to,
-                    // and the outgoing one has not stopped for any of them, so
-                    // a single seek to "now" lands that late. Heard as a
-                    // crossfade between two copies of one song, that is the
-                    // flam, or the phasey smear, that a measured shift to the
-                    // sample could never have prevented.
+                    // measure where it is against the outgoing player, and take
+                    // up the difference. A seek is not instant: the incoming
+                    // player resumes some time after it is asked to, and the
+                    // outgoing one has not stopped for any of it, so a single
+                    // seek to "now" lands that late. Heard as a crossfade
+                    // between two copies of one song, that is the flam, or the
+                    // phasey smear, that a measured shift to the sample could
+                    // never have prevented.
                     lockStandbyToActive(activePlayer, standbyPlayer, currentIndex, alignmentOffsetMs)
                 }
             } else {
@@ -2578,26 +2587,32 @@ class PlaybackService : MediaLibraryService() {
 
     /**
      * How long, in wall-clock milliseconds, the standby player took last time
-     * to go from a seek being asked for to audio actually coming out at the
+     * to go from the seek that opens it to audio actually coming out at the
      * position asked for. Carried between swaps because it is a property of the
-     * device and its output, not of the track: the next swap's first seek starts
-     * out aiming that far ahead instead of discovering it.
+     * device and its output, not of the track: the next swap's seek starts out
+     * aiming that far ahead instead of discovering it.
      */
     private var standbySeekLatencyMs = 0L
 
     /**
      * Brings [standby], which is already playing silently, to the moment
-     * [active] is at plus [offsetMs] — and then measures that it got there.
+     * [active] is at plus [offsetMs] — with a single seek behind it.
      *
-     * Closed loop, because the only thing seeking can promise is *where the
-     * player will start from*, not *when*. Both positions are read here, in the
-     * same main-thread turn so the reads share a clock, and the difference is
-     * the error. It is fed back as the latency the seek is expected to cost:
-     * with the seek issued at wall time `t` to position `T`, the standby ends up
-     * `T − L − (A + offset)` from the outgoing player, so aiming `L` ahead
-     * makes the error vanish, and the error just measured is exactly the `L`
-     * that was mis-estimated. Two passes usually settle it; the latency learned
-     * is kept for the next swap, which then usually needs one.
+     * A seek is the one thing this must not repeat. On a route that opens a
+     * direct output for the track — a USB DAC playing a 96 kHz FLAC beside a
+     * 48 kHz stream — every seek throws the standby's AudioTrack away and
+     * makes a new one, and each new one renegotiates the output the *playing*
+     * track is on: the music stutters once per pass. Worse, how long a seek
+     * takes to become sound varies by a few hundred milliseconds from one to
+     * the next there, so a loop that corrects the error by seeking again does
+     * not converge; it only repeats the stutter.
+     *
+     * So the standby is left where its one seek put it, its position readout is
+     * waited out until it holds still (see [settledStandbyError]), and what is
+     * left over is taken up by running it a little fast or slow while it is
+     * still silent. Speed changes the pace of the data, not the track, and
+     * nothing on the output side notices. The error measured before the nudge
+     * also trains [standbySeekLatencyMs] for the next swap's seek.
      *
      * Playback speed scales it: positions are media time and the latency is
      * wall time.
@@ -2609,48 +2624,65 @@ class PlaybackService : MediaLibraryService() {
         offsetMs: Long,
     ) {
         val speed = AppSettings.playbackSpeed.value.coerceAtLeast(0.1f)
-        var latencyMs = standbySeekLatencyMs
-        val deadline = SystemClock.elapsedRealtime() + STANDBY_LOCK_BUDGET_MS
-        var errorMs = 0L
-        for (pass in 1..STANDBY_LOCK_MAX_PASSES) {
-            if (!active.isPlaying || active.currentMediaItemIndex != index) return
-            val ahead = (latencyMs * speed).toLong()
-            standby.seekTo(index, (active.currentPosition + offsetMs + ahead).coerceAtLeast(0L))
-            val resumeBy = SystemClock.elapsedRealtime() + STANDBY_LOCK_RESUME_MS
-            while (!(standby.playbackState == Player.STATE_READY && standby.isPlaying) &&
-                SystemClock.elapsedRealtime() < resumeBy
-            ) {
-                delay(5)
-            }
-            if (!standby.isPlaying) return
-            errorMs = settledStandbyError(active, standby, index, offsetMs) ?: return
-            if (abs(errorMs) <= STANDBY_LOCK_TOLERANCE_MS) {
-                standbySeekLatencyMs = latencyMs
-                TrackLog.d("BitChord", "version swap locked to ${errorMs}ms in $pass pass(es), seek latency ${latencyMs}ms")
-                return
-            }
-            latencyMs = (latencyMs - (errorMs / speed).toLong())
-                .coerceIn(-STANDBY_LOCK_MAX_EARLY_MS, STANDBY_LOCK_MAX_LATENCY_MS)
-            if (SystemClock.elapsedRealtime() >= deadline) break
+        val before = settledStandbyError(
+            active, standby, index, offsetMs, STANDBY_LOCK_QUIET_MS, STANDBY_LOCK_WINDOW_MS,
+        ) ?: return
+        // Moves most of the way each swap rather than all of it, since one
+        // reading is still one reading.
+        val learned = standbySeekLatencyMs - (before / speed).toLong()
+        standbySeekLatencyMs = (standbySeekLatencyMs + ((learned - standbySeekLatencyMs) * 0.7).toLong())
+            .coerceIn(-STANDBY_LOCK_MAX_EARLY_MS, STANDBY_LOCK_MAX_LATENCY_MS)
+        if (abs(before) <= STANDBY_LOCK_TOLERANCE_MS) {
+            TrackLog.d("BitChord", "version swap locked to ${before}ms, seek latency now ${standbySeekLatencyMs}ms")
+            return
         }
-        standbySeekLatencyMs = latencyMs
-        TrackLog.w("BitChord", "version swap crossfading ${errorMs}ms off after $STANDBY_LOCK_MAX_PASSES passes")
+        if (abs(before) > STANDBY_NUDGE_MAX_ERROR_MS) {
+            TrackLog.w("BitChord", "version swap crossfading ${before}ms off: too far to take up without a seek")
+            return
+        }
+
+        // Running at `1 - error / (speed * span)` for `span` closes `error`:
+        // a standby that is ahead (positive) slows down, one behind speeds up.
+        val spanMs = (abs(before) / STANDBY_NUDGE_MAX_RATE).toLong().coerceAtLeast(STANDBY_NUDGE_MIN_SPAN_MS)
+        val rate = (1f - before.toFloat() / (speed * spanMs))
+            .coerceIn(1f - STANDBY_NUDGE_MAX_RATE, 1f + STANDBY_NUDGE_MAX_RATE)
+        try {
+            standby.setPlaybackSpeed(speed * rate)
+            val until = SystemClock.elapsedRealtime() + spanMs
+            while (SystemClock.elapsedRealtime() < until) {
+                if (!active.isPlaying || !standby.isPlaying || active.currentMediaItemIndex != index) return
+                delay(STANDBY_LOCK_SAMPLE_GAP_MS)
+            }
+        } finally {
+            standby.setPlaybackSpeed(speed)
+        }
+        val after = settledStandbyError(
+            active, standby, index, offsetMs, STANDBY_VERIFY_QUIET_MS, STANDBY_VERIFY_WINDOW_MS,
+        ) ?: return
+        TrackLog.d(
+            "BitChord",
+            "version swap locked: ${before}ms off, ran at ${"%.2f".format(rate)}x for ${spanMs}ms, " +
+                "${after}ms off now, seek latency ${standbySeekLatencyMs}ms",
+        )
     }
 
     /**
      * How far [standby] sits from [active] plus [offsetMs], read only once the
      * standby's position readout has stopped moving.
      *
-     * A player that has just started or been seeked reports a position
-     * estimated from the AudioTrack's playhead, smoothed over its first few
-     * hundred milliseconds, before the output's own timestamps take over. The
-     * audio does not move when that happens, only the readout does, and by tens
-     * of milliseconds. Locking on the early readout therefore "locks" a standby
-     * that is really that far off, and the fade then plays the same bar twice
-     * a few milliseconds apart. So the difference is sampled until the last
-     * [STANDBY_LOCK_STABLE_SAMPLES] agree within [STANDBY_LOCK_STABLE_SPREAD_MS]
-     * and the median of those is the answer; if it never settles inside
-     * [STANDBY_LOCK_SETTLE_WINDOW_MS] the median of the latest samples stands.
+     * A player that has just started reports a position estimated from the
+     * AudioTrack's playhead, and swaps it for the output's own timestamps some
+     * way in. The audio does not move when that happens, only the readout does
+     * — and by up to a quarter of a second, more than once in the first
+     * second or two, on a USB output. Locking on an early readout therefore
+     * "locks" a standby that is really that far off, and the fade then plays
+     * the same bar twice a few hundred milliseconds apart.
+     *
+     * So nothing is read for [quietMs], and then the difference is sampled
+     * until the last [STANDBY_LOCK_STABLE_SAMPLES] agree within
+     * [STANDBY_LOCK_STABLE_SPREAD_MS]; the median of those is the answer. If it
+     * never settles inside [windowMs] the median of the latest samples stands
+     * and the log says so.
      *
      * @return the error, or null when either player stopped being the pair
      *   this was started for.
@@ -2660,10 +2692,12 @@ class PlaybackService : MediaLibraryService() {
         standby: ExoPlayer,
         index: Int,
         offsetMs: Long,
+        quietMs: Long,
+        windowMs: Long,
     ): Long? {
-        delay(STANDBY_LOCK_SETTLE_MS)
+        delay(quietMs)
         val errors = ArrayList<Long>()
-        val windowEnd = SystemClock.elapsedRealtime() + STANDBY_LOCK_SETTLE_WINDOW_MS
+        val windowEnd = SystemClock.elapsedRealtime() + windowMs
         while (true) {
             if (!active.isPlaying || !standby.isPlaying || active.currentMediaItemIndex != index) return null
             errors += standby.currentPosition - (active.currentPosition + offsetMs)
@@ -2671,15 +2705,45 @@ class PlaybackService : MediaLibraryService() {
                 val recent = errors.takeLast(STANDBY_LOCK_STABLE_SAMPLES)
                 val stable = recent.max() - recent.min() <= STANDBY_LOCK_STABLE_SPREAD_MS
                 if (stable || SystemClock.elapsedRealtime() >= windowEnd) {
-                    val median = recent.sorted()[recent.size / 2]
-                    if (!stable) {
-                        TrackLog.w("BitChord", "standby position still moving after ${errors.size} samples: $recent")
-                    }
-                    return median
+                    if (stable) return recent.sorted()[recent.size / 2]
+                    // Never held still: every sample, not the last few, and the
+                    // value they gather around rather than their middle. The
+                    // readout sits on a base level and jumps ~280 ms off it
+                    // every half second or so; a median of fifteen samples
+                    // lands on the jumps when they make up a third of them.
+                    val center = densestCluster(errors, STANDBY_LOCK_CLUSTER_MS)
+                    TrackLog.w(
+                        "BitChord",
+                        "standby position still moving after ${errors.size} samples, " +
+                            "settling on ${center}ms: ${errors.filterIndexed { i, _ -> i % 5 == 0 }}",
+                    )
+                    return center
                 }
             }
             delay(STANDBY_LOCK_SAMPLE_GAP_MS)
         }
+    }
+
+    /**
+     * The value [samples] gather around: the middle of the [widthMs]-wide
+     * stretch of the sorted samples that holds the most of them. Unlike a
+     * median it is not pulled toward a minority of outliers on one side.
+     */
+    private fun densestCluster(samples: List<Long>, widthMs: Long): Long {
+        val sorted = samples.sorted()
+        var bestStart = 0
+        var bestCount = 0
+        var end = 0
+        for (start in sorted.indices) {
+            if (end < start) end = start
+            while (end + 1 < sorted.size && sorted[end + 1] - sorted[start] <= widthMs) end++
+            if (end - start + 1 > bestCount) {
+                bestCount = end - start + 1
+                bestStart = start
+            }
+        }
+        val cluster = sorted.subList(bestStart, bestStart + bestCount)
+        return cluster[cluster.size / 2]
     }
 
     private fun adoptPlayerForVersionSwap(outgoing: ExoPlayer, incoming: ExoPlayer) {
@@ -4829,7 +4893,7 @@ class PlaybackService : MediaLibraryService() {
             val offsetMs = if (stalled) {
                 0L
             } else {
-                measureUpgradeOffset(mediaId, playingUri, targetUri, YOUTUBE_KBPS, song.title)
+                measureUpgradeOffset(mediaId, playingUri, targetUri, YOUTUBE_KBPS, song.title) ?: 0L
             }
             val swap = withContext(Dispatchers.Main) {
                 if (player?.currentMediaItem?.mediaId != mediaId) return@withContext null
@@ -5111,6 +5175,16 @@ class PlaybackService : MediaLibraryService() {
             stream.format.kbps,
             at.item.mediaMetadata.title?.toString() ?: mediaId,
         )
+        if (offsetMs == null) {
+            TrackLog.w(
+                "BitChord",
+                "upgrade to ${stream.format.summary} aborted for '$mediaId': time alignment could not be measured reliably; refusing unaligned swap to prevent audio desync",
+                about = mediaId,
+            )
+            QualityUpgrade.forget(mediaId)
+            withContext(Dispatchers.IO) { AudioCache.discardRendition(Uri.parse(upgradedUri)) }
+            return
+        }
 
         // There used to be an unconditional five-second hold here, keyed off the
         // track's own position, so that an upgrade arriving with the first note
@@ -5541,7 +5615,7 @@ class PlaybackService : MediaLibraryService() {
         upgradedUri: String,
         upgradedKbps: Int?,
         title: String,
-    ): Long = withContext(Dispatchers.IO) {
+    ): Long? = withContext(Dispatchers.IO) {
         val playing = Uri.parse(playingUri)
         val upgraded = Uri.parse(upgradedUri)
         val began = SystemClock.elapsedRealtime()
@@ -5566,18 +5640,15 @@ class PlaybackService : MediaLibraryService() {
                 label = title,
             ).also { concluded = true }
         }
-        // Said out loud because it used to be the one way of not knowing that
-        // left nothing in the log, and what it costs is audible: an unshifted
-        // crossfade of two copies that are not on the same sample.
         if (!concluded) {
             TrackLog.w(
                 "BitChord",
                 "upgrade alignment for '$title' ran out of time after " +
-                    "${SystemClock.elapsedRealtime() - began}ms; crossfading with no shift",
+                    "${SystemClock.elapsedRealtime() - began}ms; alignment measurement failed",
                 about = mediaId,
             )
         }
-        measured ?: 0L
+        measured
     }
 
     /**
@@ -5913,13 +5984,13 @@ class PlaybackService : MediaLibraryService() {
         // can't start a track here (see below), so it goes the same way.
         if (SourceResolver.losslessFromStart()) {
             val lossless = withContext(Dispatchers.IO + TrackLog.about(videoId)) {
-                withTimeoutOrNull(SUBSTITUTE_TIMEOUT_MS) { SourceResolver.losslessForYouTube(target) }
+                withTimeoutOrNull(LOSSLESS_FROM_START_TIMEOUT_MS) { SourceResolver.losslessForYouTube(target) }
             }
             if (lossless != null && !StreamContainer.isManifest(lossless.url)) {
                 NerdStats.onLosslessRaceEnd(videoId)
                 return Resolved.Module(lossless)
             }
-            TrackLog.d("BitChord", "no lossless copy of '${target.title}' to start on; starting as usual", about = videoId)
+            TrackLog.d("BitChord", "no lossless copy of '${target.title}' in ${LOSSLESS_FROM_START_TIMEOUT_MS}ms; starting as usual", about = videoId)
         }
         // Both legs are parented to the service's scope rather than to the
         // caller, so neither inherits whose track this is — see
@@ -9747,6 +9818,13 @@ class PlaybackService : MediaLibraryService() {
         const val SUBSTITUTE_TIMEOUT_MS = 20_000L
 
         /**
+         * Adaptive startup timeout when [SourceResolver.losslessFromStart] is active.
+         * Fast sources like Monochrome respond in ~1.2s; 2.5s gives ample time to
+         * start directly in FLAC without imposing a 20s freeze if no lossless copy exists.
+         */
+        const val LOSSLESS_FROM_START_TIMEOUT_MS = 2_500L
+
+        /**
          * How much of a track has to be left for a mid-track quality swap to
          * be worth the break in the audio it costs.
          */
@@ -9885,29 +9963,36 @@ class PlaybackService : MediaLibraryService() {
 
         /**
          * [lockStandbyToActive]'s limits. The outgoing player keeps playing
-         * through every pass, so they cost nothing but the moment the better
-         * copy arrives; the tolerance is a few milliseconds above what the
-         * position readout itself can resolve, which no further pass could beat.
+         * through all of it, so they cost nothing but the moment the better
+         * copy arrives. The quiet period is longer than it looks like it needs
+         * to be because the readout's corrections have been seen as late as a
+         * second and a half in; the tolerance is a few milliseconds above what
+         * the readout itself can resolve, which nothing further could beat.
          */
-        const val STANDBY_LOCK_MAX_PASSES = 3
-        const val STANDBY_LOCK_BUDGET_MS = 6_000L
-        const val STANDBY_LOCK_RESUME_MS = 500L
-
-        /**
-         * How long after a seek the standby's position readout is left alone —
-         * see [settledStandbyError]. The output's smoothing window alone is
-         * ~300 ms, and its first timestamps arrive a little after that.
-         */
-        const val STANDBY_LOCK_SETTLE_MS = 600L
-        const val STANDBY_LOCK_SETTLE_WINDOW_MS = 800L
-        const val STANDBY_LOCK_STABLE_SAMPLES = 6
-        const val STANDBY_LOCK_STABLE_SPREAD_MS = 3L
+        const val STANDBY_LOCK_QUIET_MS = 1_800L
+        const val STANDBY_LOCK_WINDOW_MS = 3_000L
+        const val STANDBY_LOCK_STABLE_SAMPLES = 15
+        const val STANDBY_LOCK_STABLE_SPREAD_MS = 6L
+        const val STANDBY_LOCK_CLUSTER_MS = 40L
         const val STANDBY_LOCK_SAMPLE_GAP_MS = 40L
-        const val STANDBY_LOCK_TOLERANCE_MS = 6L
+        const val STANDBY_LOCK_TOLERANCE_MS = 8L
         const val STANDBY_LOCK_MAX_LATENCY_MS = 1_500L
 
         /** How far behind "now" a seek may aim, for a device whose seeks resume early. */
         const val STANDBY_LOCK_MAX_EARLY_MS = 500L
+
+        /**
+         * Taking up what is left over by running the silent standby fast or
+         * slow: no further than [STANDBY_NUDGE_MAX_ERROR_MS], at no more than
+         * [STANDBY_NUDGE_MAX_RATE] off real time, and for at least
+         * [STANDBY_NUDGE_MIN_SPAN_MS] so a small error is a gentle one. Checked
+         * again after [STANDBY_VERIFY_QUIET_MS] for the log's sake.
+         */
+        const val STANDBY_NUDGE_MAX_ERROR_MS = 600L
+        const val STANDBY_NUDGE_MAX_RATE = 0.25f
+        const val STANDBY_NUDGE_MIN_SPAN_MS = 800L
+        const val STANDBY_VERIFY_QUIET_MS = 600L
+        const val STANDBY_VERIFY_WINDOW_MS = 2_000L
 
         /**
          * The most an alignment will fetch of an upgrade's opening: thirteen
