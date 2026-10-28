@@ -183,8 +183,8 @@ object AudioCache {
     /** How long [probeLength] waits for a stream to say how long it is. */
     private const val PROBE_TIMEOUT_MS = 15_000L
 
-    /** Monochrome's range size — see [ChunkedDataSource]'s — reused as its segment and fill chunk. */
-    private const val MONOCHROME_SEGMENT_BYTES = 8L * 1024 * 1024
+    /** Monochrome's range size, reused as its segment and fill chunk - see [MonochromeGate.RANGE_BYTES]. */
+    private const val MONOCHROME_SEGMENT_BYTES = MonochromeGate.RANGE_BYTES
 
     /** Below this estimate (bits per second, about 200 kB/s) a fill fetches [SLOW_CHUNK_BYTES] at a time. */
     private const val SLOW_CONNECTION_BPS = 1_600_000L

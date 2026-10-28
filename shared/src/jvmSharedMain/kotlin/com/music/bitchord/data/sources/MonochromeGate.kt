@@ -186,6 +186,15 @@ class MonochromeGate(
         /** Set on a refusal made here, so it can be told from the server's own. */
         const val SYNTHETIC_HEADER = "X-BitChord-Circuit"
 
+        /**
+         * How much of a Monochrome file one ranged read asks for, and so the
+         * segment a reader holds and the chunk a fill fetches. The server cuts
+         * any response at about thirty seconds and was measured as slow as
+         * 560 kB/s, so this is about fifteen seconds at that rate - half the
+         * cut - and the one place players and the cache learn it from.
+         */
+        const val RANGE_BYTES = 8L * 1024 * 1024
+
         /** A measured episode lasts about a minute; this outlasts one. */
         const val BASE_WINDOW_MS = 90_000L
 

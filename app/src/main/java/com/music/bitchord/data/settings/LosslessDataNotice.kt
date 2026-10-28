@@ -1,8 +1,14 @@
 package com.music.bitchord.data.settings
 
+import com.music.bitchord.data.NerdStats
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
 /**
  * The quiet heads-up that lossless is streaming over mobile data.
@@ -73,6 +79,35 @@ object LosslessDataNotice {
     /** Process-lifetime, which is what "once per session" means here. */
     @Volatile
     var shownThisSession: Boolean = false
+
+    /**
+     * Suspends until the notice is due, then marks it shown for this session.
+     *
+     * Watched as flows rather than collected into state by the caller: the
+     * stats snapshot is republished as the decoder reports, and reading it
+     * where the notice is drawn would recompose the whole app on every one of
+     * those. Lossless counts as the decoder sees it, and fetched from a source
+     * rather than read off the phone: a local FLAC costs no data.
+     */
+    suspend fun awaitDue() {
+        combine(
+            NerdStats.current.map { it != null && it.isLossless && it.claimed?.isLossless == true },
+            AppSettings.meteredConnection,
+            AppSettings.audioQualityCellular,
+            AppSettings.streamCeilingOverride,
+            AppSettings.losslessDataNoticeDone,
+        ) { streaming, metered, cellular, override, done ->
+            shouldShow(
+                streamingLossless = streaming,
+                metered = metered,
+                cellularCeiling = cellular,
+                ceilingOverride = override,
+                done = done,
+                shownThisSession = shownThisSession,
+            )
+        }.distinctUntilChanged().filter { it }.first()
+        shownThisSession = true
+    }
 
     /** Writes [outcome]'s consequence to [AppSettings]. */
     fun record(outcome: Outcome) {

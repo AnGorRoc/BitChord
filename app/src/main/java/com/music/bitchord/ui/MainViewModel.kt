@@ -54,6 +54,7 @@ import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
+import com.music.bitchord.data.model.HomeFeed
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.withoutRepeatsOf
 import com.music.bitchord.data.model.LibraryPage
@@ -1808,45 +1809,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             loadTopPicks(identity, rebuild = false)
 
             viewModelScope.launch {
-                val coreDeferred = async { YtMusicRepository.home() }
-                val recentDeferred = if (_signedIn.value) async { YtMusicRepository.homeRecentlyPlayed() } else null
-                val supplementDeferreds = YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.map { browseId ->
-                    async { YtMusicRepository.homeSupplement(browseId) }
-                }
-
-                val coreResult = coreDeferred.await()
+                val fetched = fetchHome()
                 if (!isCurrentHomeLoad(identity, generation)) return@launch
 
-                coreResult.onSuccess { feed ->
+                fetched.core.onSuccess { feed ->
                     val currentShelves = (_home.value as? UiState.Success)?.data.orEmpty()
-                    val freshRecentResult = recentDeferred?.await()
-                    val freshRecent = when {
-                        freshRecentResult != null && freshRecentResult.isSuccess -> freshRecentResult.getOrNull()
-                        freshRecentResult != null && freshRecentResult.isFailure -> previousRecent(currentShelves)
-                        else -> null
-                    }
-                    freshRecent?.takeIf { freshRecentResult?.isSuccess == true }?.let { homeRecentTitle = it.title }
-                    if (!isCurrentHomeLoad(identity, generation)) return@onSuccess
-
+                    val freshRecent = fetched.recentShelf(previous = previousRecent(currentShelves))
                     // A part of the feed that could not be fetched leaves the
                     // screen with fewer shelves than the saved feed has. The
                     // screen can show what arrived; what is saved must not be
                     // replaced by less than it held.
-                    var partial = freshRecentResult?.isFailure == true
-                    val freshSupplements = mutableListOf<HomeShelf>()
-                    supplementDeferreds.forEach { deferred ->
-                        deferred.await()
-                            .onSuccess { freshSupplements.addAll(it) }
-                            .onFailure { partial = true }
-                    }
-                    if (!isCurrentHomeLoad(identity, generation)) return@onSuccess
+                    val partial = fetched.partial
 
                     if (feed.shelves.isEmpty()) {
                         FeedCache.touchHome(identity)
                         return@onSuccess
                     }
 
-                    val assembled = assembleHomeShelves(freshRecent, feed.shelves, freshSupplements)
+                    val assembled = assembleHomeShelves(freshRecent, feed.shelves, fetched.supplementShelves)
 
                     if (homePagedThisGeneration) {
                         FeedCache.touchHome(identity)
@@ -2076,41 +2056,62 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         FeedCache.saveHome(listenerKey(), updated, homeContinuation)
     }
 
-    /** Refreshes the core feed without blanking the current Play page first. */
-    private suspend fun refreshHome(identity: String?) = coroutineScope {
+    /**
+     * Everything a fresh Home is made of, fetched at once: the core feed, the
+     * Recently played shelf for a signed-in listener, and the supplements. Each
+     * keeps its own outcome, because one that failed must leave what was there
+     * rather than take it away.
+     */
+    private class HomeFetch(
+        val core: Result<HomeFeed>,
+        /** Null when the listener is signed out and the shelf is not asked for. */
+        val recent: Result<HomeShelf?>?,
+        val supplements: List<Result<List<HomeShelf>>>,
+    ) {
+        /** Part of the feed could not be fetched. */
+        val partial: Boolean get() = recent?.isFailure == true || supplements.any { it.isFailure }
+
+        val supplementShelves: List<HomeShelf> get() = supplements.flatMap { it.getOrNull().orEmpty() }
+    }
+
+    private suspend fun fetchHome(): HomeFetch = coroutineScope {
+        val core = async { YtMusicRepository.home() }
         val recent = if (_signedIn.value) async { YtMusicRepository.homeRecentlyPlayed() } else null
         val supplements = YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.map { browseId ->
             async { YtMusicRepository.homeSupplement(browseId) }
         }
+        HomeFetch(core.await(), recent?.await(), supplements.map { it.await() })
+    }
+
+    /**
+     * The Recently played shelf to show: the fresh one when it was fetched
+     * (null when there is none to show), the [previous] one when asking for it
+     * failed, and none when the listener is signed out.
+     */
+    private fun HomeFetch.recentShelf(previous: HomeShelf?): HomeShelf? = when {
+        recent == null -> null
+        recent.isSuccess -> recent.getOrNull()?.also { homeRecentTitle = it.title }
+        else -> previous
+    }
+
+    /** Refreshes the core feed without blanking the current Play page first. */
+    private suspend fun refreshHome(identity: String?) = coroutineScope {
         // Top Picks keeps to its hour; a pull refreshes the feed, not the
         // picks, unless the hour has already turned over.
         if (topPicksJob?.isActive != true) loadTopPicks(identity, rebuild = false)
-        YtMusicRepository.home().onSuccess { feed ->
+        val fetched = fetchHome()
+        fetched.core.onSuccess { feed ->
             if (identity != listenerKey()) return@onSuccess
             val current = (_home.value as? UiState.Success)?.data.orEmpty()
-            val recentResult = recent?.await()
-            // A request that failed leaves the shelf that was there, not none.
-            val freshRecent = when {
-                recentResult == null -> null
-                recentResult.isSuccess -> recentResult.getOrNull()?.also { homeRecentTitle = it.title }
-                else -> previousRecent(current)
-            }
-            var partial = recentResult?.isFailure == true
-            val freshSupplements = mutableListOf<HomeShelf>()
-            supplements.forEach { deferred ->
-                deferred.await()
-                    .onSuccess { freshSupplements.addAll(it) }
-                    .onFailure { partial = true }
-            }
-            if (identity != listenerKey()) return@onSuccess
-            val assembled = assembleHomeShelves(freshRecent, feed.shelves, freshSupplements)
+            val freshRecent = fetched.recentShelf(previous = previousRecent(current))
+            val assembled = assembleHomeShelves(freshRecent, feed.shelves, fetched.supplementShelves)
             homeContinuation = feed.continuation
             homeSeenTitles.clear()
             homeSeenTitles.addAll(assembled.map { it.title.lowercase(Locale.ROOT) })
             if (assembled.isNotEmpty()) {
                 _home.value = UiState.Success(assembled)
                 // Shown, but not saved over a fuller feed; see [loadHome].
-                if (!partial) FeedCache.saveHome(identity, assembled, feed.continuation)
+                if (!fetched.partial) FeedCache.saveHome(identity, assembled, feed.continuation)
             }
         }
     }

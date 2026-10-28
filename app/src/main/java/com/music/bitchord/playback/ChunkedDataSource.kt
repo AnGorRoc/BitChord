@@ -215,11 +215,8 @@ class ChunkedDataSource(
         /** Enough to ride out a truncated range, not enough to hang on a dead one. */
         const val MAX_EMPTY_RANGES = 3
 
-        /**
-         * About fifteen seconds at the slowest rate measured from the server
-         * (560 kB/s), half its thirty-second cut.
-         */
-        const val MONOCHROME_RANGE_BYTES = 8L * 1024 * 1024
+        /** See [MonochromeGate.RANGE_BYTES]. */
+        const val MONOCHROME_RANGE_BYTES = MonochromeGate.RANGE_BYTES
     }
 
     /** Wraps [upstream]'s sources so everything opened through it is ranged. */

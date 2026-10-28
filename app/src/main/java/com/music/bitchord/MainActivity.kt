@@ -1047,32 +1047,11 @@ private fun BitChordApp(
 
     // Lossless streaming over mobile data, said once and quietly — see
     // [LosslessDataNotice] for when, and for how it retires itself.
-    // Watched as flows rather than collected into state here: the stats
-    // snapshot is republished as the decoder reports, and reading it at this
-    // level would recompose the whole app on every one of those.
     val losslessDataMessage = stringResource(R.string.lossless_data_notice)
     val losslessDataAction = stringResource(R.string.lossless_data_notice_action)
     val losslessDataClose = stringResource(R.string.close)
     LaunchedEffect(Unit) {
-        combine(
-            // Lossless as the decoder sees it, and fetched from a source rather
-            // than read off the phone: a local FLAC costs no data.
-            NerdStats.current.map { it != null && it.isLossless && it.claimed?.isLossless == true },
-            AppSettings.meteredConnection,
-            AppSettings.audioQualityCellular,
-            AppSettings.streamCeilingOverride,
-            AppSettings.losslessDataNoticeDone,
-        ) { streaming, metered, cellular, override, done ->
-            LosslessDataNotice.shouldShow(
-                streamingLossless = streaming,
-                metered = metered,
-                cellularCeiling = cellular,
-                ceilingOverride = override,
-                done = done,
-                shownThisSession = LosslessDataNotice.shownThisSession,
-            )
-        }.distinctUntilChanged().filter { it }.first()
-        LosslessDataNotice.shownThisSession = true
+        LosslessDataNotice.awaitDue()
         queueNoticeId += 1
         val id = queueNoticeId
         val clear = { if (queueNotice?.id == id) queueNotice = null }
