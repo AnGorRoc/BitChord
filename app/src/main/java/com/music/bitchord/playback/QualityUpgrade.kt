@@ -705,7 +705,7 @@ object QualityUpgrade {
      */
     fun isKnownToBePlayingYouTubesOwn(mediaId: String, rendition: String?): Boolean {
         if (rendition != null) return false
-        return StreamChoice.of(mediaId) != null && !StreamChoice.isSubstitute(mediaId)
+        return StreamChoice.peek(mediaId) != null && !StreamChoice.isSubstitute(mediaId)
     }
 
     /**

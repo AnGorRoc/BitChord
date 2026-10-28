@@ -53,7 +53,7 @@ class DownloadPlanTest {
         currentForMs: Long = 30_000,
         bandwidthBps: Long = 40_000_000,
         metered: Boolean = false,
-        room: Int = 2,
+        budget: Long = 1_000 * mb,
         prepared: Boolean = true,
         offline: Boolean = false,
         elsewhere: Boolean = false,
@@ -73,7 +73,7 @@ class DownloadPlanTest {
         currentForMs = currentForMs,
         bandwidthBps = bandwidthBps,
         metered = metered,
-        roomForFullTracks = room,
+        fullTrackBudgetBytes = budget,
     )
 
     private val ready = listOf(
@@ -227,9 +227,34 @@ class DownloadPlanTest {
     }
 
     @Test
+    fun `a master that does not fit the budget is not downloaded, however small the cache`() {
+        // A 512 MB cache whose playing track already holds 250 MB leaves about 160 MB.
+        val hiRes = snapshot(
+            budget = 160 * mb,
+            current = current(missingBytes = 0),
+            upcoming = listOf(upcoming(prepared = true, headCached = true, warmed = true, sizeBytes = 250 * mb)),
+        )
+        assertNull(DownloadPlan.next(hiRes))
+
+        // The same cache next to a CD-quality file has room.
+        val cd = hiRes.copy(upcoming = listOf(upcoming(prepared = true, headCached = true, warmed = true, sizeBytes = 30 * mb)))
+        assertEquals(Task.FillNext(0), DownloadPlan.next(cd))
+    }
+
+    @Test
+    fun `the second track waits unless both files fit beside each other`() {
+        val firstDone = upcoming(prepared = true, headCached = true, fullyCached = true, warmed = true, sizeBytes = 250 * mb)
+        val second = upcoming("after", prepared = true, headCached = true, warmed = true, sizeBytes = 250 * mb)
+        val tight = snapshot(budget = 400 * mb, current = current(missingBytes = 0), upcoming = listOf(firstDone, second))
+        assertNull(DownloadPlan.next(tight))
+
+        assertEquals(Task.FillNext(1), DownloadPlan.next(tight.copy(fullTrackBudgetBytes = 600 * mb)))
+    }
+
+    @Test
     fun `no room in the cache, no full downloads ahead`() {
         val full = snapshot(
-            room = 0,
+            budget = 0,
             current = current(missingBytes = 0),
             upcoming = listOf(upcoming(prepared = true, headCached = true, warmed = true)),
         )

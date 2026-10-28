@@ -89,8 +89,13 @@ object DownloadPlan {
         val currentForMs: Long,
         val bandwidthBps: Long,
         val metered: Boolean,
-        /** How many of the next tracks' full files the cache budget leaves room for. */
-        val roomForFullTracks: Int,
+        /**
+         * How many bytes the cache can take for the next tracks' full files
+         * beside the one playing, with margin: the ceiling less what the
+         * playing track keeps. What a file is judged against is its own size,
+         * so a 250 MB master is not let in on a budget that fits two CD files.
+         */
+        val fullTrackBudgetBytes: Long,
     )
 
     sealed interface Task {
@@ -133,11 +138,14 @@ object DownloadPlan {
 
         if (next == null || s.metered || current.missingBytes != 0L) return null
         if (!next.fullyCached) {
-            return if (next.fillDue && s.roomForFullTracks >= 1) Task.FillNext(0) else null
+            return if (next.fillDue && sizeOf(next) <= s.fullTrackBudgetBytes) Task.FillNext(0) else null
         }
 
         val after = s.upcoming.getOrNull(1) ?: return null
-        if (s.roomForFullTracks < 2 || !hasTimeFor(s, current, next, after)) return null
+        // Both files stay on disk until they have played, so both have to fit
+        // beside each other: filling the second would otherwise push the first
+        // out of the cache it was just downloaded into.
+        if (sizeOf(next) + sizeOf(after) > s.fullTrackBudgetBytes || !hasTimeFor(s, current, next, after)) return null
         if (!after.prepared || !after.headCached) return if (!s.upgradeBusy) Task.Prepare(1) else null
         if (!after.fullyCached && after.fillDue) return Task.FillNext(1)
         return null
@@ -162,10 +170,14 @@ object DownloadPlan {
     private fun hasTimeFor(s: Snapshot, current: Current, next: Upcoming, after: Upcoming): Boolean {
         if (!s.playWhenReady) return true
         if (s.bandwidthBps <= 0) return false
-        val size = after.sizeBytes.takeIf { it > 0 } ?: (after.durationMs / 1000 * LOSSLESS_BYTES_PER_SECOND)
+        val size = sizeOf(after)
         val ahead = current.remainingMs + next.durationMs
         return transferMs(size, s.bandwidthBps) * SPARE_FACTOR < ahead
     }
+
+    /** What [track] will take on disk: its size when known, otherwise a lossless file of its length. */
+    private fun sizeOf(track: Upcoming): Long =
+        track.sizeBytes.takeIf { it > 0 } ?: (track.durationMs / 1000 * LOSSLESS_BYTES_PER_SECOND)
 
     private fun transferMs(bytes: Long, bps: Long): Long = bytes * 8 * 1000 / bps
 

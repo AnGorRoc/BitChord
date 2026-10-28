@@ -4801,6 +4801,12 @@ class PlaybackService : MediaLibraryService() {
     /** The item [stallWatch]'s samples are about, so a new track or stream starts it over. */
     private var stallWatchFor: String? = null
 
+    /**
+     * The track [lowerQualityToKeepUp] found nothing to fall back to, so the
+     * watch does not look again, and log again, every second of its stall.
+     */
+    private var noFallbackFor: String? = null
+
     /** The swap [lowerQualityToKeepUp] is running, so a second one can't stack on it. */
     private var downgradeJob: Job? = null
 
@@ -4815,7 +4821,14 @@ class PlaybackService : MediaLibraryService() {
         scope.launch {
             while (isActive) {
                 delay(STALL_SAMPLE_MS)
-                checkLosslessKeepingUp()
+                try {
+                    checkLosslessKeepingUp()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // A bad sample is one missed look, not the end of the watch.
+                    TrackLog.w("BitChord", "lossless watch skipped a sample: ${e.message}")
+                }
             }
         }
     }
@@ -4836,9 +4849,11 @@ class PlaybackService : MediaLibraryService() {
         if (about != stallWatchFor) {
             stallWatch.reset()
             stallWatchFor = about
+            noFallbackFor = null
         }
         if (item == null || uri == null || !AppSettings.losslessDowngrade.value) return
         val mediaId = item.mediaId
+        if (mediaId == noFallbackFor) return
         if (NerdStats.declaredFormat(mediaId)?.isLossless != true) return
         if (QualityUpgrade.cacheTag(uri) == "original" || OriginalVersion.isPinned(mediaId)) return
         if (downgradeJob?.isActive == true || versionSwapJob?.isActive == true || swappingMediaId != null) return
@@ -4870,27 +4885,25 @@ class PlaybackService : MediaLibraryService() {
     private fun lowerQualityToKeepUp(item: MediaItem, playingUri: String, stalled: Boolean) {
         val mediaId = item.mediaId
         val song = item.toSong()
-        if (!song.hasYouTubeOriginal() || song.localUri != null) return
+        val target = song.toDirectYouTubeMediaItem()
+        val targetUri = target.localConfiguration?.uri?.toString()
+        if (!song.hasYouTubeOriginal() || song.localUri != null || targetUri == null) {
+            TrackLog.d("BitChord", "lossless for $mediaId isn't keeping up, and there is no other copy to fall back to", about = mediaId)
+            noFallbackFor = mediaId
+            return
+        }
         TrackLog.w(
             "BitChord",
             "lossless for $mediaId isn't keeping up${if (stalled) " (stalled)" else ""}; lowering the quality",
             about = mediaId,
         )
-        // Lossless is tried again after a wait that grows with each failure —
-        // see [LosslessRetryPlan]. The same wait holds lossless back for the next
-        // track, so both start from the same moment.
-        val retryIn = losslessRetry.nextDelayMs()
-        AppSettings.holdLossless(retryIn)
+        // An upgrade still looking would only race the downgrade for the player.
         if (upgradeFor == mediaId) upgradeJob?.cancel()
         QualityUpgrade.forget(mediaId)
-        val target = song.toDirectYouTubeMediaItem()
-        losslessRetryJob?.cancel()
-        losslessRetryJob = scope.launch {
-            delay(retryIn)
-            retryLosslessFor(mediaId)
-        }
-        val targetUri = target.localConfiguration?.uri?.toString() ?: return
         downgradeJob = scope.launch {
+            // Unlike an upgrade, a downgrade goes ahead unaligned: the stream is
+            // already starving, and a small shift is a lesser fault than the
+            // stall that is the reason for swapping.
             val offsetMs = if (stalled) {
                 0L
             } else {
@@ -4902,6 +4915,20 @@ class PlaybackService : MediaLibraryService() {
                     targetMediaItem = target,
                     presetOffsetMs = offsetMs,
                     onSwapCommitted = {
+                        // Lossless is tried again after a wait that grows with
+                        // each downgrade that really happened - see
+                        // [LosslessRetryPlan]. The same wait holds lossless
+                        // back for the next track, so both start from the same
+                        // moment. Taken here, once the quality is lowered, and
+                        // not before: a swap that never started has used up
+                        // none of the waits.
+                        val retryIn = losslessRetry.nextDelayMs()
+                        AppSettings.holdLossless(retryIn)
+                        losslessRetryJob?.cancel()
+                        losslessRetryJob = scope.launch {
+                            delay(retryIn)
+                            retryLosslessFor(mediaId)
+                        }
                         NerdStats.clearDeclared(mediaId)
                         NerdStats.recordSource(mediaId, "YouTube")
                         publishNerdStats()
@@ -5898,7 +5925,7 @@ class PlaybackService : MediaLibraryService() {
             // keep calling the fallback lossless after the upgrade it
             // borrowed that claim from got reverted.
             if (previousFormat != null) {
-                val prevSource = StreamChoice.of(mediaId)?.sourceConfigId?.let { SourceRegistry.config(it)?.displayName }
+                val prevSource = StreamChoice.peek(mediaId)?.sourceConfigId?.let { SourceRegistry.config(it)?.displayName }
                     ?: if (StreamChoice.isSubstitute(mediaId)) "Module" else "YouTube"
                 NerdStats.onSourceStream(mediaId, previousFormat, prevSource)
             } else {

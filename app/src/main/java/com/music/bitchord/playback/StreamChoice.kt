@@ -91,7 +91,18 @@ object StreamChoice {
      * for it — or it has gone unused long enough that its URL is no longer
      * worth trusting. Asking counts as using it.
      */
-    fun of(videoId: String): SourceStream? {
+    fun of(videoId: String): SourceStream? = lookup(videoId, renew = true)
+
+    /**
+     * As [of], without counting as a use. For everything that only wants to
+     * know what is chosen - the download scheduler asks about every queued
+     * track every second, and if each of those asks renewed the choice it would
+     * never expire, and a signed URL could be handed to the player hours after
+     * it stopped being good.
+     */
+    fun peek(videoId: String): SourceStream? = lookup(videoId, renew = false)
+
+    private fun lookup(videoId: String, renew: Boolean): SourceStream? {
         val choice = chosen[videoId] ?: return null
         val now = clock()
         if (now - choice.usedAt > TTL_MS) {
@@ -101,7 +112,7 @@ object StreamChoice {
                 return null
             }
         }
-        choice.usedAt = now
+        if (renew) choice.usedAt = now
         return choice.stream
     }
 

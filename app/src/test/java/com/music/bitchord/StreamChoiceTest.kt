@@ -26,12 +26,26 @@ class StreamChoiceTest {
         format = StreamFormat(codec = "mp4", kbps = 320),
     )
 
+    private val defaultClock = StreamChoice.clock
+
     @Before
+    fun useTestClock() {
+        // Ids used below are cleared first as well as after, so a failure can't
+        // leak into the next test through the shared object.
+        (0..80).forEach { StreamChoice.forget("track-$it") }
+        StreamChoice.clock = { now }
+        StreamChoice.holdsPartial = { false }
+        StreamChoice.onLapsed = {}
+    }
+
     @After
     fun reset() {
-        // Ids used below, cleared both ways round so a failure can't leak into
-        // the next test through the shared object.
         (0..80).forEach { StreamChoice.forget("track-$it") }
+        // The hooks are global: a frozen clock left behind would hold every other
+        // test of the same JVM at one moment.
+        StreamChoice.clock = defaultClock
+        StreamChoice.holdsPartial = { false }
+        StreamChoice.onLapsed = {}
     }
 
     @Test
@@ -145,10 +159,24 @@ class StreamChoiceTest {
 
     private var now = 1_000_000L
 
-    @Before
-    fun useTestClock() {
-        StreamChoice.clock = { now }
-        StreamChoice.holdsPartial = { false }
-        StreamChoice.onLapsed = {}
+    /** Only asking, as the download scheduler does every second, must not keep a choice alive. */
+    @Test
+    fun `peeking does not renew a choice`() {
+        StreamChoice.remember("track-11", stream("aac.saavncdn.com"), substituted = true)
+        repeat(6) {
+            now += 10 * 60 * 1000L
+            if (it < 1) assertNotNull(StreamChoice.peek("track-11"))
+        }
+        // An hour on, having only ever been asked about: it has gone stale.
+        assertNull(StreamChoice.peek("track-11"))
+    }
+
+    @Test
+    fun `using a choice still keeps it alive after being peeked at`() {
+        StreamChoice.remember("track-12", stream("aac.saavncdn.com"), substituted = true)
+        now += StreamChoice.TTL_MS - 1
+        assertNotNull(StreamChoice.of("track-12"))
+        now += StreamChoice.TTL_MS - 1
+        assertNotNull(StreamChoice.peek("track-12"))
     }
 }

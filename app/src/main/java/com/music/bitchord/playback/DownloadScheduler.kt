@@ -8,7 +8,9 @@ import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.TrackMatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -109,7 +111,17 @@ class DownloadScheduler(
         loop = scope.launch(Dispatchers.Main) {
             while (isActive) {
                 withTimeoutOrNull(TICK_MS) { kicks.receive() }
-                step()
+                try {
+                    step()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Whatever the cache or the player threw, the loop is what
+                    // decides every later download: it is slowed down, not ended.
+                    TrackLog.w(TAG, "download scheduler step failed: ${e.message}")
+                    cancelRunning()
+                    delay(ERROR_PAUSE_MS)
+                }
             }
         }
     }
@@ -162,6 +174,7 @@ class DownloadScheduler(
             currentId = view.current.videoId
             currentSince = now
         }
+        forgetOutsideQueue(view)
         val snapshot = withContext(Dispatchers.IO) { snapshotOf(view, now) }
         val task = DownloadPlan.next(snapshot)
         val pausedTask = if (snapshot.playWhenReady) {
@@ -186,9 +199,21 @@ class DownloadScheduler(
         runningTask = wanted
         setBusy(true)
         val job = scope.launch(Dispatchers.IO + TrackLog.about(wanted.second.substringBefore(RENDITION_SEPARATOR))) {
-            runCatching { execute(wanted.first, wanted.second, view) }
+            runCatching {
+                // A task that has stopped getting anywhere (a socket that never
+                // answers, a stuck cache lock) is ended and backed off rather than
+                // left to hold the connection, the CPU and the service open.
+                val finished = withTimeoutOrNull(timeoutOf(wanted.first)) {
+                    execute(wanted.first, wanted.second, view)
+                    true
+                }
+                if (finished == null) {
+                    TrackLog.w(TAG, "download: ${wanted.first} for ${wanted.second} timed out")
+                    backOff(wanted.second.substringBefore(RENDITION_SEPARATOR))
+                }
+            }
                 .onFailure {
-                    if (it is kotlinx.coroutines.CancellationException) throw it
+                    if (it is CancellationException) throw it
                     TrackLog.d(TAG, "download: ${wanted.first} for ${wanted.second} failed: ${it.message}")
                     backOff(wanted.second.substringBefore(RENDITION_SEPARATOR))
                 }
@@ -231,7 +256,7 @@ class DownloadScheduler(
                     if (id in warmed || id in prepared) continue
                     runCatching { StreamResolver.resolve(id) }
                         .onFailure {
-                            if (it is kotlinx.coroutines.CancellationException) throw it
+                            if (it is CancellationException) throw it
                             TrackLog.d(TAG, "queue warm-up skipped $id: ${it.message}", about = id)
                         }
                     warmed += id
@@ -268,9 +293,37 @@ class DownloadScheduler(
         retryAt[key] = SystemClock.elapsedRealtime() + wait
     }
 
+    /** The longest a task may run before it is given up on; fills get the longest, a master takes minutes. */
+    private fun timeoutOf(task: DownloadPlan.Task): Long = when (task) {
+        DownloadPlan.Task.FillCurrent, is DownloadPlan.Task.FillNext -> FILL_TIMEOUT_MS
+        DownloadPlan.Task.CurrentUpgrade -> UPGRADE_LOOK_TIMEOUT_MS
+        is DownloadPlan.Task.Prepare, DownloadPlan.Task.WarmUrls -> PREPARE_TIMEOUT_MS
+    }
+
     private fun due(key: String, now: Long) = (retryAt[key] ?: 0L) <= now
 
     private fun upgradeKey(id: String) = "$id#upgrade"
+
+    /**
+     * Drops what was remembered about tracks that are no longer playing or
+     * queued. Without this the sets and the retry tables grow with every
+     * track of a long session, and a track that comes round again is taken as
+     * already prepared on the strength of a URL that has long expired.
+     */
+    private fun forgetOutsideQueue(view: View) {
+        val live = HashSet<String>(view.upcoming.size + 1).apply {
+            add(view.current.videoId)
+            view.upcoming.forEach { add(it.first.videoId) }
+        }
+        prepared.retainAll(live)
+        warmed.retainAll(live)
+        // A key names a track, or a few joined by commas, with a suffix for an
+        // upgrade or a rendition: it is live while any track it names is.
+        fun stale(key: String) =
+            key.substringBefore('#').substringBefore(RENDITION_SEPARATOR).split(',').none { it in live }
+        retryAt.keys.removeIf(::stale)
+        retryLevel.keys.removeIf(::stale)
+    }
 
     private fun snapshotOf(view: View, now: Long): DownloadPlan.Snapshot {
         val id = view.current.videoId
@@ -296,6 +349,9 @@ class DownloadScheduler(
         AudioCache.noteSongs(view.upcoming.map { it.first })
         val upcoming = view.upcoming.map { (song, itemUri) -> upcomingOf(song, itemUri, now) }
         val ceiling = AudioCache.cacheCeilingBytes()
+        // The playing track stays on disk while it plays, so what it holds is
+        // not room for anything else.
+        val keptByCurrent = if (cacheable) AudioCache.contentLengthOf(uri!!) else 0L
         return DownloadPlan.Snapshot(
             prepared = view.playbackState == Player.STATE_READY || view.playbackState == Player.STATE_BUFFERING,
             offline = AudioCache.isOffline(),
@@ -312,11 +368,7 @@ class DownloadScheduler(
             currentForMs = now - currentSince,
             bandwidthBps = AudioCache.bandwidthEstimateBps(),
             metered = AppSettings.meteredConnection.value == true,
-            roomForFullTracks = when {
-                ceiling >= TWO_TRACKS_CEILING -> 2
-                ceiling >= ONE_TRACK_CEILING -> 1
-                else -> 0
-            },
+            fullTrackBudgetBytes = ((ceiling * BUDGET_SHARE).toLong() - keptByCurrent).coerceAtLeast(0L),
         )
     }
 
@@ -326,8 +378,8 @@ class DownloadScheduler(
         // Nothing to fetch for a download, a local file, or a track whose
         // bytes may not be read ahead: it counts as ready, so the plan moves on.
         val allowed = uri != null && AudioCache.readAheadAllowed(id)
-        val settled = id in prepared || !com.music.bitchord.data.sources.SourceResolver.canSubstituteForYouTube() ||
-            StreamChoice.of(id) != null || uri == null
+        val settled = id in prepared || !SourceResolver.canSubstituteForYouTube() ||
+            StreamChoice.peek(id) != null || uri == null
         val full = !allowed || AudioCache.isFullyCached(uri!!)
         return DownloadPlan.Upcoming(
             mediaId = id,
@@ -345,6 +397,13 @@ class DownloadScheduler(
         const val TAG = "BitChord"
         const val TICK_MS = 1_000L
         const val WARM_STAGGER_MS = 500L
+
+        const val FILL_TIMEOUT_MS = 15 * 60_000L
+        const val UPGRADE_LOOK_TIMEOUT_MS = 3 * 60_000L
+        const val PREPARE_TIMEOUT_MS = 2 * 60_000L
+
+        /** How long the loop rests after a step that threw. */
+        const val ERROR_PAUSE_MS = 5_000L
         const val UNKNOWN_REMAINING_MS = 10 * 60 * 1000L
         const val RENDITION_SEPARATOR = "@"
 
@@ -354,8 +413,11 @@ class DownloadScheduler(
         /** Waits after a task that got nowhere: soon at first, then less often. */
         val RETRY_STEPS_MS = longArrayOf(5_000L, 15_000L, 30_000L, 60_000L)
 
-        /** Cache ceilings that leave room for two, or one, upcoming full lossless files beside everything else. */
-        const val TWO_TRACKS_CEILING = 400L * 1024 * 1024
-        const val ONE_TRACK_CEILING = 200L * 1024 * 1024
+        /**
+         * The share of the cache ceiling the playing and the next tracks may
+         * fill between them. The rest is left for what else the cache holds -
+         * the tracks played before, whose eviction is what the margin is for.
+         */
+        const val BUDGET_SHARE = 0.8
     }
 }

@@ -114,6 +114,9 @@ object AudioCache {
      */
     private const val CHUNK_BYTES = 2L * 1024 * 1024
 
+    /** Free space the cache leaves on the disk when it decides whether a fill fits. */
+    private const val FREE_SPACE_MARGIN_BYTES = 256L * 1024 * 1024
+
     /**
      * What [cacheWholeOnce] risks before committing to a whole [CHUNK_BYTES].
      *
@@ -225,6 +228,9 @@ object AudioCache {
 
     private lateinit var appContext: Context
 
+    /** Where [cache] keeps its files; asked how much room is left on its disk. */
+    private var cacheDirectory: File? = null
+
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     /**
@@ -251,6 +257,7 @@ object AudioCache {
         val dir = File(context.noBackupFilesDir, CACHE_DIR_NAME)
         val databaseProvider = StandaloneDatabaseProvider(context)
         migrateFromCacheDir(File(context.cacheDir, LEGACY_CACHE_DIR_NAME), dir, databaseProvider)
+        cacheDirectory = dir
         cache = SimpleCache(dir, evictor, databaseProvider)
         // Builds before album/explicit/video-aware and credit-aware matching
         // may have cached a completely different recording under a YouTube
@@ -301,7 +308,10 @@ object AudioCache {
             ) { songs, level, lossless -> LosslessCachePolicy.evictorCeiling(songs, level, lossless) }
                 .collect { maxBytes ->
                     evictor.maxBytes = maxBytes
-                    evictor.applyNow(cache)
+                    // The evictor's callbacks run inside SimpleCache's own
+                    // monitor, so reclaiming from here has to take the same one
+                    // or it walks the spans while a write is changing them.
+                    synchronized(cache) { evictor.applyNow(cache) }
                 }
         }
         scope.launch {
@@ -433,9 +443,8 @@ object AudioCache {
      *
      * Refuses to touch the rendition the player is currently reading from, whose
      * bytes are by definition fine — the decode that failed was of a *sibling*
-     * copy. [Cache.removeResource] would also throw on the live entry's lock, but
-     * relying on that would mean asking for playback's bytes to be deleted and
-     * being saved by a race.
+     * copy. [Cache.removeResource] does not look at who is reading, so this is
+     * the only thing that keeps playback's bytes from being deleted under it.
      *
      * Runs on the caller's thread; call it off the main one.
      *
@@ -659,7 +668,7 @@ object AudioCache {
     private fun losslessTierOf(uri: Uri, mediaId: String): LosslessTier =
         LosslessTier.of(
             QualityUpgrade.forcedStream(uri)?.format
-                ?: StreamChoice.of(mediaId)?.format
+                ?: StreamChoice.peek(mediaId)?.format
                 ?: NerdStats.declaredFormat(mediaId),
         )
 
@@ -683,11 +692,15 @@ object AudioCache {
      * Drops the half-filled entries of a track whose stream choice has lapsed,
      * so the next resolve — which may pick another server — starts a clean file
      * instead of finishing this one. A complete entry is kept; one held by a
-     * live reader cannot be removed and is left to it.
+     * live reader is left to it.
      */
     private fun dropPartialChoice(videoId: String) {
         choiceKeysOf(videoId).forEach { key ->
             if (cache.getCachedSpans(key).none { it.isCached } || isComplete(key)) return@forEach
+            if (heldByReader(key)) {
+                TrackLog.d(TAG, "half-filled $key still in use: a player is reading it", about = videoId)
+                return@forEach
+            }
             runCatching { cache.removeResource(key) }
                 .onSuccess { TrackLog.d(TAG, "dropped half-filled $key: its stream choice lapsed", about = videoId) }
                 .onFailure { TrackLog.d(TAG, "half-filled $key still in use: ${it.message}", about = videoId) }
@@ -705,7 +718,7 @@ object AudioCache {
      * cleared because something is reading it, nothing is pinned.
      */
     fun pinForReadAhead(videoId: String, stream: SourceStream, substituted: Boolean): Boolean {
-        StreamChoice.of(videoId)?.let { return it.url == stream.url }
+        StreamChoice.peek(videoId)?.let { return it.url == stream.url }
         if (::cache.isInitialized) {
             val newHost = serverOf(stream.url)
             val key = keyFactory.buildCacheKey(DataSpec(Uri.parse("bitchord://watch?v=$videoId")))
@@ -714,7 +727,7 @@ object AudioCache {
                 val servedBy = runCatching { cache.getContentMetadata(key).get(META_SERVED_HOST, null as String?) }
                     .getOrNull()
                 if (servedBy != newHost) {
-                    val cleared = runCatching { cache.removeResource(key) }.isSuccess
+                    val cleared = !heldByReader(key) && runCatching { cache.removeResource(key) }.isSuccess
                     TrackLog.d(
                         TAG,
                         "${if (cleared) "cleared" else "kept"} half-filled $key from $servedBy before pinning $newHost",
@@ -736,6 +749,14 @@ object AudioCache {
         val host = runCatching { Uri.parse(url).host }.getOrNull()?.lowercase(Locale.ROOT) ?: return null
         return if (host.endsWith("googlevideo.com")) "googlevideo.com" else host
     }
+
+    /**
+     * Whether a player holds a range of [key] right now. Asked before an entry
+     * is removed rather than left to [Cache.removeResource] to refuse: it
+     * deletes the spans without regard to who is reading them, so the only
+     * thing between a player and the loss of the bytes it is on is this.
+     */
+    private fun heldByReader(key: String): Boolean = BoundedCacheReads.claimsOn(key).isNotEmpty()
 
     /** Whether every byte of the entry [key] is on disk. */
     private fun isComplete(key: String): Boolean = runCatching {
@@ -986,7 +1007,7 @@ object AudioCache {
         val configId = when {
             upgrade != null -> upgrade.sourceConfigId
             uri.getQueryParameter("s") != null -> uri.getQueryParameter("s")
-            else -> StreamChoice.of(mediaId)?.sourceConfigId
+            else -> StreamChoice.peek(mediaId)?.sourceConfigId
         }
         val kind = configId?.let { SourceRegistry.config(it)?.kind }
         return when (kind) {
@@ -1248,6 +1269,10 @@ object AudioCache {
             var dropped = 0
             val keptLossless = mutableListOf<LosslessCachePolicy.Entry>()
             fun drop(key: String, mediaId: String?) {
+                if (heldByReader(key)) {
+                    TrackLog.d(TAG, "unkept cache entry $key still in use: a player is reading it")
+                    return
+                }
                 runCatching { cache.removeResource(key) }
                     .onSuccess {
                         dropped++
@@ -1611,7 +1636,7 @@ object AudioCache {
             return
         }
         directJob = scope.launch(TrackLog.about(id)) {
-            if (StreamChoice.of(id) == null) {
+            if (StreamChoice.peek(id) == null) {
                 val addon = runCatching { DirectSourceGate.lookup(id, upcoming.target) }
                     .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
                     .getOrNull()
@@ -1629,7 +1654,7 @@ object AudioCache {
             }
             // Nothing pinned means an entry half-filled by another server could
             // not be cleared; fetching now would race the player to finish it.
-            if (StreamChoice.of(id) == null) return@launch
+            if (StreamChoice.peek(id) == null) return@launch
             fetch(id, 0, PRELOAD_BYTES)
         }
     }
@@ -1644,7 +1669,7 @@ object AudioCache {
     fun readAheadAllowed(videoId: String): Boolean {
         if (SourceRegistry.parseTrackKey(videoId) != null) return false
         if (videoId in Downloads.saved.value || OriginalVersion.isPinned(videoId)) return false
-        return !SourceResolver.canSubstituteForYouTube() || StreamChoice.of(videoId) != null
+        return !SourceResolver.canSubstituteForYouTube() || StreamChoice.peek(videoId) != null
     }
 
     /**
@@ -1662,7 +1687,7 @@ object AudioCache {
     suspend fun prepareUpcoming(upcoming: Upcoming): Boolean {
         val id = upcoming.mediaId
         if (SourceRegistry.parseTrackKey(id) != null || id in Downloads.saved.value) return false
-        if (SourceResolver.canSubstituteForYouTube() && StreamChoice.of(id) == null && !OriginalVersion.isPinned(id)) {
+        if (SourceResolver.canSubstituteForYouTube() && StreamChoice.peek(id) == null && !OriginalVersion.isPinned(id)) {
             DirectSourceGate.holdWhilePreparing(id)
             try {
                 runCatching { SourceResolver.prepareAhead(upcoming.target) }
@@ -1792,7 +1817,7 @@ object AudioCache {
     private suspend fun renditionLength(key: String, uri: Uri): Long {
         lengthOf(key).takeIf { it > 0 }?.let { return it }
         val pinned = QualityUpgrade.forcedStream(uri)?.url
-            ?: mediaIdIn(uri)?.let { StreamChoice.of(it)?.url }
+            ?: mediaIdIn(uri)?.let { StreamChoice.peek(it)?.url }
         val videoId = uri.getQueryParameter("v")
         val total = pinned?.let(::clenOf)
             ?: videoId?.takeIf { it == key }?.let { runCatching { StreamResolver.contentLength(it) }.getOrNull() }
@@ -1814,7 +1839,7 @@ object AudioCache {
      */
     internal fun segmentBytesFor(uri: Uri): Long {
         if (!isPinnedRead(uri)) return 0L
-        val url = QualityUpgrade.forcedStream(uri)?.url ?: mediaIdIn(uri)?.let { StreamChoice.of(it)?.url }
+        val url = QualityUpgrade.forcedStream(uri)?.url ?: mediaIdIn(uri)?.let { StreamChoice.peek(it)?.url }
         val monochrome = url?.toHttpUrlOrNull()?.let(MonochromeGate.shared::gates) == true
         return if (monochrome) MONOCHROME_SEGMENT_BYTES else CHUNK_BYTES
     }
@@ -1840,6 +1865,9 @@ object AudioCache {
 
         /** The rendition's length could not be learnt; nothing beyond its head was fetched. */
         UNSIZED,
+
+        /** The disk has less free room than what is missing, so nothing was fetched. Not worth asking again until space is freed. */
+        NO_SPACE,
     }
 
     /**
@@ -1880,6 +1908,11 @@ object AudioCache {
             fetch(entry, uri, 0, PRELOAD_BYTES, pinKey = true)
             return Fill.UNSIZED
         }
+        val missing = total - cache.getCachedBytes(entry, 0, total)
+        if (missing > 0 && !roomOnDisk(missing)) {
+            TrackLog.w(TAG, "not filling $entry: ${missing / 1024} KB missing and the disk is nearly full", about = mediaIdIn(uri))
+            return Fill.NO_SPACE
+        }
         val chunk = fillChunkBytes(uri)
         val starts = (0L until total step chunk).toList()
         val held = BoundedCacheReads.claimsOn(entry).minByOrNull { it.start }
@@ -1899,6 +1932,17 @@ object AudioCache {
             fetch(entry, uri, start, length, pinKey = true)
         }
         return if (isComplete(entry)) Fill.COMPLETE else Fill.PARTIAL
+    }
+
+    /**
+     * Whether the disk holding the cache has [bytes] to spare and a margin
+     * besides. Written bytes that do not fit fail partway and are paid for in
+     * network every time the fill is tried again; the margin keeps the cache
+     * from being the thing that fills the phone.
+     */
+    private fun roomOnDisk(bytes: Long): Boolean {
+        val dir = cacheDirectory ?: return true
+        return dir.usableSpace >= bytes + FREE_SPACE_MARGIN_BYTES
     }
 
     /**
