@@ -176,6 +176,25 @@ class ExternalLinkTest {
         }
     }
 
+    /** The app is routed a tap for exactly the hosts the reader accepts: no more, and no fewer. */
+    @Test
+    fun theManifestAndTheReaderNameTheSameHosts() {
+        val doc = DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder().parse(File("src/main/AndroidManifest.xml"))
+        val filters = doc.getElementsByTagName("intent-filter")
+        val routed = mutableSetOf<String>()
+        for (i in 0 until filters.length) {
+            val filter = filters.item(i) as org.w3c.dom.Element
+            val data = filter.getElementsByTagName("data")
+            val hostNames = (0 until data.length).mapNotNull { (data.item(it) as org.w3c.dom.Element).getAttribute("android:host").takeIf(String::isNotEmpty) }
+            if (hostNames.any { it == "open.spotify.com" }) routed += hostNames
+        }
+        assertEquals(
+            ExternalLink.HOSTS,
+            routed.map { it.removePrefix("www.") }.toSet(),
+        )
+    }
+
     // ── fetching, held to those rules ─────────────────────────────────────
 
     private lateinit var server: MockWebServer

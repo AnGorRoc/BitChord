@@ -213,16 +213,42 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" />
-                <data android:host="open.spotify.com" />
+                <!-- Pages whose path says what they hold. Android pattern syntax
+                     has no alternatives, so each kind is its own entry. Locale
+                     prefixes such as /intl-de/ still match. -->
+                <data android:host="open.spotify.com" android:pathPattern=".*/track/.*" />
+                <data android:host="open.spotify.com" android:pathPattern=".*/album/.*" />
+                <data android:host="open.spotify.com" android:pathPattern=".*/playlist/.*" />
+                <data android:host="open.spotify.com" android:pathPattern=".*/artist/.*" />
+                <data android:host="music.apple.com" android:pathPattern=".*/song/.*" />
+                <data android:host="music.apple.com" android:pathPattern=".*/album/.*" />
+                <data android:host="music.apple.com" android:pathPattern=".*/playlist/.*" />
+                <data android:host="music.apple.com" android:pathPattern=".*/artist/.*" />
+                <data android:host="itunes.apple.com" android:pathPattern=".*/album/.*" />
+                <data android:host="itunes.apple.com" android:pathPattern=".*/song/.*" />
+                <data android:host="deezer.com" android:pathPattern=".*/track/.*" />
+                <data android:host="deezer.com" android:pathPattern=".*/album/.*" />
+                <data android:host="deezer.com" android:pathPattern=".*/playlist/.*" />
+                <data android:host="www.deezer.com" android:pathPattern=".*/track/.*" />
+                <data android:host="www.deezer.com" android:pathPattern=".*/album/.*" />
+                <data android:host="www.deezer.com" android:pathPattern=".*/playlist/.*" />
+                <data android:host="tidal.com" android:pathPattern=".*/track/.*" />
+                <data android:host="tidal.com" android:pathPattern=".*/album/.*" />
+                <data android:host="tidal.com" android:pathPattern=".*/playlist/.*" />
+                <data android:host="listen.tidal.com" android:pathPattern=".*/track/.*" />
+                <data android:host="listen.tidal.com" android:pathPattern=".*/album/.*" />
+                <data android:host="listen.tidal.com" android:pathPattern=".*/playlist/.*" />
+                <!-- Short links, and SoundCloud addresses (user/track) that have no fixed
+                     path, route by host alone. -->
                 <data android:host="spotify.link" />
-                <data android:host="music.apple.com" />
-                <data android:host="deezer.com" />
-                <data android:host="www.deezer.com" />
+                <data android:host="spotify.app.link" />
+                <data android:host="deezer.page.link" />
+                <data android:host="link.deezer.com" />
                 <data android:host="soundcloud.com" />
+                <data android:host="m.soundcloud.com" />
                 <data android:host="on.soundcloud.com" />
-                <data android:host="tidal.com" />
-                <data android:host="listen.tidal.com" />
                 <data android:host="music.amazon.com" />
+                <data android:host="music.amazon.es" />
             </intent-filter>
 
             <!-- Public Listen Together invites. autoVerify makes a tap open
