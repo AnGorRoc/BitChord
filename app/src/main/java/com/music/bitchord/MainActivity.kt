@@ -610,7 +610,7 @@ private fun BitChordApp(
     // background at all. Hosting it here also puts the scrim over the tab bar
     // and the mini player, like every other alert in the app.
     var editingSource by remember { mutableStateOf<SourceConfig?>(null) }
-    var confirmJioSaavn by remember { mutableStateOf(false) }
+    var confirmOptIn by remember { mutableStateOf<SourceKind?>(null) }
     var editingPartyServer by remember { mutableStateOf(false) }
     var editingSignatureApi by remember { mutableStateOf(false) }
     var librarySortMenuOpen by remember { mutableStateOf(false) }
@@ -3034,7 +3034,7 @@ private fun BitChordApp(
                                 onEditSource = { editingSource = it },
                                 onEditWebDav = { showWebDavEditor = true },
                                 onEditSmb = { showSmbEditor = true },
-                                onConfirmJioSaavn = { confirmJioSaavn = true },
+                                onConfirmOptIn = { confirmOptIn = it },
                             )
                         } else if (pageRoute == AppRoute.WearOs) {
                             WearOsScreen(contentPadding = listPadding)
@@ -5834,19 +5834,22 @@ private fun BitChordApp(
             )
         }
 
-        if (confirmJioSaavn) {
+        confirmOptIn?.let { kind ->
+            val monochrome = kind == SourceKind.MONOCHROME
             ConfirmationAlert(
                 hazeState = hazeState,
-                title = stringResource(R.string.enable_jiosaavn),
-                description = stringResource(R.string.jiosaavn_mismatch_warning),
+                title = stringResource(if (monochrome) R.string.enable_monochrome else R.string.enable_jiosaavn),
+                description = stringResource(
+                    if (monochrome) R.string.monochrome_opt_in_warning else R.string.jiosaavn_mismatch_warning,
+                ),
                 confirmLabel = stringResource(R.string.enable_anyway),
                 onConfirm = {
                     SourceRegistry.configs.value
-                        .firstOrNull { it.kind == SourceKind.JIOSAAVN }
+                        .firstOrNull { it.kind == kind }
                         ?.let { SourceRegistry.setEnabled(it.id, true) }
-                    confirmJioSaavn = false
+                    confirmOptIn = null
                 },
-                onDismiss = { confirmJioSaavn = false },
+                onDismiss = { confirmOptIn = null },
             )
         }
 

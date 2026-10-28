@@ -683,6 +683,8 @@
     <string name="sources_quality_capped">This connection is set below High quality, so streams are transcoded to fit that limit. Downloads are unaffected.</string>
     <string name="jiosaavn_mismatch_warning">May match the wrong version of a song. Enable at your own risk.</string>
     <string name="enable_jiosaavn">Enable JioSaavn?</string>
+    <string name="enable_monochrome">Enable Monochrome?</string>
+    <string name="monochrome_opt_in_warning">Sends the title and artist of each song you play, and your IP address, to Monochrome, an unofficial third-party service, to find a lossless copy. Enable at your own risk.</string>
     <string name="enable_anyway">Enable anyway</string>
     <string name="sources_subtitle">Where audio comes from and the order used</string>
     <string name="source_matching">Source matching</string>

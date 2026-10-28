@@ -74,6 +74,7 @@ import com.music.bitchord.data.smb.SmbRepository
 import com.music.bitchord.data.webdav.WebDavRepository
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.sources.AddonSource
+import com.music.bitchord.data.sources.OPT_IN_KINDS
 import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceHealth
 import com.music.bitchord.data.sources.SourceKind
@@ -119,8 +120,8 @@ fun SourcesScreen(
     onEditWebDav: () -> Unit,
     /** As [onEditWebDav], for the SMB share editor. */
     onEditSmb: () -> Unit,
-    /** Opens the full-window warning before JioSaavn is opted into. */
-    onConfirmJioSaavn: () -> Unit,
+    /** Opens the full-window warning before an [OPT_IN_KINDS] source is switched on. */
+    onConfirmOptIn: (SourceKind) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -255,8 +256,8 @@ fun SourcesScreen(
                             null
                         } else {
                             ({ enabled ->
-                                if (config.kind == SourceKind.JIOSAAVN && enabled && !config.enabled) {
-                                    onConfirmJioSaavn()
+                                if (config.kind in OPT_IN_KINDS && enabled && !config.enabled) {
+                                    onConfirmOptIn(config.kind)
                                 } else {
                                     SourceRegistry.setEnabled(config.id, enabled)
                                 }
@@ -897,6 +898,7 @@ private fun AudioQuality.localizedLabel(): String = stringResource(
 private fun SourceConfig.statusLine(health: SourceHealth?): String = when {
     !isComplete -> stringResource(R.string.source_setup_required)
     kind == SourceKind.JIOSAAVN -> stringResource(R.string.jiosaavn_mismatch_warning)
+    kind == SourceKind.MONOCHROME && !enabled -> stringResource(R.string.monochrome_opt_in_warning)
     health is SourceHealth.Ok -> listOfNotNull(
         health.detail,
         kind.labels.take(3).joinToString(" · "),
