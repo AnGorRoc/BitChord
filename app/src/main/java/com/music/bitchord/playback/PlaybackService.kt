@@ -1450,6 +1450,17 @@ class PlaybackService : MediaLibraryService() {
                 dataSpec.uri.getQueryParameter(AutomixAnalysisSource.OPUS_QUERY_PARAMETER),
             )
             if (!analysisRead) runBlocking(about) { DirectSourceGate.awaitOpen(videoId) }
+            // The download scheduler may be settling this track's best copy
+            // right now; the player's own early open waits briefly for it. Not
+            // an audition of the playing track, the watch's reads or a party,
+            // none of which are this phone's next track.
+            if (!analysisRead &&
+                dataSpec.uri.getQueryParameter(AudioCache.WATCH_READ_PARAM) == null &&
+                !QualityUpgrade.isAuditioning(videoId) &&
+                !ListenTogether.state.value.inParty
+            ) {
+                runBlocking(about) { DirectSourceGate.awaitPrepared(videoId) }
+            }
             // An explicit rollback is not a preference for a different
             // candidate: it means this exact YouTube rendition, immediately.
             // Answer it before StreamChoice, the module race and a pending
@@ -1926,7 +1937,12 @@ class PlaybackService : MediaLibraryService() {
             // the session player at the handoff — so the incoming track is
             // levelled on its own sink before it renders a frame, and the
             // outgoing track keeps its own gain for the rest of the blend.
-            onArmIncoming = { item, nextId -> spareLoudness().track(item.mediaId, nextId) },
+            onArmIncoming = { item, nextId ->
+                // A blend is about to need this track; nothing waits on its
+                // best copy any longer — see [DirectSourceGate.holdWhilePreparing].
+                DirectSourceGate.releasePrepareHold(item.mediaId)
+                spareLoudness().track(item.mediaId, nextId)
+            },
             // Both sinks, not a role: the trim is about what the pair sums to.
             onBlendHeadroom = { trim ->
                 loudnessA.setBlendTrim(trim)
@@ -6734,6 +6750,9 @@ class PlaybackService : MediaLibraryService() {
      * its own window for the tracks ahead either way.
      */
     private fun readAhead(player: ExoPlayer) {
+        // A track that is playing waits on nothing — see
+        // [DirectSourceGate.holdWhilePreparing].
+        player.currentMediaItem?.mediaId?.let(DirectSourceGate::releasePrepareHold)
         if (!AppSettings.smartPreload.value) {
             prefetchAround(player)
             return

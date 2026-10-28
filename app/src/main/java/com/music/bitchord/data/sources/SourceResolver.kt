@@ -359,6 +359,41 @@ object SourceResolver {
     }
 
     /**
+     * The copy of [target] to settle on ahead of time, when there is time to
+     * wait for the best one: a lossless copy from any source ranked above
+     * YouTube — the slow ones included, which [prefetchSubstitute] leaves out
+     * because it has to answer before a listener gets there — and failing
+     * that, the quick sources' answer. Null when neither has it.
+     *
+     * For the download scheduler, which runs this for the next track while the
+     * playing one has plenty left or is paused. Only lossless is waited for
+     * from the slow sources: anything less is the quick race's to decide, and
+     * the second look after the track starts still has its hearing. A source
+     * asking to be left alone — see [resting] — is left alone here too.
+     *
+     * The caller must pin the answer, as with [prefetchSubstitute].
+     */
+    suspend fun prepareAhead(target: TrackMatcher.Target): SourceStream? {
+        if (target.title.isBlank() || target.isVideo) return null
+        val request = requestForNow()
+        if (request == StreamRequest.Lossless) {
+            val active = SourceRegistry.activeForPlayback()
+            val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
+            val ranked = rankedAbove(youtube.configId, active).filterNot(::resting)
+            bestAcross(ranked, target, request) { _, stream -> stream.format.isLossless == true }
+                ?.let { (source, stream) ->
+                    TrackLog.d(TAG, "prepared: '${target.title}' from ${source.displayName} at ${stream.format.summary}")
+                    return stream
+                }
+            // Every source above YouTube was just asked for lossless; a quick
+            // one asked again could only answer lossy, which "Lossless from
+            // the start" refuses.
+            if (losslessFromStart(request)) return null
+        }
+        return prefetchSubstitute(target)
+    }
+
+    /**
      * The copy of [target] held by a source quick enough to ask about *before*
      * the track is played — or null when no such source is enabled, or none of
      * them has it.

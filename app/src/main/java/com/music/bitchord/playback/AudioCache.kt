@@ -1648,9 +1648,14 @@ object AudioCache {
     }
 
     /**
-     * Settles the stream upcoming track [upcoming] will play from, the way
-     * [prefetchQueue] does, then puts its opening on disk when that is safe —
-     * see [readAheadAllowed]. For [DownloadScheduler].
+     * Settles the stream upcoming track [upcoming] will play from — its best
+     * copy, lossless when a source above YouTube has one, see
+     * [SourceResolver.prepareAhead] — then puts its opening on disk when that
+     * is safe; see [readAheadAllowed]. For [DownloadScheduler].
+     *
+     * While the search runs, the player's own early open of the track waits
+     * for it — see [DirectSourceGate.holdWhilePreparing] — so the track starts
+     * on the copy found here rather than on the quick race's.
      *
      * @return whether its bytes may be read ahead.
      */
@@ -1658,13 +1663,18 @@ object AudioCache {
         val id = upcoming.mediaId
         if (SourceRegistry.parseTrackKey(id) != null || id in Downloads.saved.value) return false
         if (SourceResolver.canSubstituteForYouTube() && StreamChoice.of(id) == null && !OriginalVersion.isPinned(id)) {
-            runCatching { SourceResolver.prefetchSubstitute(upcoming.target) }
-                .onFailure {
-                    if (it is kotlinx.coroutines.CancellationException) throw it
-                    TrackLog.d(TAG, "warm-up substitute failed for $id: ${it.message}", about = id)
-                }
-                .getOrNull()
-                ?.let { pinForReadAhead(id, it, substituted = true) }
+            DirectSourceGate.holdWhilePreparing(id)
+            try {
+                runCatching { SourceResolver.prepareAhead(upcoming.target) }
+                    .onFailure {
+                        if (it is kotlinx.coroutines.CancellationException) throw it
+                        TrackLog.d(TAG, "preparing a copy failed for $id: ${it.message}", about = id)
+                    }
+                    .getOrNull()
+                    ?.let { pinForReadAhead(id, it, substituted = true) }
+            } finally {
+                DirectSourceGate.releasePrepareHold(id)
+            }
         }
         if (!readAheadAllowed(id)) return false
         fetch(id, 0, PRELOAD_BYTES)

@@ -15,6 +15,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 
@@ -122,6 +123,49 @@ object DirectSourceGate {
             .first { it }
         TrackLog.d(TAG, "released $mediaId", about = mediaId)
     }
+
+    /**
+     * Upcoming tracks whose stream the download scheduler is settling right
+     * now — see [holdWhilePreparing].
+     */
+    private val preparing = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * Holds the player's own open of [mediaId] while the scheduler looks for
+     * its best copy, so the track starts on that copy rather than on whatever
+     * the quick race at open time finds.
+     *
+     * Without it the scheduler's search is a race it mostly loses: once the
+     * playing track is all buffered, ExoPlayer opens the next item by itself,
+     * pins the quick answer, and the lossless copy found seconds later can only
+     * arrive as a swap mid-song. Held at most [PREPARE_HOLD_MS] — short of the
+     * twelve seconds a crossfade gives its incoming player to arm — and let go
+     * the moment the track starts playing or the crossfade arms it.
+     */
+    fun holdWhilePreparing(mediaId: String) {
+        preparing.update { it + mediaId }
+    }
+
+    /** Ends [holdWhilePreparing] for [mediaId]: its stream is settled, or it is needed now. */
+    fun releasePrepareHold(mediaId: String) {
+        if (mediaId in preparing.value) preparing.update { it - mediaId }
+    }
+
+    /**
+     * Waits out [holdWhilePreparing] for [mediaId], if there is one. Same
+     * thread rules as [awaitOpen]; [ungated] passes straight through.
+     */
+    suspend fun awaitPrepared(mediaId: String) {
+        if (bypass.get() == true || mediaId !in preparing.value || mediaId in open.value.playing) return
+        TrackLog.d(TAG, "holding $mediaId while its best copy is settled", about = mediaId)
+        val settled = withTimeoutOrNull(PREPARE_HOLD_MS) {
+            combine(preparing, open) { held, state -> mediaId !in held || mediaId in state.playing }.first { it }
+        }
+        TrackLog.d(TAG, if (settled != null) "released $mediaId" else "stopped holding $mediaId: no answer in time", about = mediaId)
+    }
+
+    /** The longest [awaitPrepared] keeps a player waiting. */
+    private const val PREPARE_HOLD_MS = 8_000L
 
     /** How much of the next track has to be on disk before it counts as ready to blend into. */
     private const val READY_BYTES = 512L * 1024
