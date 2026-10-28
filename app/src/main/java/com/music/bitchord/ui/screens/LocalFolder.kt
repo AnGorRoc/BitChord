@@ -91,6 +91,7 @@ import com.music.bitchord.ui.components.rememberRemoteArtworkUrl
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.theme.ArtworkPalette
+import com.music.bitchord.ui.theme.DestructiveRed
 
 /**
  * What a device folder — Downloads, Local Music, the song cache, a file
@@ -855,7 +856,7 @@ internal fun LocalFolderSelectionBar(
             SelectionAction(
                 icon = Icons.Rounded.Delete,
                 label = stringResource(R.string.cached_song_remove),
-                color = DESTRUCTIVE,
+                color = DestructiveRed,
                 enabled = count > 0,
                 onClick = { remove(chosen()) },
             )
@@ -864,7 +865,7 @@ internal fun LocalFolderSelectionBar(
             SelectionAction(
                 icon = Icons.Rounded.Delete,
                 label = stringResource(R.string.delete),
-                color = DESTRUCTIVE,
+                color = DestructiveRed,
                 enabled = count > 0,
                 onClick = { delete(chosen()) },
             )
@@ -943,8 +944,6 @@ private fun SelectionAction(icon: ImageVector, label: String, color: Color, enab
         Text(label, color = color)
     }
 }
-
-private val DESTRUCTIVE = Color(0xFFFF453A)
 
 @Composable
 internal fun LocalMusicSort.localizedLabel(): String = when (this) {

@@ -1919,10 +1919,7 @@ object AudioCache {
         val firstHeld = held?.start ?: 0L
         val guardEnd = held?.let { minOf(it.end, total) + guardSegments * (segmentBytesFor(uri).takeIf { s -> s > 0 } ?: chunk) }
             ?: firstHeld
-        val ordered = starts.filter { it >= guardEnd } +
-            starts.filter { it in firstHeld until guardEnd } +
-            starts.filter { it < firstHeld }
-        for (start in ordered) {
+        for (start in fillOrder(starts, firstHeld, guardEnd)) {
             if (!stillWanted()) return Fill.PARTIAL
             val length = minOf(chunk, total - start)
             if (cache.getCachedBytes(entry, start, length) >= length) continue
@@ -1944,6 +1941,17 @@ object AudioCache {
         val dir = cacheDirectory ?: return true
         return dir.usableSpace >= bytes + FREE_SPACE_MARGIN_BYTES
     }
+
+    /**
+     * The order a fill fetches [starts] in: what lies past the guard first, so
+     * what is about to be needed is safe; then the stretch the player holds,
+     * up to the guard; then what is before the held stretch, last. Pure, so
+     * the order can be checked without a cache.
+     */
+    internal fun fillOrder(starts: List<Long>, firstHeld: Long, guardEnd: Long): List<Long> =
+        starts.filter { it >= guardEnd } +
+            starts.filter { it in firstHeld until guardEnd } +
+            starts.filter { it < firstHeld }
 
     /**
      * How many bytes of [uri]'s rendition are still missing, or -1 when its

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
 import android.util.Log
+import com.music.bitchord.R
 import com.music.bitchord.auth.EncryptedPrefs
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.settings.AppSettings
@@ -113,7 +114,11 @@ object SourceRegistry {
      */
     private var instances: Map<String, MusicSource> = emptyMap()
 
+    /** The name shown for a song whose artist a catalogue left out; set from the app's strings in [init]. */
+    private var unknownArtist: () -> String = { "Unknown Artist" }
+
     fun init(context: Context) {
+        unknownArtist = { context.applicationContext.getString(R.string.unknown_artist) }
         // Same repair and degradation as AuthStore; see EncryptedPrefs.
         prefs = EncryptedPrefs.open(context, "bitchord_sources", "bitchord_sources_plain")
 
@@ -474,7 +479,7 @@ object SourceRegistry {
         // Same protocol, same implementation — the kinds differ only in rank.
         SourceKind.CUSTOM_MODULE -> ModuleSource(config)
         SourceKind.MODULE -> ModuleSource(config)
-        SourceKind.MONOCHROME -> MonochromeSource(config)
+        SourceKind.MONOCHROME -> MonochromeSource(config, unknownArtist = { unknownArtist() })
         SourceKind.JIOSAAVN -> JioSaavnSource(config)
         SourceKind.YOUTUBE -> YouTubeSource(config)
     }

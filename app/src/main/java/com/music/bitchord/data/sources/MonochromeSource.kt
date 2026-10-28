@@ -49,6 +49,8 @@ class MonochromeSource(
     override val config: SourceConfig,
     private val gate: MonochromeGate = MonochromeGate.shared,
     private val pace: SkipPace = SkipPace.shared,
+    /** What a row with no artist is shown as; the registry passes the app's own words. */
+    private val unknownArtist: () -> String = { DEFAULT_UNKNOWN_ARTIST },
 ) : MusicSource, SourceRegistry.ConfigBacked {
 
     override val configId: String get() = config.id
@@ -139,7 +141,7 @@ class MonochromeSource(
             key = url,
             describe = { "▶ Monochrome search \"$query\"" },
         ) {
-            attempt { rowsOf(fetchJson(url)) }
+            attempt { rowsOf(fetchJson(url), unknownArtist()) }
         }.getOrElse {
             TrackLog.w(TAG, "Monochrome search failed for \"$query\": ${it.message}")
             return emptyList()
@@ -304,6 +306,9 @@ class MonochromeSource(
     internal companion object {
         const val DEFAULT_BASE = "https://tracks.monochrome.st"
 
+        /** The artist shown for a row that names none, until the app's own words are known (tests, and before [SourceRegistry.init]). */
+        const val DEFAULT_UNKNOWN_ARTIST = "Unknown Artist"
+
         /** How many rows to ask for: the resolver opens the best three at most. */
         const val SEARCH_LIMIT = 15
 
@@ -362,7 +367,7 @@ class MonochromeSource(
          * A row with no id or title can't be matched or opened, and one marked
          * `playable: false` would only be a miss later.
          */
-        fun rowsOf(body: String): List<MonochromeRow> =
+        fun rowsOf(body: String, unknownArtist: String = DEFAULT_UNKNOWN_ARTIST): List<MonochromeRow> =
             json.decodeFromString<MonochromeSearch>(body).tracks.mapNotNull { track ->
                 if (track.playable == false) return@mapNotNull null
                 val id = (track.trackId ?: track.id)?.takeIf { TRACK_ID.matches(it) } ?: return@mapNotNull null
@@ -371,7 +376,7 @@ class MonochromeSource(
                     id = id,
                     title = title,
                     artist = track.artistNames.filter { it.isNotBlank() }.joinToString(", ")
-                        .ifBlank { "Unknown Artist" },
+                        .ifBlank { unknownArtist },
                     album = (track.albumTitle ?: track.releaseTitle)?.takeIf { it.isNotBlank() },
                     // Milliseconds now; seconds in older answers. No track is
                     // under ten seconds long in ms or over ten thousand in s.

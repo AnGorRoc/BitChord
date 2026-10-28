@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
+import com.music.bitchord.ui.theme.DestructiveRed
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.spotify.LocalPlaylistStore
 import com.music.bitchord.data.spotify.SpotifyCache
@@ -526,7 +527,7 @@ private fun SyncBar(sync: SpotifySyncState, onSignIn: () -> Unit, modifier: Modi
                 },
             )
             TextButton(onClick = SpotifySync::cancel) {
-                Text(stringResource(R.string.cancel), color = DESTRUCTIVE)
+                Text(stringResource(R.string.cancel), color = DestructiveRed)
             }
         }
         is SpotifySyncState.Finished -> FloatingBar(modifier) {
@@ -609,8 +610,6 @@ private fun CloseButton() {
     }
 }
 
-/** The red of Downloads' destructive actions. */
-private val DESTRUCTIVE = Color(0xFFFF453A)
 
 /** How long after an automatic sync the next one waits, however often the page is opened. */
 private const val AUTO_SYNC_MIN_INTERVAL_MS = 6L * 60 * 60 * 1000
