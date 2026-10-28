@@ -266,6 +266,14 @@ object SourceRegistry {
         return active().filter { ceiling.permits(it.kind) }
     }
 
+    fun permitsForPlayback(
+        configId: String?,
+        ceiling: com.music.bitchord.data.settings.AudioQuality = AppSettings.effectiveAudioQuality,
+    ): Boolean {
+        val kind = configId?.let { config(it)?.kind } ?: return true
+        return ceiling.permits(kind)
+    }
+
     fun instance(configId: String): MusicSource? = instances[configId]
 
     fun config(configId: String): SourceConfig? = configs.value.firstOrNull { it.id == configId }
