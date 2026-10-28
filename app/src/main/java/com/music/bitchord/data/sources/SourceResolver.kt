@@ -7,11 +7,14 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
+import android.os.SystemClock
+import com.music.bitchord.playback.SourceResolutionTracker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Turns a queued track into an openable stream, using whichever source can
@@ -40,6 +43,12 @@ import kotlinx.coroutines.selects.select
 object SourceResolver {
 
     private const val TAG = "BitChord"
+
+    /**
+     * Window granted to slower bit-exact lossless sources when a quick lossy source
+     * finishes first during the live resolve race.
+     */
+    const val LOSSLESS_GRACE_WINDOW_MS = 400L
 
     /**
      * What to ask a source for, right now.
@@ -548,6 +557,13 @@ object SourceResolver {
                         "${candidate.displayName}'s ${stream.format.summary} isn't worth swapping " +
                             "'${target.title}' off ${playing?.summary ?: "an unmeasured stream"}",
                     )
+                    SourceResolutionTracker.record(
+                        sourceId = candidate.configId,
+                        displayName = candidate.displayName,
+                        kind = candidate.kind,
+                        status = "Calidad menor a la actual (${stream.format.summary})",
+                        detail = "No supera la ganancia mínima requerida para cambiar de fuente",
+                    )
                 }
             }
         } ?: return null
@@ -937,11 +953,30 @@ object SourceResolver {
                 }
             }
             .toMutableList()
+        val candidateSourceMap = running.indices.associate { running[it] to sources[it] }
         var best: Pair<MusicSource, SourceStream>? = null
+        var graceDeadline: Long? = null
         try {
             while (running.isNotEmpty()) {
-                val first = select {
-                    running.forEach { candidate -> candidate.onAwait { candidate } }
+                val timeoutMs = if (graceDeadline != null) {
+                    (graceDeadline - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
+                } else {
+                    null
+                }
+                if (timeoutMs != null && timeoutMs <= 0L) {
+                    // Grace window expired waiting for a lossless source
+                    break
+                }
+                val first: Deferred<Pair<MusicSource, SourceStream?>> = if (timeoutMs != null) {
+                    withTimeoutOrNull(timeoutMs) {
+                        select<Deferred<Pair<MusicSource, SourceStream?>>> {
+                            running.forEach { candidate -> candidate.onAwait { candidate } }
+                        }
+                    } ?: break
+                } else {
+                    select<Deferred<Pair<MusicSource, SourceStream?>>> {
+                        running.forEach { candidate -> candidate.onAwait { candidate } }
+                    }
                 }
                 // Anything that crossed the line while that one was being waited
                 // on is already sitting there. Folding those in costs no time at
@@ -950,17 +985,27 @@ object SourceResolver {
                 val ready = listOf(first) + running.filter { it !== first && it.isCompleted }
                 running -= ready.toSet()
                 for (done in ready) {
-                    val (source, stream) = done.await()
-                    if (stream == null) continue
+                    val (source, streamNullable) = done.await()
+                    if (streamNullable == null) continue
+                    val stream: SourceStream = streamNullable
                     if (!accept(source, stream)) continue
-                    if (isBetter(stream.format, best?.second?.format)) best = source to stream
+                    if (isBetter(stream.format, best?.second?.format)) best = Pair(source, stream)
                 }
                 // Playback needs the first usable answer so sound can start.
                 // An upgrade is different: it runs while audio is already
                 // playing, and its caller explicitly requested every source's
                 // patient result. Let every source finish so a fast lower tier
                 // cannot cancel a later, better rendition.
-                if (best != null && !waitForAll) break
+                if (best != null && !waitForAll) {
+                    val isLossless = best?.second?.format?.let { it.isLossless == true || it.isDolbyAtmos } == true
+                    val hasRunningLossless = running.any { candidateSourceMap[it]?.kind?.canServeLossless == true }
+                    if (isLossless || request !is StreamRequest.Lossless || !hasRunningLossless) {
+                        break
+                    }
+                    if (graceDeadline == null) {
+                        graceDeadline = SystemClock.elapsedRealtime() + LOSSLESS_GRACE_WINDOW_MS
+                    }
+                }
             }
         } finally {
             running.forEach { it.cancel() }
@@ -997,7 +1042,10 @@ object SourceResolver {
         strictLength: Boolean = false,
         requireSharedArtist: Boolean = false,
     ): SourceStream? {
+        var searchedAny = false
+        var hadAnyCandidates = false
         for (query in TrackMatcher.queries(target)) {
+            searchedAny = true
             val candidates = attempt(source) {
                 source.search(
                     query,
@@ -1009,6 +1057,7 @@ object SourceResolver {
                     request = request,
                 )
             } ?: return null
+            if (candidates.isNotEmpty()) hadAnyCandidates = true
             var matches = TrackMatcher.ranked(candidates, target)
             if (requireSharedArtist) {
                 matches = matches.filter { TrackMatcher.sharesArtist(target.artist, it.artist) }
@@ -1027,6 +1076,12 @@ object SourceResolver {
                     TrackLog.w(
                         TAG,
                         "${source.displayName} returned conflicting albums for '${target.title}'; refusing to guess",
+                    )
+                    SourceResolutionTracker.record(
+                        sourceId = source.configId,
+                        displayName = source.displayName,
+                        kind = source.kind,
+                        status = "Álbum en conflicto / versión ambigua",
                     )
                     continue
                 }
@@ -1047,7 +1102,34 @@ object SourceResolver {
                 matches = matches.filter { TrackMatcher.withinSeconds(it, target, UPGRADE_DRIFT_SEC) }
             }
             if (matches.isEmpty()) continue
-            return streamBest(source, matches, target, request)
+            val stream = streamBest(source, matches, target, request)
+            if (stream != null) {
+                val statusText = if (stream.format.isLossless == true) "Disponible en FLAC Lossless" else "Disponible en ${stream.format.summary}"
+                SourceResolutionTracker.record(
+                    sourceId = source.configId,
+                    displayName = source.displayName,
+                    kind = source.kind,
+                    status = statusText,
+                    detail = stream.format.summary,
+                )
+                return stream
+            } else {
+                SourceResolutionTracker.record(
+                    sourceId = source.configId,
+                    displayName = source.displayName,
+                    kind = source.kind,
+                    status = "No se pudo obtener enlace de audio",
+                )
+            }
+        }
+        if (searchedAny) {
+            val status = if (!hadAnyCandidates) "No se encontró en su catálogo" else "Versión no coincide (duración distinta o artista)"
+            SourceResolutionTracker.record(
+                sourceId = source.configId,
+                displayName = source.displayName,
+                kind = source.kind,
+                status = status,
+            )
         }
         return null
     }
@@ -1253,7 +1335,15 @@ object SourceResolver {
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
+        val errorMsg = e.message ?: e.javaClass.simpleName
         TrackLog.w(TAG, "${source.displayName} failed: ${e.javaClass.simpleName}: ${e.message}")
+        SourceResolutionTracker.record(
+            sourceId = source.configId,
+            displayName = source.displayName,
+            kind = source.kind,
+            status = "Error de conexión o servidor",
+            detail = errorMsg,
+        )
         null
     }
 

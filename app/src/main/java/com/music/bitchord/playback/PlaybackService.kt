@@ -45,6 +45,7 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.LoadControl
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
@@ -141,9 +142,12 @@ import com.music.bitchord.data.scrobbling.ScrobbleManager
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.EqualizerMode
 import com.music.bitchord.data.settings.OutputPcmMode
+import com.music.bitchord.data.settings.permits
+import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.StreamFormat
+import com.music.bitchord.data.sources.StreamRequest
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import com.music.bitchord.playback.smart.VersionAudioAligner
@@ -993,6 +997,7 @@ class PlaybackService : MediaLibraryService() {
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            activeMediaId = mediaItem?.mediaId
             // The player this fired on, which is by definition the one the
             // session is currently pointed at.
             val exoPlayer = player ?: return
@@ -4593,6 +4598,8 @@ class PlaybackService : MediaLibraryService() {
      * queue actually moving on. Cleared by the transition it describes.
      */
     private var swappingMediaId: String? = null
+    @Volatile
+    private var activeMediaId: String? = null
 
     /**
      * When the audio was last cut for a quality swap, so the analytics listener
@@ -5332,6 +5339,7 @@ class PlaybackService : MediaLibraryService() {
                 onSwapCommitted = {
                     NerdStats.onSourceStream(mediaId, stream.format, upgradedSourceName)
                     NerdStats.recordSource(mediaId, upgradedSourceName)
+                    SourceResolutionTracker.setWinner(stream.sourceConfigId ?: "upgrade", "En reproducción (${stream.format.summary})")
                     QualityUpgrade.unshelve(mediaId)
                     // Lossless is back on screen: the next failure starts the
                     // retry wait from the beginning — see [LosslessRetryPlan].
@@ -5550,6 +5558,14 @@ class PlaybackService : MediaLibraryService() {
                         is Audition.Ready -> return@withTimeoutOrNull verdict.bufferedTo
                         is Audition.Rejected -> {
                             TrackLog.w("BitChord", "upgrade dropped before it was heard: ${verdict.why}")
+                            val sourceConfigId = stream.sourceConfigId
+                            val sourceName = sourceConfigId?.let { SourceRegistry.config(it)?.displayName } ?: "Mejora"
+                            SourceResolutionTracker.record(
+                                sourceId = sourceConfigId ?: "upgrade",
+                                displayName = sourceName,
+                                kind = SourceKind.ADDON,
+                                status = "Rechazado en prueba (${verdict.why})",
+                            )
                             return@withTimeoutOrNull null
                         }
                         Audition.Waiting -> delay(UPGRADE_PROVE_STEP_MS)
@@ -5957,12 +5973,42 @@ class PlaybackService : MediaLibraryService() {
         // waited out alone; only when no source has a lossless copy does the
         // ordinary race below run, and its lossy start with it. A manifest
         // can't start a track here (see below), so it goes the same way.
+        val allConfigured = SourceRegistry.active()
+        val ceiling = AppSettings.effectiveAudioQuality
+        SourceResolutionTracker.resetForTrack(videoId, target.title)
+        for (s in allConfigured) {
+            if (!ceiling.permits(s.kind)) {
+                SourceResolutionTracker.record(
+                    s.configId,
+                    s.displayName,
+                    s.kind,
+                    "Omitido por límite de datos (${ceiling.label})",
+                )
+            } else {
+                SourceResolutionTracker.record(
+                    s.configId,
+                    s.displayName,
+                    s.kind,
+                    "Consultando...",
+                )
+            }
+        }
+        SourceResolutionTracker.record(
+            "youtube",
+            "YouTube Music",
+            SourceKind.YOUTUBE,
+            "En espera",
+        )
+
         if (SourceResolver.losslessFromStart()) {
             val lossless = withContext(Dispatchers.IO + TrackLog.about(videoId)) {
                 withTimeoutOrNull(LOSSLESS_FROM_START_TIMEOUT_MS) { SourceResolver.losslessForYouTube(target) }
             }
             if (lossless != null && !StreamContainer.isManifest(lossless.url)) {
                 NerdStats.onLosslessRaceEnd(videoId)
+                val configId = lossless.sourceConfigId ?: "module"
+                SourceResolutionTracker.setWinner(configId, "En reproducción (${lossless.format.summary})")
+                SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, "Omitido (se prefirió Lossless directo)")
                 return Resolved.Module(lossless)
             }
             TrackLog.d("BitChord", "no lossless copy of '${target.title}' in ${LOSSLESS_FROM_START_TIMEOUT_MS}ms; starting as usual", about = videoId)
@@ -5992,15 +6038,18 @@ class PlaybackService : MediaLibraryService() {
             lookup.onAwait { it }
             // A fallback that finished without a URL has not won anything.
             //
-            // This clause used to yield null unconditionally, which treats "the
-            // YouTube walk is over" as "YouTube has a URL" — true only while
-            // failing was the slow outcome. It no longer is: [StreamResolver]
-            // now answers a known-unplayable track immediately, so the losing
-            // leg crosses the line first and, before this, took the track down
-            // with it while a module lookup that was about to succeed was still
-            // running. Exactly the case in the report — an age-gated track that
-            // YouTube would never serve and a catalogue that had it all along.
-            fallback.onAwait { resolved -> if (resolved.isSuccess) null else lookup.await() }
+            // If YouTube crosses the line while modules are still actively looking
+            // for a lossless copy, grant a brief grace window so a fast FLAC source
+            // arriving a fraction of a second later can still take the lead.
+            fallback.onAwait { resolved ->
+                if (!resolved.isSuccess) {
+                    lookup.await()
+                } else if (lookup.isActive && SourceResolver.requestForNow() is StreamRequest.Lossless) {
+                    withTimeoutOrNull(SourceResolver.LOSSLESS_GRACE_WINDOW_MS) { lookup.await() }
+                } else {
+                    null
+                }
+            }
         }
 
         // A manifest cannot be substituted here, however good it is. This
@@ -6056,6 +6105,9 @@ class PlaybackService : MediaLibraryService() {
             // [StreamResolver] parents the walk itself elsewhere and lets it
             // finish into its own cache.
             fallback.cancel()
+            val quickConfigId = quick.sourceConfigId ?: "module"
+            SourceResolutionTracker.setWinner(quickConfigId, "En reproducción (${quick.format.summary})")
+            SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, "Omitido (se prefirió fuente de mayor calidad)")
             // Everything that was asked for, ahead of the fallback: the
             // ordinary good case, and the one with no seam in it.
             if (!quick.belowRequest) {
@@ -6076,6 +6128,8 @@ class PlaybackService : MediaLibraryService() {
         }
 
         val url = fallback.await().getOrThrow()
+        val ytBitrate = NerdStats.pickedBitrateKbps(videoId) ?: 160
+        SourceResolutionTracker.setWinner("youtube", "En reproducción (~$ytBitrate kbps Opus)")
         // Marked pending only here, with the fallback's own bitrate in hand:
         // that figure is the answer to "better than what?" the second look
         // measures candidates against, and it isn't known until the client
@@ -6105,15 +6159,22 @@ class PlaybackService : MediaLibraryService() {
      * short cut before the first note rather than a YouTube start and a seam.
      */
     private suspend fun resolveDirect(videoId: String, target: TrackMatcher.Target): Resolved {
+        SourceResolutionTracker.resetForTrack(videoId, target.title)
         val direct = runCatching { DirectSourceGate.lookup(videoId, target) }
             .onFailure { if (it is CancellationException) throw it }
             .getOrNull()
-        if (direct != null) return Resolved.Module(direct)
+        if (direct != null) {
+            val configId = direct.sourceConfigId ?: "addon"
+            SourceResolutionTracker.setWinner(configId, "En reproducción directa (${direct.format.summary})")
+            SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, "Omitido (reproducción directa desde Addon)")
+            return Resolved.Module(direct)
+        }
         TrackLog.d(
             "BitChord",
             "no addon served '${target.title}' directly; playing it from YouTube",
             about = videoId,
         )
+        SourceResolutionTracker.setWinner("youtube", "En reproducción (YouTube Opus)")
         return Resolved.YouTube(StreamResolver.resolve(videoId))
     }
 
@@ -7090,16 +7151,41 @@ class PlaybackService : MediaLibraryService() {
      *    is genuinely struggling, and coming back with a second of audio in
      *    hand only buys the next stall.
      */
-    private fun farBufferingLoadControl() = DefaultLoadControl.Builder()
-        .setBufferDurationsMs(
-            DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
-            /* maxBufferMs = */ FAR_BUFFER_MS,
-            /* bufferForPlaybackMs = */ START_PLAYBACK_MS,
-            /* bufferForPlaybackAfterRebufferMs = */ RESUME_PLAYBACK_MS,
-        )
-        .setTargetBufferBytes(FAR_BUFFER_BYTES)
-        .setBackBuffer(/* backBufferDurationMs = */ BACK_BUFFER_MS, /* retainBackBufferFromKeyframe = */ true)
-        .build()
+    private val UPGRADE_PENDING_MAX_BUFFER_US = 15_000_000L // 15 seconds
+
+    private fun isUpgradeActiveFor(mediaId: String): Boolean =
+        QualityUpgrade.isPending(mediaId) ||
+        QualityUpgrade.isAuditioning(mediaId) ||
+        (upgradeJob?.isActive == true && activeMediaId == mediaId)
+
+    private fun farBufferingLoadControl(): LoadControl {
+        val delegate = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
+                /* maxBufferMs = */ FAR_BUFFER_MS,
+                /* bufferForPlaybackMs = */ START_PLAYBACK_MS,
+                /* bufferForPlaybackAfterRebufferMs = */ RESUME_PLAYBACK_MS,
+            )
+            .setTargetBufferBytes(FAR_BUFFER_BYTES)
+            .setBackBuffer(/* backBufferDurationMs = */ BACK_BUFFER_MS, /* retainBackBufferFromKeyframe = */ true)
+            .build()
+
+        return object : LoadControl by delegate {
+            override fun shouldContinueLoading(
+                playbackPositionUs: Long,
+                bufferedDurationUs: Long,
+                playbackSpeed: Float,
+            ): Boolean {
+                val mediaId = activeMediaId
+                if (mediaId != null && isUpgradeActiveFor(mediaId)) {
+                    if (bufferedDurationUs >= UPGRADE_PENDING_MAX_BUFFER_US) {
+                        return false
+                    }
+                }
+                return delegate.shouldContinueLoading(playbackPositionUs, bufferedDurationUs, playbackSpeed)
+            }
+        }
+    }
 
     /**
      * Renderers whose audio sink only skips silence worth skipping.

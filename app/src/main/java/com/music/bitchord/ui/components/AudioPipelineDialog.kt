@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Tune
@@ -65,6 +66,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.AudioOutputStatus
+import com.music.bitchord.playback.SourceResolutionTracker
 import com.music.bitchord.playback.dsd.DsdFilter
 import com.music.bitchord.playback.dsd.DsdFormat
 import dev.chrisbanes.haze.HazeState
@@ -522,6 +524,35 @@ fun AudioPipelineDialog(
                     PipelineRow("Fallback", fallbackText)
                 }
             }
+
+            // 6. Source Inspection Stage
+            val resolutionState by SourceResolutionTracker.current.collectAsStateWithLifecycle()
+            PipelineRule()
+            PipelineSection(
+                stageIndex = 5,
+                icon = Icons.Rounded.Cloud,
+                title = stringResource(R.string.pipeline_sources_status),
+                columnCoordinates = columnCoordinates,
+                stageActivationProvider = stageActivation,
+                onStageIconPositioned = onStageIconPositioned,
+            ) {
+                if (resolutionState.reports.isEmpty()) {
+                    PipelineRow("Estado", "Sin consultas activas para esta pista")
+                } else {
+                    resolutionState.reports.forEach { report ->
+                        val valueText = if (report.detail != null && !report.status.contains(report.detail)) {
+                            "${report.status} (${report.detail})"
+                        } else {
+                            report.status
+                        }
+                        PipelineSourceStatusRow(
+                            name = report.displayName,
+                            status = valueText,
+                            isWinner = report.isWinner,
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -533,23 +564,22 @@ private fun DrawScope.drawSignalFlow(
     pulseProgress: Float,
     interactionRadiusPx: Float,
 ) {
-    if (stageCenters.size < 5) return
+    val maxStage = stageCenters.keys.maxOrNull() ?: return
+    if (maxStage < 4) return
+    val stagePoints = (0..maxStage).mapNotNull { stageCenters[it] }
+    if (stagePoints.size < 5) return
 
-    val p0 = stageCenters[0] ?: return
-    val p1 = stageCenters[1] ?: return
-    val p2 = stageCenters[2] ?: return
-    val p3 = stageCenters[3] ?: return
-    val p4 = stageCenters[4] ?: return
+    val p0 = stagePoints.first()
+    val pLast = stagePoints.last()
 
     val xCenter = p0.x
     val y0 = p0.y
-    val y4 = p4.y
-    val totalHeight = y4 - y0
+    val yLast = pLast.y
+    val totalHeight = yLast - y0
     if (totalHeight <= 0f) return
 
     val currentFlowAlpha = flowAlpha
     val currentProgress = pulseProgress
-    val stagePoints = listOf(p0, p1, p2, p3, p4)
     val nodeRadius = 11.5.dp.toPx()
 
     // 1. Static Node-to-Node Signal Bus Segments (~2.dp, butt caps at node rims)
@@ -736,9 +766,10 @@ private fun calculateStageActivation(
     interactionRadiusPx: Float,
 ): Float {
     if (flowAlpha <= 0.001f || stageCenters.size < 5) return 0f
+    val maxStage = stageCenters.keys.maxOrNull() ?: return 0f
     val p0 = stageCenters[0] ?: return 0f
-    val p4 = stageCenters[4] ?: return 0f
-    val totalHeight = p4.y - p0.y
+    val pLast = stageCenters[maxStage] ?: return 0f
+    val totalHeight = pLast.y - p0.y
     if (totalHeight <= 0f) return 0f
 
     val targetY = stageCenters[stageIndex]?.y ?: return 0f
@@ -747,7 +778,7 @@ private fun calculateStageActivation(
         val s = (progress / 0.85f).coerceIn(0f, 1f)
         p0.y + s * totalHeight
     } else {
-        p4.y
+        pLast.y
     }
 
     val dy = abs(yPulse - targetY)
@@ -756,7 +787,7 @@ private fun calculateStageActivation(
     val p = 1f - (dy / interactionRadiusPx)
     val raw = (0.5f - 0.5f * kotlin.math.cos(p * Math.PI.toFloat())).coerceIn(0f, 1f)
 
-    val absorption = if (stageIndex == 4 && progress > 0.85f) {
+    val absorption = if (stageIndex == maxStage && progress > 0.85f) {
         if (progress >= 0.95f) 0f else 1f - ((progress - 0.85f) / 0.10f)
     } else 1f
 
@@ -860,6 +891,38 @@ private fun PipelineRow(label: String, value: String) {
             }
             withStyle(SpanStyle(fontWeight = FontWeight.Normal, color = Color.White.copy(alpha = 0.82f))) {
                 append(value)
+            }
+        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = 12.5.sp,
+                lineHeight = 17.sp,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun PipelineSourceStatusRow(
+    name: String,
+    status: String,
+    isWinner: Boolean,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 1.5.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        val labelColor = if (isWinner) Color(0xFF81C784) else Color.White
+        val valueColor = if (isWinner) Color(0xFFC8E6C9) else Color.White.copy(alpha = 0.82f)
+        val text = buildAnnotatedString {
+            withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = labelColor)) {
+                append("$name: ")
+            }
+            withStyle(SpanStyle(fontWeight = if (isWinner) FontWeight.Medium else FontWeight.Normal, color = valueColor)) {
+                append(status)
             }
         }
         Text(

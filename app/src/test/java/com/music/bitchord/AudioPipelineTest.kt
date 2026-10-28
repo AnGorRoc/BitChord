@@ -2,8 +2,10 @@ package com.music.bitchord
 
 import android.media.AudioFormat
 import com.music.bitchord.data.NerdStats
+import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.playback.AudioOutputStatus
+import com.music.bitchord.playback.SourceResolutionTracker
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -21,6 +23,7 @@ class AudioPipelineTest {
     fun setUp() {
         NerdStats.forgetLastSession()
         AudioOutputStatus.reset()
+        SourceResolutionTracker.resetForTrack("test-track", "Test Song")
     }
 
     // ── Quality Badge Classification ──────────────────────────────────────
@@ -301,5 +304,85 @@ class AudioPipelineTest {
 
         assertEquals("Resampler", type)
         assertEquals("Resampled", quality)
+    }
+
+    // ── Source Resolution Inspection Tracker ───────────────────────────────
+
+    @Test
+    fun `SourceResolutionTracker tracks multiple sources and sorts by rank`() {
+        SourceResolutionTracker.resetForTrack("vid123", "Midnight City")
+
+        SourceResolutionTracker.record(
+            sourceId = "youtube",
+            displayName = "YouTube Music",
+            kind = SourceKind.YOUTUBE,
+            status = "En reproducción (~160 kbps Opus)",
+            isWinner = true,
+        )
+        SourceResolutionTracker.record(
+            sourceId = "jiosaavn",
+            displayName = "JioSaavn",
+            kind = SourceKind.JIOSAAVN,
+            status = "Versión no coincide (duración distinta o artista)",
+        )
+        SourceResolutionTracker.record(
+            sourceId = "monochrome",
+            displayName = "Monochrome",
+            kind = SourceKind.MONOCHROME,
+            status = "No se encontró en su catálogo",
+        )
+        SourceResolutionTracker.record(
+            sourceId = "addon1",
+            displayName = "Mi Servidor FLAC",
+            kind = SourceKind.ADDON,
+            status = "Error de conexión o servidor",
+            detail = "HTTP 503 Service Unavailable",
+        )
+
+        val state = SourceResolutionTracker.current.value
+        assertEquals("vid123", state.mediaId)
+        assertEquals(4, state.reports.size)
+
+        // Rank ordering: ADDON (0), MONOCHROME (1), JIOSAAVN (2), YOUTUBE (3)
+        assertEquals("Mi Servidor FLAC", state.reports[0].displayName)
+        assertEquals("Monochrome", state.reports[1].displayName)
+        assertEquals("JioSaavn", state.reports[2].displayName)
+        assertEquals("YouTube Music", state.reports[3].displayName)
+
+        assertTrue(state.reports[3].isWinner)
+        assertFalse(state.reports[0].isWinner)
+    }
+
+    @Test
+    fun `SourceResolutionTracker handles promotion when quality upgrade succeeds`() {
+        SourceResolutionTracker.resetForTrack("vid456", "Starboy")
+
+        SourceResolutionTracker.record(
+            sourceId = "youtube",
+            displayName = "YouTube Music",
+            kind = SourceKind.YOUTUBE,
+            status = "En reproducción (~160 kbps Opus)",
+            isWinner = true,
+        )
+        SourceResolutionTracker.record(
+            sourceId = "monochrome",
+            displayName = "Monochrome",
+            kind = SourceKind.MONOCHROME,
+            status = "Disponible en FLAC Lossless",
+            isWinner = false,
+        )
+
+        // Upgrade committed
+        SourceResolutionTracker.setWinner("monochrome", "En reproducción (FLAC Lossless)")
+
+        val reports = SourceResolutionTracker.current.value.reports
+        val mono = reports.first { it.sourceId == "monochrome" }
+        val yt = reports.first { it.sourceId == "youtube" }
+
+        assertTrue(mono.isWinner)
+        assertEquals("En reproducción (FLAC Lossless)", mono.status)
+
+        assertFalse(yt.isWinner)
+        assertEquals("Reemplazado por mayor calidad", yt.status)
     }
 }

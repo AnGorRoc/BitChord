@@ -1173,6 +1173,7 @@
     <string name="pipeline_dsp">DSP</string>
 
     <string name="pipeline_output_device">Output Device</string>
+    <string name="pipeline_sources_status">Estado de Fuentes</string>
 
     <string name="pipeline_source">Source</string>
 
