@@ -49,7 +49,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -173,6 +176,9 @@ object AudioCache {
 
     /** How long to leave the player alone with an entry before trying again. */
     private const val RETRY_DELAY_MS = 5_000L
+
+    /** How long [probeLength] waits for a stream to say how long it is. */
+    private const val PROBE_TIMEOUT_MS = 15_000L
 
     /** Enough to cover a hand-over, not enough to keep chasing a lost race. */
     private const val MAX_ATTEMPTS = 4
@@ -1310,16 +1316,15 @@ object AudioCache {
      * That flag exists so a playback read whose *write* fails still serves
      * the listener their audio; a read-ahead fetch has no listener to serve,
      * so hiding the same failure just spends their data reading bytes onto
-     * the floor. Measured: read-ahead for a track the player had already
-     * reached — its cache entry locked by the real reader, exactly the "lost
-     * race" [fetchWhole] is meant to give up on cheaply — instead read a
-     * full [CHUNK_BYTES] from the network on every one of [MAX_ATTEMPTS]
-     * retries, because the flag turned the lock exception into a silent,
-     * uncached pass-through rather than the failure [fetch]'s own
-     * `runCatching` is written to catch. Nine megabytes on one ordinary,
-     * unskipped track change, for a fetch that cached nothing and was always
-     * going to. Without the flag, losing the race throws before a byte is
-     * read, and every attempt past the first costs nothing.
+     * the floor.
+     *
+     * It does not make losing a lock race visible, though, and an earlier
+     * version of this comment said it did. Media3 locks a cache entry per
+     * *range*: a writer that finds the range it wants held by another is
+     * handed the upstream with nowhere to write, flag or no flag, and reads
+     * on without a word. The only way to tell is to look at what landed,
+     * which is what [fetch]'s small lock probe does before committing to a
+     * whole range.
      */
     private fun readAheadCacheFactory(upstream: DataSource.Factory) = CacheDataSource.Factory()
         .setCache(cache)
@@ -1579,8 +1584,12 @@ object AudioCache {
 
     /** @return true once every range of [videoId] is on disk. */
     private suspend fun cacheWholeOnce(videoId: String): Boolean {
-        val total = runCatching { StreamResolver.contentLength(videoId) }.getOrNull()
-            ?: return false
+        val uri = Uri.parse("bitchord://watch?v=$videoId")
+        // The entry read-ahead actually writes, not the bare videoId — see
+        // [fetch]. Its length is that entry's file, too: YouTube's `clen` is
+        // the wrong size for a substituted copy.
+        val key = keyFactory.buildCacheKey(DataSpec(uri))
+        val total = renditionLength(key, uri).takeIf { it > 0 } ?: return false
 
         var position = 0L
         while (position < total) {
@@ -1590,17 +1599,69 @@ object AudioCache {
             // now" case the guard in [fetchWhole] exists for.
             if (pendingQueue.firstOrNull() != videoId) return false
             val length = minOf(CHUNK_BYTES, total - position)
-            if (cache.getCachedBytes(videoId, position, length) < length) {
-                fetch(videoId, position, length)
+            if (cache.getCachedBytes(key, position, length) < length) {
+                fetch(key, uri, position, length, pinKey = true)
                 // Written nowhere means the entry is held elsewhere; the rest
                 // of this pass would be just as wasted. See [fetch] for why
                 // this can be true even though the fetch just above returned
                 // without error.
-                if (cache.getCachedBytes(videoId, position, length) < length) return false
+                if (cache.getCachedBytes(key, position, length) < length) return false
             }
             position += length
         }
         return true
+    }
+
+    /**
+     * The full size of the file [key] holds for [uri], learnt as cheaply as
+     * it can be, or 0 when it cannot be learnt at all.
+     *
+     * In order: what Media3 recorded the first time anything opened the
+     * rendition; the `clen` the stream pinned for it carries — every
+     * googlevideo URL does, and so does a Monochrome one once its head has
+     * been read; YouTube's own answer, only when the entry is plain YouTube;
+     * and last, one open-ended open of the stream, closed as soon as it has
+     * said how long it is. A bounded fetch never records the length on its
+     * own (see [recordContentLength]), so whatever is learnt is written down.
+     */
+    private suspend fun renditionLength(key: String, uri: Uri): Long {
+        lengthOf(key).takeIf { it > 0 }?.let { return it }
+        val pinned = QualityUpgrade.forcedStream(uri)?.url
+            ?: mediaIdIn(uri)?.let { StreamChoice.of(it)?.url }
+        val videoId = uri.getQueryParameter("v")
+        val total = pinned?.let(::clenOf)
+            ?: videoId?.takeIf { it == key }?.let { runCatching { StreamResolver.contentLength(it) }.getOrNull() }
+            ?: probeLength(uri)
+        if (total == null || total <= 0) return 0L
+        recordContentLength(key, total)
+        return total
+    }
+
+    private fun clenOf(url: String): Long? =
+        runCatching { Uri.parse(url).getQueryParameter("clen")?.toLongOrNull() }.getOrNull()?.takeIf { it > 0 }
+
+    /**
+     * Asks the stream behind [uri] how long it is: one open-ended open of the
+     * upstream, nothing read, closed at once. Bypasses the cache entirely, so
+     * it locks and writes nothing.
+     */
+    private suspend fun probeLength(uri: Uri): Long? {
+        val upstream = upstreamFactory ?: return null
+        return withTimeoutOrNull(PROBE_TIMEOUT_MS) {
+            runCatching {
+                runInterruptible(Dispatchers.IO) {
+                    val source = upstream.createDataSource()
+                    try {
+                        source.open(DataSpec(uri)).takeIf { it != C.LENGTH_UNSET.toLong() && it > 0 }
+                    } finally {
+                        runCatching { source.close() }
+                    }
+                }
+            }.onFailure {
+                if (it is kotlinx.coroutines.CancellationException) throw it
+                TrackLog.d(TAG, "could not learn the length of $uri: ${it.message}", about = mediaIdIn(uri))
+            }.getOrNull()
+        }
     }
 
     /**
@@ -1998,15 +2059,15 @@ object AudioCache {
      * Cheap because [StreamResolver] has the number already: it was read to
      * resolve the stream this fetch just pulled from.
      */
-    private fun recordContentLength(videoId: String, total: Long) {
-        if (ContentMetadata.getContentLength(cache.getContentMetadata(videoId)) > 0) return
+    private fun recordContentLength(key: String, total: Long) {
+        if (ContentMetadata.getContentLength(cache.getContentMetadata(key)) > 0) return
         if (total <= 0) return
         runCatching {
             cache.applyContentMetadataMutations(
-                videoId,
+                key,
                 ContentMetadataMutations().apply { ContentMetadataMutations.setContentLength(this, total) },
             )
-        }.onFailure { TrackLog.d(TAG, "could not record length for $videoId: ${it.message}", about = videoId) }
+        }.onFailure { TrackLog.d(TAG, "could not record length for $key: ${it.message}", about = key.substringBefore('#')) }
     }
 
     /**
@@ -2304,9 +2365,19 @@ object AudioCache {
      * Pulls [length] bytes of [videoId] from [position] into the cache.
      * [CacheWriter] fetches only the gaps, so a range already partly on disk —
      * from a track played earlier, or skipped back to — costs only the rest.
+     *
+     * Checked and written under the key [keyFactory] gives the plain URI, and
+     * pinned to it. This used to check the bare videoId while [pull] wrote
+     * wherever [keyFactory] pointed — `#alt` whenever a source outranks YouTube
+     * — so the lock probe never saw its own bytes land and every substituted
+     * track got 64 kB of read-ahead and no more. Where the bare entry already
+     * held Automix's analysis head, the "already here" check passed on the
+     * wrong bytes and nothing was written at all.
      */
-    private suspend fun fetch(videoId: String, position: Long, length: Long) =
-        fetch(videoId, Uri.parse("bitchord://watch?v=$videoId"), position, length)
+    private suspend fun fetch(videoId: String, position: Long, length: Long) {
+        val uri = Uri.parse("bitchord://watch?v=$videoId")
+        fetch(keyFactory.buildCacheKey(DataSpec(uri)), uri, position, length, pinKey = true)
+    }
 
     /**
      * [pinKey] forces the write to land under [cacheKey] instead of wherever
@@ -2371,6 +2442,10 @@ object AudioCache {
         val source = readAheadCacheFactory(upstream)
             .apply { if (pinKey) setCacheKeyFactory { cacheKey } }
             .createDataSource()
+        // So the estimate the scheduler weighs read-ahead against sees
+        // read-ahead too, not only the player's own reads. Disk reads report
+        // themselves as non-network and the meter ignores them.
+        bandwidthMeter?.let { source.addTransferListener(it.transferListener) }
         val spec = DataSpec.Builder()
             .setUri(uri)
             .setPosition(position)
@@ -2379,15 +2454,17 @@ object AudioCache {
         val writer = CacheWriter(source, spec, /* temporaryBuffer = */ null, /* listener = */ null)
 
         runCatching {
-            withContext(Dispatchers.IO) {
-                // CacheWriter blocks in a read loop and checks this flag between
-                // reads; cancelling the coroutine alone would leave it running.
-                val handle = coroutineContext.job.invokeOnCompletion { writer.cancel() }
-                try {
-                    writer.cache()
-                } finally {
-                    handle.dispose()
-                }
+            // CacheWriter blocks in a read loop and checks this flag between
+            // reads; cancelling the coroutine alone would leave it running.
+            val handle = coroutineContext.job.invokeOnCompletion { writer.cancel() }
+            try {
+                // Interruptible as well: the flag is only read *between*
+                // reads, and one read of a slow connection is seconds of
+                // bandwidth taken from a player that has just asked for all
+                // of it. The interrupt breaks the socket read itself.
+                runInterruptible(Dispatchers.IO) { writer.cache() }
+            } finally {
+                handle.dispose()
             }
         }.onFailure {
             // Expected on a skip, and never worth failing playback over — see
@@ -2402,7 +2479,21 @@ object AudioCache {
                 about = about,
             )
         }
+        // The failure above is swallowed on purpose, cancellation included; a
+        // cancelled caller still has to stop here rather than go on to judge
+        // what landed.
+        coroutineContext.ensureActive()
     }
+
+    /**
+     * The process-wide estimate the players already feed, or null before
+     * [init]. ExoPlayer uses this same singleton when none is set on it.
+     */
+    private val bandwidthMeter: DefaultBandwidthMeter?
+        get() = if (::appContext.isInitialized) DefaultBandwidthMeter.getSingletonInstance(appContext) else null
+
+    /** The current bandwidth estimate in bits per second, or 0 when there is none yet. */
+    fun bandwidthEstimateBps(): Long = bandwidthMeter?.bitrateEstimate ?: 0L
 }
 
 /** How many leading bytes [cachedContainerOf] needs to tell the containers apart. */
