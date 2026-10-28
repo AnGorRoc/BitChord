@@ -29,6 +29,10 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -128,6 +133,7 @@ class SpotifyLibraryState {
  * action. The same bar then reports the import while it runs and once it
  * ends, so the page never leaves for a dialog.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpotifyLibraryScreen(
     state: SpotifyLibraryState,
@@ -140,8 +146,11 @@ fun SpotifyLibraryScreen(
     val cookie by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Bumped by a pull from the top of the list, to read the library again.
+    var reload by remember { mutableIntStateOf(0) }
+    val pullState = rememberPullToRefreshState()
 
-    LaunchedEffect(cookie) {
+    LaunchedEffect(cookie, reload) {
         if (cookie.isBlank()) {
             state.playlists = emptyList()
             state.clear()
@@ -176,7 +185,23 @@ fun SpotifyLibraryScreen(
 
     BackHandler(enabled = state.selecting) { state.clear() }
 
-    Box(modifier.fillMaxSize()) {
+    // Pulling down from the top reads the library again. The indicator sits
+    // where the page's own content starts, so it is the page's, not the bar's.
+    PullToRefreshBox(
+        isRefreshing = loading,
+        onRefresh = { reload++ },
+        state = pullState,
+        modifier = modifier.fillMaxSize(),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullState,
+                isRefreshing = loading,
+                modifier = Modifier.align(Alignment.TopCenter),
+                color = MaterialTheme.colorScheme.primary,
+            )
+        },
+    ) {
+        Box(Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = contentPadding,
@@ -222,7 +247,9 @@ fun SpotifyLibraryScreen(
                 if (state.selecting) {
                     item { SelectingIntro() }
                 }
-                if (loading) {
+                // The pull's own indicator covers a reload of a list already on
+                // screen; this spinner is only for the first read.
+                if (loading && state.playlists.isEmpty()) {
                     item {
                         Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator()
@@ -269,6 +296,7 @@ fun SpotifyLibraryScreen(
         when {
             state.selecting -> SelectionBar(state, barModifier)
             sync !is SpotifySyncState.Idle -> SyncBar(sync, onOpenLogin, barModifier)
+        }
         }
     }
 }

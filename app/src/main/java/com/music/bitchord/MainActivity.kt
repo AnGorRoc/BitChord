@@ -273,6 +273,7 @@ import com.music.bitchord.sharedui.resources.Res as SharedRes
 import com.music.bitchord.sharedui.resources.search_hint
 import com.music.bitchord.sharedui.resources.search_addons_hint
 import com.music.bitchord.sharedui.resources.search_library_hint
+import com.music.bitchord.sharedui.resources.on_device
 import com.music.bitchord.ui.components.TopBarDownloadButton
 import com.music.bitchord.ui.components.optimizedHazeEffect
 import com.music.bitchord.ui.components.topBarContentPadding
@@ -2885,7 +2886,15 @@ private fun BitChordApp(
                             // an emptied Playlists shelf — dropped from the
                             // library — reads as empty rather than as itself.
                             val snapshot = pageRoute.shelf
-                            val shelf = (libraryState as? UiState.Success)?.data?.let { page ->
+                            // The On Device shelf is not in the library's feed at
+                            // all — it is built here, from the device's own records —
+                            // so it is read live from them rather than from the
+                            // snapshot, which would miss a playlist imported while
+                            // this page is open.
+                            val onDeviceTitle = org.jetbrains.compose.resources.stringResource(SharedRes.string.on_device)
+                            val shelf = if (snapshot.title == onDeviceTitle) {
+                                snapshot.copy(items = libraryDeviceItems(downloadedReleases) + localPlaylistItems)
+                            } else (libraryState as? UiState.Success)?.data?.let { page ->
                                 page.shelves.firstOrNull { it.title == snapshot.title }
                                     ?: snapshot.takeUnless { it.title == YtMusicRepository.PLAYLISTS_SHELF }
                                     ?: snapshot.copy(items = emptyList())
