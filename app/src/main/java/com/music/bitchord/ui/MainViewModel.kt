@@ -1822,16 +1822,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     val freshRecentResult = recentDeferred?.await()
                     val freshRecent = when {
                         freshRecentResult != null && freshRecentResult.isSuccess -> freshRecentResult.getOrNull()
-                        freshRecentResult != null && freshRecentResult.isFailure -> {
-                            currentShelves.firstOrNull { it.title.equals("recently played", ignoreCase = true) }
-                        }
+                        freshRecentResult != null && freshRecentResult.isFailure -> previousRecent(currentShelves)
                         else -> null
                     }
+                    freshRecent?.takeIf { freshRecentResult?.isSuccess == true }?.let { homeRecentTitle = it.title }
                     if (!isCurrentHomeLoad(identity, generation)) return@onSuccess
 
+                    // A part of the feed that could not be fetched leaves the
+                    // screen with fewer shelves than the saved feed has. The
+                    // screen can show what arrived; what is saved must not be
+                    // replaced by less than it held.
+                    var partial = freshRecentResult?.isFailure == true
                     val freshSupplements = mutableListOf<HomeShelf>()
                     supplementDeferreds.forEach { deferred ->
-                        deferred.await().getOrNull()?.let { freshSupplements.addAll(it) }
+                        deferred.await()
+                            .onSuccess { freshSupplements.addAll(it) }
+                            .onFailure { partial = true }
                     }
                     if (!isCurrentHomeLoad(identity, generation)) return@onSuccess
 
@@ -1852,7 +1858,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         homeSeenTitles.clear()
                         homeSeenTitles.addAll(assembled.map { it.title.lowercase(Locale.ROOT) })
                         _home.value = UiState.Success(assembled)
-                        FeedCache.saveHome(identity, assembled, feed.continuation)
+                        if (!partial) FeedCache.saveHome(identity, assembled, feed.continuation)
                     } else {
                         FeedCache.touchHome(identity)
                         if (homeContinuation == null) homeContinuation = feed.continuation
@@ -2016,6 +2022,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun isCurrentHomeLoad(identity: String?, generation: Long) =
         identity == listenerKey() && generation == homeLoadGeneration.get()
 
+    /**
+     * The title YouTube gave the Recently played shelf, once it has been seen.
+     * The shelf is found by it because the title is YouTube's, in the language
+     * of the account, and the English words are only a first guess.
+     */
+    private var homeRecentTitle: String? = null
+
+    /** The Recently played shelf already on screen, kept when the request for a fresh one fails. */
+    private fun previousRecent(shelves: List<HomeShelf>): HomeShelf? =
+        shelves.firstOrNull { it.title.equals(homeRecentTitle ?: "recently played", ignoreCase = true) }
+
     private fun assembleHomeShelves(
         recent: HomeShelf?,
         core: List<HomeShelf>,
@@ -2044,6 +2061,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // YouTube's core home can also contain a stale "Recently played"
             // shelf. The dedicated history endpoint wins and replaces it.
             val replacing = shelves.map { it.title.lowercase(Locale.ROOT) }.toSet()
+            shelves.firstOrNull()?.let { homeRecentTitle = it.title }
             homeSeenTitles.addAll(replacing)
             shelves + existing.filterNot {
                 it.title.lowercase(Locale.ROOT) in replacing
@@ -2069,10 +2087,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (topPicksJob?.isActive != true) loadTopPicks(identity, rebuild = false)
         YtMusicRepository.home().onSuccess { feed ->
             if (identity != listenerKey()) return@onSuccess
-            val freshRecent = recent?.await()?.getOrNull()
+            val current = (_home.value as? UiState.Success)?.data.orEmpty()
+            val recentResult = recent?.await()
+            // A request that failed leaves the shelf that was there, not none.
+            val freshRecent = when {
+                recentResult == null -> null
+                recentResult.isSuccess -> recentResult.getOrNull()?.also { homeRecentTitle = it.title }
+                else -> previousRecent(current)
+            }
+            var partial = recentResult?.isFailure == true
             val freshSupplements = mutableListOf<HomeShelf>()
             supplements.forEach { deferred ->
-                deferred.await().getOrNull()?.let { freshSupplements.addAll(it) }
+                deferred.await()
+                    .onSuccess { freshSupplements.addAll(it) }
+                    .onFailure { partial = true }
             }
             if (identity != listenerKey()) return@onSuccess
             val assembled = assembleHomeShelves(freshRecent, feed.shelves, freshSupplements)
@@ -2081,7 +2109,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             homeSeenTitles.addAll(assembled.map { it.title.lowercase(Locale.ROOT) })
             if (assembled.isNotEmpty()) {
                 _home.value = UiState.Success(assembled)
-                FeedCache.saveHome(identity, assembled, feed.continuation)
+                // Shown, but not saved over a fuller feed; see [loadHome].
+                if (!partial) FeedCache.saveHome(identity, assembled, feed.continuation)
             }
         }
     }

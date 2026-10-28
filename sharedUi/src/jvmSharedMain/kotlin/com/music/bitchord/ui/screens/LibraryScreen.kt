@@ -421,13 +421,15 @@ internal fun LibraryGridShelf(
             }
             return@Column
         }
+        val keys = uniqueShelfKeys(visibleItems)
         ShelfRow(
             contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
             horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
             artwork = List(leadingCount) { null } + visibleItems.map { it.thumbnailUrl.artworkAt(CARD_ART_PX) },
         ) {
             leadingCard?.let { card -> item(key = "leading") { card() } }
-            items(visibleItems, key = { it.browseId ?: it.title }) { item ->
+            items(visibleItems.size, key = { keys[it] }) { index ->
+                val item = visibleItems[index]
                 ShelfCard(
                     item = item,
                     onClick = { onItemClick(item) },
@@ -506,6 +508,7 @@ fun LibraryGridPage(
     // more deliberate signal than a pin and is left to reorder the whole grid,
     // pinned cards included.
     val sortedShelf = shelf.pinnedFirst(pinnedPlaylists).sortedForLibrary(librarySort)
+    val keys = uniqueShelfKeys(sortedShelf.items)
     BoxWithConstraints(modifier.fillMaxSize()) {
         val grid = libraryGrid(maxWidth - PAGE_GUTTER * 2)
         LazyVerticalGrid(
@@ -537,7 +540,8 @@ fun LibraryGridPage(
                     }
                 }
             }
-            items(sortedShelf.items, key = { it.browseId ?: it.title }) { item ->
+            items(sortedShelf.items.size, key = { keys[it] }) { index ->
+                val item = sortedShelf.items[index]
                 if (list) {
                     ShelfListRow(
                         item = item,
@@ -591,3 +595,18 @@ private fun HomeShelf.sortedForLibrary(sort: LibrarySort): HomeShelf = when (sor
 
 /** The library feed whose cards are the account's own — see [PlaylistShelf]. */
 private const val PLAYLISTS = YtMusicRepository.PLAYLISTS_SHELF
+
+/**
+ * A key for each of [items] that is its id or title, and that is never the
+ * same as another's. A lazy list throws on two items with one key, and two
+ * playlists can share a title and have no id (or a feed can repeat an id), so
+ * a repeat is told apart by how many came before it.
+ */
+internal fun uniqueShelfKeys(items: List<ShelfItem>): List<String> {
+    val seen = HashMap<String, Int>(items.size)
+    return items.map { item ->
+        val base = item.browseId ?: item.title
+        val count = seen.merge(base, 1, Int::plus) ?: 1
+        if (count == 1) base else "$base#$count"
+    }
+}

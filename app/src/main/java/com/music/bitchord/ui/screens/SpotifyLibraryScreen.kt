@@ -72,6 +72,9 @@ import com.music.bitchord.data.spotify.SpotifyPlaylist
 import com.music.bitchord.data.spotify.SpotifySync
 import com.music.bitchord.data.spotify.SpotifySyncState
 import com.music.bitchord.data.spotify.SyncErrorKind
+import com.music.bitchord.data.spotify.syncErrorKind
+import kotlinx.coroutines.CancellationException
+import androidx.compose.ui.platform.LocalContext
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.spotify_logo
 import com.music.bitchord.ui.components.PAGE_GUTTER
@@ -145,6 +148,7 @@ fun SpotifyLibraryScreen(
     modifier: Modifier = Modifier,
 ) {
     val cookie by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     // Bumped by a pull from the top of the list, to read the library again.
@@ -167,25 +171,35 @@ fun SpotifyLibraryScreen(
         }
         loading = true
         error = null
-        runCatching { SpotifyLibrary.playlists() }
-            .onSuccess {
-                state.playlists = it
-                SpotifyCache.savePlaylists(it)
-            }
-            .onFailure {
-                if (state.playlists.isEmpty() || reload > 0) {
-                    error = it.message
+        try {
+            val fresh = SpotifyLibrary.playlists()
+            state.playlists = fresh
+            SpotifyCache.savePlaylists(fresh)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (state.playlists.isEmpty() || reload > 0) {
+                error = when (syncErrorKind(e)) {
+                    SyncErrorKind.SIGNED_OUT -> context.getString(R.string.spotify_sync_error_signed_out)
+                    SyncErrorKind.NETWORK -> context.getString(R.string.spotify_sync_error_network)
+                    SyncErrorKind.OTHER -> context.getString(R.string.spotify_sync_error_other, e.message.orEmpty())
                 }
             }
+        }
         loading = false
     }
 
     // A library kept up to date brings the playlists already imported up to date.
     val autoSync by AppSettings.spotifyAutoSync.collectAsStateWithLifecycle()
+    // Not on every look at the page: a run asks about every playlist, so one
+    // that finished a few hours ago stands.
     LaunchedEffect(state.playlists, autoSync) {
-        if (!autoSync) return@LaunchedEffect
+        if (!autoSync || !SpotifyCache.autoSyncDue(AUTO_SYNC_MIN_INTERVAL_MS)) return@LaunchedEffect
         val imported = LocalPlaylistStore.playlists.value.mapNotNull { it.spotifyId }.toSet()
-        SpotifySync.start(state.playlists.filter { it.id in imported })
+        val due = state.playlists.filter { it.id in imported }
+        if (due.isEmpty()) return@LaunchedEffect
+        SpotifySync.start(due)
+        SpotifyCache.markAutoSynced()
     }
 
     val sync by SpotifySync.state.collectAsStateWithLifecycle()
@@ -597,6 +611,9 @@ private fun CloseButton() {
 
 /** The red of Downloads' destructive actions. */
 private val DESTRUCTIVE = Color(0xFFFF453A)
+
+/** How long after an automatic sync the next one waits, however often the page is opened. */
+private const val AUTO_SYNC_MIN_INTERVAL_MS = 6L * 60 * 60 * 1000
 
 private enum class RowTrailing { None, Selected, Unselected, Importing }
 
