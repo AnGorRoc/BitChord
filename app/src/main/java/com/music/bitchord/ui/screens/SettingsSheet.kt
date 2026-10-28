@@ -49,6 +49,7 @@ import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.FilterAlt
@@ -250,6 +251,7 @@ fun SettingsScreen(
     var pickingLosslessCache by remember { mutableStateOf(false) }
     val showCacheFolder by AppSettings.showCacheFolder.collectAsStateWithLifecycle()
     val improveCachedSongs by AppSettings.improveCachedSongs.collectAsStateWithLifecycle()
+    val smartPreload by AppSettings.smartPreload.collectAsStateWithLifecycle()
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
@@ -1326,6 +1328,25 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setImproveCachedSongs(!improveCachedSongs) },
+                )
+            }
+            val smartPreloadTitle = stringResource(R.string.smart_preload)
+            row(smartPreloadTitle, "cache", "pause", "preload", "lossless", "next", "queue") {
+                SettingsRow(
+                    icon = Icons.Rounded.Downloading,
+                    title = smartPreloadTitle,
+                    subtitle = stringResource(R.string.smart_preload_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = smartPreload,
+                            onCheckedChange = AppSettings::setSmartPreload,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setSmartPreload(!smartPreload) },
                 )
             }
             val clearSongCacheTitle = stringResource(R.string.clear_song_cache)
