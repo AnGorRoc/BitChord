@@ -29,6 +29,7 @@
     <string name="downloads">다운로드</string>
     <string name="downloaded_songs">다운로드한 곡</string>
     <string name="local_music">로컬 음악</string>
+    <string name="search_source_youtube" translatable="false">YouTube</string>
     <string name="search_source_addons">애드온</string>
     <string name="search_addons_none">켜진 애드온이 없습니다. 설정 → 소스에서 하나 켜세요.</string>
     <string name="audio_files_on_device">기기의 오디오 파일</string>
@@ -313,6 +314,18 @@
     <string name="show_nerd_stats_subtitle">플레이어에 코덱, 비트레이트, 샘플 레이트 표시</string>
     <string name="app_icon">앱 아이콘</string>
     <string name="app_icon_default">기본값</string>
+    <string name="app_icon_liquid_glass" translatable="false">Liquid Glass</string>
+    <string name="app_icon_liquid_glass_dark" translatable="false">Liquid Glass Dark</string>
+    <string name="app_icon_liquid_glass_clear" translatable="false">Liquid Glass Clear</string>
+    <string name="app_icon_liquid_glass_clear_dark" translatable="false">Liquid Glass Clear Dark</string>
+    <string name="app_icon_samsung_glass" translatable="false">Samsung Glass</string>
+    <string name="app_icon_samsung_glass_dark" translatable="false">Samsung Glass Dark</string>
+    <string name="app_icon_samsung_glass_clear" translatable="false">Samsung Glass Clear</string>
+    <string name="app_icon_samsung_glass_clear_dark" translatable="false">Samsung Glass Clear Dark</string>
+    <string name="app_icon_pixel_glass" translatable="false">Pixel Glass</string>
+    <string name="app_icon_pixel_glass_dark" translatable="false">Pixel Glass Dark</string>
+    <string name="app_icon_pixel_glass_clear" translatable="false">Pixel Glass Clear</string>
+    <string name="app_icon_pixel_glass_clear_dark" translatable="false">Pixel Glass Clear Dark</string>
     <string name="theme">테마</string>
     <string name="reduce_animation">애니메이션 줄이기</string>
     <string name="reduce_animation_subtitle">메인 플레이어의 그라데이션 움직임을 멈춥니다</string>
@@ -477,6 +490,7 @@
     <string name="pipeline_bit_depth">비트 심도</string>
     <string name="pipeline_sample_rate">샘플 레이트</string>
     <string name="pipeline_bitrate">비트레이트</string>
+    <string name="pipeline_pcm_data_rate" translatable="false">PCM Data Rate</string>
     <string name="pipeline_channels">채널</string>
     <string name="pipeline_decoder_name">디코더 이름</string>
     <string name="pipeline_io_rate">입출력 레이트</string>
