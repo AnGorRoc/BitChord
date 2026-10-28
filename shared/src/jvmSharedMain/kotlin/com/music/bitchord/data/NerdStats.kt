@@ -62,7 +62,22 @@ object NerdStats {
         val pcmDataRateKbps: Int? = null,
         /** The queue item this describes; see [publish]. */
         val mediaId: String? = null,
+        /**
+         * Total time shift applied to line the upgraded stream up with the one it
+         * replaced (content offset plus the standby deck's start-latency lead), in
+         * ms. Null when no alignment ran; 0 is a real result, not "absent".
+         */
+        val alignmentOffsetMs: Long? = null,
+        /**
+         * How far the two decks' clocks still disagreed after the last sync seek, in
+         * ms. Measured on player positions, so its resolution is the sink playhead
+         * step (~275ms) — this is clock drift, not a content measurement.
+         */
+        val syncDriftMs: Long? = null,
     ) {
+        /** The compensation worth showing, or null when there is none: 0 ms is "no compensation". */
+        val shownAlignmentOffsetMs: Long?
+            get() = alignmentOffsetMs?.takeIf { it != 0L }
         /**
          * Whether what arrived is measurably worse than what was promised.
          *
@@ -335,6 +350,34 @@ object NerdStats {
         sources[mediaId] = source
     }
 
+    private val alignmentOffsets = ConcurrentHashMap<String, Long>()
+    private val syncDrifts = ConcurrentHashMap<String, Long>()
+
+    fun recordAlignmentOffset(mediaId: String?, offsetMs: Long?, syncDriftMs: Long? = null) {
+        if (mediaId.isNullOrBlank()) return
+        if (offsetMs == null) {
+            clearAlignmentOffset(mediaId)
+        } else {
+            if (alignmentOffsets.size >= MAX_REMEMBERED) {
+                alignmentOffsets.clear()
+                syncDrifts.clear()
+            }
+            alignmentOffsets[mediaId] = offsetMs
+            if (syncDriftMs != null) syncDrifts[mediaId] = syncDriftMs else syncDrifts.remove(mediaId)
+        }
+    }
+
+    fun getAlignmentOffset(mediaId: String?): Long? = mediaId?.let { alignmentOffsets[it] }
+
+    fun getSyncDrift(mediaId: String?): Long? = mediaId?.let { syncDrifts[it] }
+
+    fun clearAlignmentOffset(mediaId: String?) {
+        if (mediaId != null) {
+            alignmentOffsets.remove(mediaId)
+            syncDrifts.remove(mediaId)
+        }
+    }
+
     fun exactSourceFor(mediaId: String?): String? = mediaId?.let { sources[it] }
 
     fun sourceFor(mediaId: String?): String? {
@@ -392,6 +435,7 @@ object NerdStats {
         if (trackId != null) {
             declared.remove(trackId)
             sources.remove(trackId)
+            clearAlignmentOffset(trackId)
         }
     }
 
@@ -461,6 +505,8 @@ object NerdStats {
         picked.clear()
         declared.clear()
         sources.clear()
+        alignmentOffsets.clear()
+        syncDrifts.clear()
     }
 
     private const val MAX_REMEMBERED = 64

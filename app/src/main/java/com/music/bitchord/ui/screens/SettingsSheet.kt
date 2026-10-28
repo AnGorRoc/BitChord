@@ -263,6 +263,7 @@ fun SettingsScreen(
     val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
     val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
     val smartVersionAlignment by AppSettings.smartVersionAlignment.collectAsStateWithLifecycle()
+    val smartSourceAlignment by AppSettings.smartSourceAlignment.collectAsStateWithLifecycle()
     val filterNonMusicAudio by AppSettings.filterNonMusicAudio.collectAsStateWithLifecycle()
     val localMusicFolderUri by AppSettings.localMusicFolderUri.collectAsStateWithLifecycle()
     val highPerformanceMode by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
@@ -1610,6 +1611,16 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setSmartVersionAlignment(!smartVersionAlignment) },
+                )
+            }
+            val smartSourceAlignmentTitle = stringResource(R.string.smart_source_alignment)
+            row(smartSourceAlignmentTitle, "alignment", "sync", "waveform", "upgrade", "source", "lossless", divided = false) {
+                SettingsSubRow(
+                    title = smartSourceAlignmentTitle,
+                    subtitle = stringResource(R.string.smart_source_alignment_subtitle),
+                    checked = smartVersionAlignment && smartSourceAlignment,
+                    onCheckedChange = AppSettings::setSmartSourceAlignment,
+                    enabled = smartVersionAlignment,
                 )
             }
             val showNerdStatsTitle = stringResource(R.string.show_nerd_stats)

@@ -9,6 +9,7 @@ import android.os.SystemClock
 import com.music.bitchord.R
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.playback.smart.AutomixAnalysisSource
+import com.music.bitchord.playback.smart.StreamAudioSource
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
@@ -1393,6 +1394,23 @@ object AudioCache {
     private const val MATCHING_SCHEMA = 2
     private const val ALT_SUFFIX = "#alt"
 
+    private const val MAX_KNOWN_TOTALS = 64
+    private val knownTotals = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    private fun rememberTotal(key: String, total: Long) {
+        if (knownTotals.size >= MAX_KNOWN_TOTALS) knownTotals.clear()
+        knownTotals[key] = total
+    }
+
+    /**
+     * Records a size learned outside the cache — one ranged request against the
+     * stream, made when the cache could not answer for an item it holds only
+     * part of. See [playbackFactory] for what needs it and why.
+     */
+    fun rememberStreamTotal(uri: Uri, total: Long) {
+        rememberTotal(uri.toString(), total)
+    }
+
     /**
      * Wraps [upstream] so everything played is written to disk on the way
      * through, and anything already there is served without a request.
@@ -1423,7 +1441,15 @@ object AudioCache {
                 } else {
                     cacheDs
                 }
-                return activeDs.open(dataSpec)
+                val length = activeDs.open(dataSpec)
+                val key = dataSpec.uri.toString()
+                if (length != C.LENGTH_UNSET.toLong()) {
+                    rememberTotal(key, dataSpec.position + length)
+                    return length
+                }
+                return knownTotals[key]
+                    ?.let { (it - dataSpec.position).coerceAtLeast(0L) }
+                    ?: length
             }
 
             override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
@@ -2584,6 +2610,26 @@ object AudioCache {
                 .createDataSource(),
             uri,
         )
+
+    /**
+     * A random-access reader over [uri]'s cached bytes, for waveform alignment.
+     * Returns null if no cached bytes are available.
+     */
+    fun streamMediaDataSource(uri: Uri): MediaDataSource? {
+        if (!::cache.isInitialized) return null
+        val key = keyFactory.buildCacheKey(DataSpec(uri))
+        val spans = cache.getCachedSpans(key).filter { it.isCached }
+        if (spans.isEmpty()) return null
+        return StreamAudioSource(
+            CacheDataSource.Factory()
+                .setCache(cache)
+                .setUpstreamDataSourceFactory(NoUpstream)
+                .setCacheKeyFactory(keyFactory)
+                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+                .createDataSource(),
+            uri,
+        )
+    }
 
     /**
      * A random-access reader over [uri]'s cached bytes, for the analyzer to hand

@@ -270,6 +270,8 @@
     <string name="skip_silence_float_subtitle">Unavailable on 32-bit float output</string>
     <string name="smart_version_alignment">Smart audio alignment</string>
     <string name="smart_version_alignment_subtitle">Analyze audio waveforms to match the exact corresponding playback moment</string>
+    <string name="smart_source_alignment" translatable="false">Align upgraded audio sources</string>
+    <string name="smart_source_alignment_subtitle" translatable="false">Analyze waveforms when upgrading stream quality to eliminate beat skips</string>
     <string name="equalizer">Equalizer</string>
     <string name="equalizer_subtitle">Tone, seven bands and balance</string>
     <string name="equalizer_footer">Shapes the sound inside BitChord, before it reaches the system.</string>
@@ -499,6 +501,8 @@
     <string name="pipeline_bitrate">Bitrate</string>
     <string name="pipeline_pcm_data_rate" translatable="false">PCM Data Rate</string>
     <string name="pipeline_channels">Channels</string>
+    <string name="pipeline_alignment" translatable="false">Waveform alignment</string>
+    <string name="pipeline_alignment_drift" translatable="false">%1$s (drift %2$s)</string>
     <string name="pipeline_decoder_name">Decoder Name</string>
     <string name="pipeline_io_rate">I/O Rate</string>
     <string name="pipeline_type">Type</string>

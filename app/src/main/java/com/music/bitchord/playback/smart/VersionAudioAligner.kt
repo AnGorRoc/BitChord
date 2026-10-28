@@ -576,7 +576,7 @@ object VersionAudioAligner {
      * the same order when it declares the head ready, so what the wait calls
      * ready is what gets opened here.
      */
-    private fun openDataSource(context: Context, song: Song): MediaDataSource? {
+    internal fun openDataSource(context: Context, song: Song): MediaDataSource? {
         song.localUri?.let { local ->
             val uri = Uri.parse(local)
             if (LocalAudioSource.isLocal(uri)) {
@@ -607,7 +607,7 @@ object VersionAudioAligner {
     /**
      * Computes RMS energy envelope over sliding windows.
      */
-    private fun computeEnergyEnvelope(
+    internal fun computeEnergyEnvelope(
         samples: FloatArray,
         sampleRate: Double,
         hopMs: Double = HOP_MS,

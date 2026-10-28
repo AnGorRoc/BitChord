@@ -284,6 +284,22 @@ fun AudioPipelineDialog(
                 PipelineRow(stringResource(R.string.pipeline_bitrate), bitrate)
                 PipelineRow(stringResource(R.string.pipeline_pcm_data_rate), pcmDataRate)
                 PipelineRow(stringResource(R.string.pipeline_channels), channels)
+                nerdStats?.shownAlignmentOffsetMs?.let { offset ->
+                    val offsetText = "%+d ms".format(java.util.Locale.ROOT, offset)
+                    val drift = nerdStats?.syncDriftMs
+                    PipelineRow(
+                        stringResource(R.string.pipeline_alignment),
+                        if (drift != null) {
+                            stringResource(
+                                R.string.pipeline_alignment_drift,
+                                offsetText,
+                                "%+d ms".format(java.util.Locale.ROOT, drift),
+                            )
+                        } else {
+                            offsetText
+                        },
+                    )
+                }
             }
 
             // 2. Decoder Stage
