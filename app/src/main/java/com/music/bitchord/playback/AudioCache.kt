@@ -268,6 +268,11 @@ object AudioCache {
         // Nothing is playing yet, so nothing an addon served is worth keeping —
         // see [dropForeignEntries].
         dropForeignEntries(keep = emptySet())
+        // A stream choice standing behind a half-filled entry is held past its
+        // idle limit, and when it finally lapses the half-filled bytes go with
+        // it — see [StreamChoice].
+        StreamChoice.holdsPartial = ::holdsPartialChoice
+        StreamChoice.onLapsed = { videoId -> scope.launch { dropPartialChoice(videoId) } }
         // A SimpleCache can only be opened once per process, so the ceiling
         // moves by mutating this evictor rather than reopening the cache —
         // see [DynamicLruCacheEvictor].
@@ -642,6 +647,80 @@ object AudioCache {
                 ?: NerdStats.declaredFormat(mediaId),
         )
 
+    /**
+     * The entries a [StreamChoice] decides the file of: the plain one and the
+     * `#alt` ones. Upgrades (`#hifi…`) are held to their stream by
+     * [QualityUpgrade] instead, and `#original` by its own pin.
+     */
+    private fun choiceKeysOf(videoId: String): List<String> =
+        listOf(videoId, "$videoId$ALT_SUFFIX", "$videoId$ALT_SUFFIX-noatmos")
+
+    /** Whether any entry [choiceKeysOf] names holds part of a file but not all of it. */
+    private fun holdsPartialChoice(videoId: String): Boolean {
+        if (!::cache.isInitialized) return false
+        return choiceKeysOf(videoId).any { key ->
+            cache.getCachedSpans(key).any { it.isCached } && !isComplete(key)
+        }
+    }
+
+    /**
+     * Drops the half-filled entries of a track whose stream choice has lapsed,
+     * so the next resolve — which may pick another server — starts a clean file
+     * instead of finishing this one. A complete entry is kept; one held by a
+     * live reader cannot be removed and is left to it.
+     */
+    private fun dropPartialChoice(videoId: String) {
+        choiceKeysOf(videoId).forEach { key ->
+            if (cache.getCachedSpans(key).none { it.isCached } || isComplete(key)) return@forEach
+            runCatching { cache.removeResource(key) }
+                .onSuccess { TrackLog.d(TAG, "dropped half-filled $key: its stream choice lapsed", about = videoId) }
+                .onFailure { TrackLog.d(TAG, "half-filled $key still in use: ${it.message}", about = videoId) }
+        }
+    }
+
+    /**
+     * Pins [stream] as [videoId]'s copy for read-ahead, and says whether the
+     * pinned stream is now [stream] — the only case in which read-ahead may
+     * write its bytes.
+     *
+     * An entry already holding part of a *different* server's file is cleared
+     * first, since the choice that started it has gone — the map lives in
+     * memory and the entry on disk outlives it. When that entry cannot be
+     * cleared because something is reading it, nothing is pinned.
+     */
+    fun pinForReadAhead(videoId: String, stream: SourceStream, substituted: Boolean): Boolean {
+        StreamChoice.of(videoId)?.let { return it.url == stream.url }
+        if (::cache.isInitialized) {
+            val newHost = serverOf(stream.url)
+            val key = keyFactory.buildCacheKey(DataSpec(Uri.parse("bitchord://watch?v=$videoId")))
+            val partial = cache.getCachedSpans(key).any { it.isCached } && !isComplete(key)
+            if (partial) {
+                val servedBy = runCatching { cache.getContentMetadata(key).get(META_SERVED_HOST, null as String?) }
+                    .getOrNull()
+                if (servedBy != newHost) {
+                    val cleared = runCatching { cache.removeResource(key) }.isSuccess
+                    TrackLog.d(
+                        TAG,
+                        "${if (cleared) "cleared" else "kept"} half-filled $key from $servedBy before pinning $newHost",
+                        about = videoId,
+                    )
+                    if (!cleared) return false
+                }
+            }
+        }
+        return StreamChoice.rememberIfAbsent(videoId, stream, substituted).url == stream.url
+    }
+
+    /**
+     * The server a stream URL names, as [META_SERVED_HOST] records it.
+     * googlevideo hands out a different edge host on every resolve of the
+     * same file, so those are folded into one name.
+     */
+    private fun serverOf(url: String): String? {
+        val host = runCatching { Uri.parse(url).host }.getOrNull()?.lowercase(Locale.ROOT) ?: return null
+        return if (host.endsWith("googlevideo.com")) "googlevideo.com" else host
+    }
+
     /** Whether every byte of the entry [key] is on disk. */
     private fun isComplete(key: String): Boolean = runCatching {
         val length = ContentMetadata.getContentLength(cache.getContentMetadata(key))
@@ -827,6 +906,10 @@ object AudioCache {
         val mediaId = mediaIdIn(spec.uri) ?: return
         val key = spec.key ?: keyFactory.buildCacheKey(spec)
         val origin = originOf(spec.uri, mediaId, servedUrl)
+        // Which server's file this is, finer than [origin]: two addons are both
+        // [Origin.OTHER] and still two different files. Read by
+        // [pinForReadAhead] before it lets a new choice finish this entry.
+        val host = serverOf(servedUrl)
         // What decides whether this FLAC outlives its track — see [keptOrigin].
         val tier = if (origin == Origin.MONOCHROME) losslessTierOf(spec.uri, mediaId).name else null
         val song = notedSongs[mediaId]
@@ -845,7 +928,8 @@ object AudioCache {
                 has(META_PLAYBACK) == usedByPlayback &&
                 (usedByPlayback || has(META_ANALYSIS)) &&
                 has(META_PLAYED) == played &&
-                (tier == null || meta.get(META_LOSSLESS_TIER, null as String?) == tier)
+                (tier == null || meta.get(META_LOSSLESS_TIER, null as String?) == tier) &&
+                (host == null || meta.get(META_SERVED_HOST, null as String?) == host)
             // Every re-open — a seek, a continuation fetch — passes through
             // here. Only write when something would actually change.
             if (tagged && (song == null || has(META_TITLE))) return
@@ -855,6 +939,7 @@ object AudioCache {
                     mutations.set(META_ORIGIN, origin.name)
                     mutations.set(META_MEDIA_ID, mediaId)
                     tier?.let { mutations.set(META_LOSSLESS_TIER, it) }
+                    host?.let { mutations.set(META_SERVED_HOST, it) }
                     if (usedByPlayback) mutations.set(META_PLAYBACK, "1") else mutations.set(META_ANALYSIS, "1")
                     if (played) mutations.set(META_PLAYED, "1")
                     describe(mutations, song, spec.uri)
@@ -1232,6 +1317,9 @@ object AudioCache {
     /** A kept lossless entry's [LosslessTier], which decides whether its level keeps it. */
     private const val META_LOSSLESS_TIER = "bc_lossless_tier"
     private const val META_MEDIA_ID = "bc_media_id"
+
+    /** The host the entry's bytes were served from; see [recordServed]. */
+    private const val META_SERVED_HOST = "bc_served_host"
     private const val META_TITLE = "bc_title"
     private const val META_ARTIST = "bc_artist"
     private const val META_ALBUM = "bc_album"
@@ -1438,7 +1526,7 @@ object AudioCache {
                     runCatching { SourceResolver.prefetchSubstitute(target) }
                         .onFailure { TrackLog.d(TAG, "warm-up substitute failed for $next: ${it.message}", about = next) }
                         .getOrNull()
-                        ?.also { StreamChoice.remember(next, it, substituted = true) }
+                        ?.takeIf { pinForReadAhead(next, it, substituted = true) }
                 } else {
                     null
                 }
@@ -1516,8 +1604,11 @@ object AudioCache {
                     }
                     .getOrNull()
                     ?: return@launch
-                if (StreamChoice.of(id) == null) StreamChoice.remember(id, stream, substituted = addon != null)
+                pinForReadAhead(id, stream, substituted = addon != null)
             }
+            // Nothing pinned means an entry half-filled by another server could
+            // not be cleared; fetching now would race the player to finish it.
+            if (StreamChoice.of(id) == null) return@launch
             fetch(id, 0, PRELOAD_BYTES)
         }
     }

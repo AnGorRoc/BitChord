@@ -92,4 +92,63 @@ class StreamChoiceTest {
         StreamChoice.forget("track-5")
         assertNull(StreamChoice.of("track-5"))
     }
+
+    /** Read-ahead and the player's resolve race for the same track; the first to record wins for both. */
+    @Test
+    fun `remembering if absent keeps the choice already made`() {
+        val first = stream("tracks.monochrome.st")
+        assertEquals(first.url, StreamChoice.rememberIfAbsent("track-6", first, substituted = true).url)
+        val second = stream("aac.saavncdn.com")
+        assertEquals(first.url, StreamChoice.rememberIfAbsent("track-6", second, substituted = true).url)
+        assertEquals(first.url, StreamChoice.of("track-6")?.url)
+    }
+
+    @Test
+    fun `a choice in use does not expire`() {
+        StreamChoice.remember("track-7", stream("aac.saavncdn.com"), substituted = true)
+        // Used every ten minutes for an hour: never idle past the limit.
+        repeat(6) {
+            now += 10 * 60 * 1000L
+            assertNotNull(StreamChoice.of("track-7"))
+        }
+    }
+
+    @Test
+    fun `an idle choice over nothing half-filled expires`() {
+        StreamChoice.remember("track-8", stream("aac.saavncdn.com"), substituted = true)
+        now += StreamChoice.TTL_MS + 1
+        assertNull(StreamChoice.of("track-8"))
+    }
+
+    @Test
+    fun `an idle choice over a half-filled entry is held, then lapses with its bytes`() {
+        val lapsed = mutableListOf<String>()
+        StreamChoice.holdsPartial = { it == "track-9" }
+        StreamChoice.onLapsed = { lapsed += it }
+        StreamChoice.remember("track-9", stream("tracks.monochrome.st"), substituted = true)
+        now += StreamChoice.TTL_MS + 1
+        assertNotNull(StreamChoice.of("track-9"))
+        now += StreamChoice.MAX_PIN_MS
+        // Used a moment ago, so only the absolute cap can release it.
+        now += StreamChoice.TTL_MS + 1
+        assertNull(StreamChoice.of("track-9"))
+        assertEquals(listOf("track-9"), lapsed)
+    }
+
+    @Test
+    fun `an expired choice can be replaced`() {
+        StreamChoice.remember("track-10", stream("aac.saavncdn.com"), substituted = true)
+        now += StreamChoice.TTL_MS + 1
+        val fresh = stream("tracks.monochrome.st")
+        assertEquals(fresh.url, StreamChoice.rememberIfAbsent("track-10", fresh, substituted = true).url)
+    }
+
+    private var now = 1_000_000L
+
+    @Before
+    fun useTestClock() {
+        StreamChoice.clock = { now }
+        StreamChoice.holdsPartial = { false }
+        StreamChoice.onLapsed = {}
+    }
 }

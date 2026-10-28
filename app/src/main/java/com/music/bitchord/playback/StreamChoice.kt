@@ -46,25 +46,83 @@ import java.util.concurrent.ConcurrentHashMap
  * player a dead URL rather than a wrong one, which is no better. [TTL_MS] is
  * far inside every expiry seen, so a choice is either reused while it is
  * certainly still good or made again from scratch.
+ *
+ * The limit counts from the last time a choice was *used*, not from when it was
+ * made. Counted from the start, a long track paused for a while, or a track
+ * pinned two places ahead of the one playing, outlived its choice with its
+ * entry half full — and the next open re-ran the race, which is free to land on
+ * a different server and finish that entry with a different file. A choice
+ * that still stands behind a half-filled entry is not dropped for being idle at
+ * all, only once [MAX_PIN_MS] has passed since it was made; and then the bytes
+ * it was standing behind are dropped with it — see [onLapsed].
  */
 object StreamChoice {
 
-    private class Choice(val stream: SourceStream, val at: Long, val substituted: Boolean)
+    private class Choice(
+        val stream: SourceStream,
+        val madeAt: Long,
+        @Volatile var usedAt: Long,
+        val substituted: Boolean,
+    )
 
     private val chosen = ConcurrentHashMap<String, Choice>()
 
+    /** The clock everything here is measured on; replaceable so tests can move it. */
+    internal var clock: () -> Long = { SystemClock.elapsedRealtime() }
+
+    /**
+     * Whether some cache entry of the track holds part of a file and not the
+     * whole of it, i.e. whether letting its choice go could let another server
+     * finish it. Installed by [AudioCache]; nothing is held without it.
+     */
+    @Volatile
+    var holdsPartial: (videoId: String) -> Boolean = { false }
+
+    /**
+     * Told when a choice is dropped from over a half-filled entry after
+     * [MAX_PIN_MS], so those bytes go with it and the next resolve starts a
+     * clean file. Installed by [AudioCache].
+     */
+    @Volatile
+    var onLapsed: (videoId: String) -> Unit = {}
+
     /**
      * The stream already serving [videoId], or null if this is the first read
-     * for it — or the last one was long enough ago that its URL is no longer
-     * worth trusting.
+     * for it — or it has gone unused long enough that its URL is no longer
+     * worth trusting. Asking counts as using it.
      */
     fun of(videoId: String): SourceStream? {
         val choice = chosen[videoId] ?: return null
-        if (SystemClock.elapsedRealtime() - choice.at > TTL_MS) {
-            chosen.remove(videoId)
-            return null
+        val now = clock()
+        if (now - choice.usedAt > TTL_MS) {
+            val held = now - choice.madeAt <= MAX_PIN_MS && holdsPartial(videoId)
+            if (!held) {
+                if (chosen.remove(videoId, choice) && holdsPartial(videoId)) onLapsed(videoId)
+                return null
+            }
         }
+        choice.usedAt = now
         return choice.stream
+    }
+
+    private fun Choice.isLive(now: Long): Boolean = now - usedAt <= TTL_MS
+
+    /**
+     * Records [stream] for [videoId] unless something is already serving it,
+     * and returns whichever stream ends up recorded — the one to read from.
+     *
+     * Atomic, because two writers now choose for the same track: the player's
+     * own resolve and the read-ahead that pins a track before it is reached.
+     * Checking and then writing let either overwrite the other after it had
+     * started filling the entry, which is the mixed-file seam this object
+     * exists to prevent.
+     */
+    fun rememberIfAbsent(videoId: String, stream: SourceStream, substituted: Boolean): SourceStream {
+        makeRoom()
+        val now = clock()
+        return chosen.compute(videoId) { _, old ->
+            if (old != null && old.isLive(now)) old.also { it.usedAt = now } else Choice(stream, now, now, substituted)
+        }!!.stream
     }
 
     /**
@@ -77,6 +135,12 @@ object StreamChoice {
      *   that fails has not.
      */
     fun remember(videoId: String, stream: SourceStream, substituted: Boolean) {
+        makeRoom()
+        val now = clock()
+        chosen[videoId] = Choice(stream, now, now, substituted)
+    }
+
+    private fun makeRoom() {
         if (chosen.size >= MAX_REMEMBERED) {
             // Drop what can no longer be honoured, and only then the oldest of
             // what can. This used to `clear()`, which is the one eviction
@@ -91,13 +155,12 @@ object StreamChoice {
             // before it is reached and caches its bytes on the strength of that
             // pin, so a promise can outlive several other tracks' worth of
             // entries, and the blunt version became reachable.
-            val now = SystemClock.elapsedRealtime()
-            chosen.entries.removeIf { now - it.value.at > TTL_MS }
+            val now = clock()
+            chosen.entries.removeIf { !it.value.isLive(now) }
             if (chosen.size >= MAX_REMEMBERED) {
-                chosen.minByOrNull { it.value.at }?.let { chosen.remove(it.key) }
+                chosen.minByOrNull { it.value.usedAt }?.let { chosen.remove(it.key) }
             }
         }
-        chosen[videoId] = Choice(stream, SystemClock.elapsedRealtime(), substituted)
     }
 
     /**
@@ -174,8 +237,16 @@ object StreamChoice {
         return false
     }
 
-    /** Long enough to outlast any one play, far short of any signed URL's life. */
-    private const val TTL_MS = 15 * 60 * 1000L
+    /** How long a choice may sit unused: longer than any one pause or play, far short of any signed URL's life. */
+    internal const val TTL_MS = 15 * 60 * 1000L
+
+    /**
+     * The most a choice standing behind a half-filled entry is held, however
+     * recently it was used. Well inside the roughly five hours a signed URL
+     * was seen to live, so the stream it promises is still there to finish
+     * the file with.
+     */
+    internal const val MAX_PIN_MS = 2 * 60 * 60 * 1000L
 
     /**
      * How long a track stays off substitution after one broke it.

@@ -1607,10 +1607,10 @@ class PlaybackService : MediaLibraryService() {
                 // above under a half-filled cache entry, and the entry would
                 // then be finished by a different file.
                 NerdStats.recordSource(videoId, "YouTube")
-                StreamChoice.remember(videoId, SourceStream(streamUrl, headers = headers), substituted = false)
+                val kept = StreamChoice.rememberIfAbsent(videoId, SourceStream(streamUrl, headers = headers), substituted = false)
                 return@Resolver dataSpec.buildUpon()
-                    .setUri(Uri.parse(streamUrl))
-                    .setHttpRequestHeaders(headers)
+                    .setUri(Uri.parse(kept.url))
+                    .setHttpRequestHeaders(kept.headers)
                     .build()
             }
             val won = runBlocking(about) {
@@ -1619,16 +1619,20 @@ class PlaybackService : MediaLibraryService() {
                     target = SourceResolver.targetIn(dataSpec.uri),
                 )
             }
+            // Whatever is recorded is what gets served, even when it is not what
+            // this race found: read-ahead may have pinned the track while the
+            // race ran, and its bytes may already be on disk. See
+            // [StreamChoice.rememberIfAbsent].
             when (won) {
                 is Resolved.Module -> {
-                    val sourceName = won.stream.sourceConfigId?.let { SourceRegistry.config(it)?.displayName }
+                    val kept = StreamChoice.rememberIfAbsent(videoId, won.stream, substituted = true)
+                    val sourceName = kept.sourceConfigId?.let { SourceRegistry.config(it)?.displayName }
                         ?: "Module"
-                    NerdStats.onSourceStream(videoId, won.stream.format, sourceName)
+                    if (kept.format != StreamFormat()) NerdStats.onSourceStream(videoId, kept.format, sourceName)
                     NerdStats.recordSource(videoId, sourceName)
-                    StreamChoice.remember(videoId, won.stream, substituted = true)
                     dataSpec.buildUpon()
-                        .setUri(Uri.parse(won.stream.url))
-                        .setHttpRequestHeaders(won.stream.headers)
+                        .setUri(Uri.parse(kept.url))
+                        .setHttpRequestHeaders(kept.headers)
                         .build()
                 }
                 // A module could have served this and didn't — it missed, its
@@ -1640,12 +1644,18 @@ class PlaybackService : MediaLibraryService() {
                 // no such deadline, so what was nearly in hand is asked for
                 // again while the fallback plays.
                 is Resolved.YouTube -> {
-                    NerdStats.recordSource(videoId, "YouTube")
                     val headers = StreamResolver.mediaHeadersFor(won.url)
-                    StreamChoice.remember(videoId, SourceStream(won.url, headers = headers), substituted = false)
+                    val kept = StreamChoice.rememberIfAbsent(
+                        videoId,
+                        SourceStream(won.url, headers = headers),
+                        substituted = false,
+                    )
+                    val sourceName = kept.sourceConfigId?.let { SourceRegistry.config(it)?.displayName } ?: "YouTube"
+                    if (kept.format != StreamFormat()) NerdStats.onSourceStream(videoId, kept.format, sourceName)
+                    NerdStats.recordSource(videoId, sourceName)
                     dataSpec.buildUpon()
-                        .setUri(Uri.parse(won.url))
-                        .setHttpRequestHeaders(headers)
+                        .setUri(Uri.parse(kept.url))
+                        .setHttpRequestHeaders(kept.headers)
                         .build()
                 }
             }

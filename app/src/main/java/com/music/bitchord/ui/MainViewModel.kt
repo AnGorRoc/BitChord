@@ -105,7 +105,6 @@ import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.BoundedContextRequests
 import com.music.bitchord.playback.DirectSourceGate
 import com.music.bitchord.playback.contextEntryKey
-import com.music.bitchord.playback.StreamChoice
 import com.music.bitchord.ui.screens.CACHE_FOLDER_BROWSE_ID
 import com.music.bitchord.data.LocalGroup
 import com.music.bitchord.data.LocalGroups
@@ -2587,7 +2586,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     ),
                 )
                 if (warmed != null) {
-                    StreamChoice.remember(audio.videoId, warmed, substituted = true)
+                    AudioCache.pinForReadAhead(audio.videoId, warmed, substituted = true)
                     return@runCatching
                 }
                 // Disabled, or hasn't got it: the tap path falls back to
