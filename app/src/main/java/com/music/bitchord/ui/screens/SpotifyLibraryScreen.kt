@@ -419,7 +419,7 @@ private fun SelectionBar(state: SpotifyLibraryState, modifier: Modifier) {
                 )
             }
             Text(
-                text = "$count ${stringResource(R.string.selected)}",
+                text = stringResource(R.string.selected_count, count),
                 style = MaterialTheme.typography.titleSmall,
                 color = ink,
                 modifier = Modifier.weight(1f),

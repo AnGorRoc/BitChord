@@ -1132,7 +1132,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         val created = UserPlaylist(
                             playlistId = playlistId,
                             title = name,
-                            subtitle = "${videoIds.size} songs",
+                            subtitle = songCountText(videoIds.size),
                             thumbnailUrl = null,
                         )
                         _playlists.value = listOf(created) +
@@ -1174,7 +1174,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val item = UserPlaylist(
             playlistId = playlistId,
             title = title,
-            subtitle = "$songCount songs",
+            subtitle = songCountText(songCount),
             thumbnailUrl = _playlists.value.firstOrNull { it.playlistId == playlistId }?.thumbnailUrl,
         )
         _playlists.value = listOf(item) + _playlists.value.filterNot { it.playlistId == playlistId }
@@ -3932,6 +3932,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun text(id: Int): String = getApplication<Application>().getString(id)
+
+    /** "1 song", "12 songs": the plural of the language in use, not English. */
+    private fun songCountText(count: Int): String =
+        getApplication<Application>().resources.getQuantityString(R.plurals.song_count_plural, count, count)
 }
 
 /**
