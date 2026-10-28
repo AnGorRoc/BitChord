@@ -30,6 +30,12 @@ sealed interface LinkRequest {
     data object Resume : LinkRequest
 
     /**
+     * A song or page on another service (Spotify, Apple Music…), which has to
+     * be looked up by name before anything can be played. See [ExternalLink].
+     */
+    data class External(val uri: Uri) : LinkRequest
+
+    /**
      * An audio file another app asked to have played — "Open with" from a file
      * manager, a tapped attachment — by the `content://` or `file://` uri it
      * handed over. See [com.music.bitchord.data.LocalMediaRepository.songFromUri].
@@ -75,11 +81,11 @@ object MusicLink {
             // Only the audio filter in the manifest takes these two schemes, so
             // either one is a file to play rather than a link to look up.
             Intent.ACTION_VIEW -> intent.data?.let { uri ->
-                if (uri.scheme == "content" || uri.scheme == "file") LinkRequest.LocalFile(uri) else parse(uri)
+                if (uri.scheme == "content" || uri.scheme == "file") LinkRequest.LocalFile(uri) else link(uri)
             }
             Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
                 ?.let(::firstUrl)
-                ?.let { parse(Uri.parse(it)) }
+                ?.let { link(Uri.parse(it)) }
             // The assistant's "play <something>". An empty query is the whole
             // point of the Resume case: "play music" names nothing, and the
             // useful answer is to carry on with what was already on.
@@ -105,6 +111,9 @@ object MusicLink {
     fun handled() {
         _pending.value = null
     }
+
+    private fun link(uri: Uri): LinkRequest? =
+        parse(uri) ?: if (ExternalLink.supports(uri)) LinkRequest.External(uri) else null
 
     /**
      * What a YouTube or YouTube Music URL points at, or null for one this app

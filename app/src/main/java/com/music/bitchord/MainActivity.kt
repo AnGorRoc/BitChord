@@ -189,6 +189,7 @@ import com.music.bitchord.ui.screens.SpotifyLibraryScreen
 import com.music.bitchord.ui.screens.SpotifyLibraryState
 import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX
 import com.music.bitchord.playback.AudioCache
+import com.music.bitchord.playback.ExternalLink
 import com.music.bitchord.playback.LinkRequest
 import com.music.bitchord.playback.MusicLink
 import com.music.bitchord.playback.OriginalVersion
@@ -2011,6 +2012,29 @@ private fun BitChordApp(
             // bounded queue before the controller connects, so this resumes
             // both a live session and one recovered after process death.
             LinkRequest.Resume -> if (session.mediaItemCount > 0) session.play()
+            // A song from another service: find its name, then treat it as a
+            // spoken "play <title> <artist>".
+            is LinkRequest.External -> {
+                val resolved = ExternalLink.resolve(request.uri)
+                val top = resolved?.takeIf { it.isTrack }?.let {
+                    YtMusicRepository.search(it.query, SearchFilter.SONGS).getOrNull()
+                        ?.filterIsInstance<SearchResult.Track>()?.firstOrNull()?.song
+                }
+                when {
+                    top != null -> playRadio(top, QueueSource(sharedLinkLabel, PlaybackSourceType.SHARED_LINK, top.videoId))
+                    resolved != null -> {
+                        dismissPlayer()
+                        navigator.clear()
+                        selectedTab = TAB_SEARCH
+                        viewModel.searchFor(resolved.query)
+                    }
+                    else -> Toast.makeText(
+                        context,
+                        context.getString(R.string.couldnt_open_link),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
             // A file from a file manager. The read grant that came with the
             // intent lasts as long as this task; a persistable one, when the
             // sender offered it, keeps the track playable after a restart.

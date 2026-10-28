@@ -202,6 +202,29 @@
                 <data android:host="youtu.be" />
             </intent-filter>
 
+            <!--
+              Songs shared from other services. Opened by a tap only if the
+              user lets BitChord handle these domains; sharing into BitChord
+              (the SEND filter below) always works. Resolved by name, see
+              ExternalLink.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="open.spotify.com" />
+                <data android:host="spotify.link" />
+                <data android:host="music.apple.com" />
+                <data android:host="deezer.com" />
+                <data android:host="www.deezer.com" />
+                <data android:host="soundcloud.com" />
+                <data android:host="on.soundcloud.com" />
+                <data android:host="tidal.com" />
+                <data android:host="listen.tidal.com" />
+                <data android:host="music.amazon.com" />
+            </intent-filter>
+
             <!-- Public Listen Together invites. autoVerify makes a tap open
                  BitChord directly once the domain publishes its assetlinks
                  association for the production signing certificate. -->
