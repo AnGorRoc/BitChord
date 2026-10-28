@@ -2384,16 +2384,11 @@ class PlaybackService : MediaLibraryService() {
                     delay(10)
                 }
                 if (standbyPlayer.isPlaying) {
-                    // Now that it is producing audio — still at zero volume —
-                    // measure where it is against the outgoing player, and take
-                    // up the difference. A seek is not instant: the incoming
-                    // player resumes some time after it is asked to, and the
-                    // outgoing one has not stopped for any of it, so a single
-                    // seek to "now" lands that late. Heard as a crossfade
-                    // between two copies of one song, that is the flam, or the
-                    // phasey smear, that a measured shift to the sample could
-                    // never have prevented.
-                    lockStandbyToActive(activePlayer, standbyPlayer, currentIndex, alignmentOffsetMs)
+                    // For manual version swaps with smart align, lockStandbyToActive nudges playback speed.
+                    // For quality upgrades, skip lockStandbyToActive speed-nudges to avoid pitch bends.
+                    if (!quiet) {
+                        lockStandbyToActive(activePlayer, standbyPlayer, currentIndex, alignmentOffsetMs)
+                    }
                 }
             } else {
                 // Paused swap: nothing is running on either side, so the first
@@ -2405,8 +2400,10 @@ class PlaybackService : MediaLibraryService() {
                 }
             }
 
-            // Smooth equal-power crossfade transition (~550ms audio morph)
-            val swapCrossfadeMs = 550L
+            // Quality upgrades use a fast micro-dip (120ms) where active dips to 0 before standby rises,
+            // completely avoiding overlapping audio, comb-filtering and double-vocal echoes.
+            // Other transitions use equal-power crossfade (550ms).
+            val swapCrossfadeMs = if (quiet) 120L else 550L
             val fadeStart = SystemClock.elapsedRealtime()
             if (!smartAlignEnabled && !quiet) {
                 AppSettings.smartMixInProgress.value = true
@@ -2430,19 +2427,28 @@ class PlaybackService : MediaLibraryService() {
                         standbyPlayer.playWhenReady = activePlayer.playWhenReady
                     }
 
-                    val inGain = sin(progress * (PI / 2.0)).toFloat()
-                    val outGain = cos(progress * (PI / 2.0)).toFloat()
-                    standbyPlayer.volume = inGain
-                    activePlayer.volume = outGain
-                    // The same headroom a crossfade takes, and for the same
-                    // reason — see [LoudnessProcessor]. More so here: two
-                    // versions of one song line up peak for peak.
-                    val swapTrim = 1f / sqrt((inGain + outGain).coerceAtLeast(1f))
-                    loudnessA.setBlendTrim(swapTrim)
-                    loudnessB.setBlendTrim(swapTrim)
+                    if (quiet) {
+                        // Fast micro-dip: first half fades out active player, second half fades in standby.
+                        // Zero overlap = zero phase cancellation, zero comb-filtering, zero double-voice echo.
+                        val outGain = (1f - (progress * 2f).coerceIn(0f, 1f))
+                        val inGain = ((progress - 0.5f) * 2f).coerceIn(0f, 1f)
+                        activePlayer.volume = outGain
+                        standbyPlayer.volume = inGain
+                    } else {
+                        val inGain = sin(progress * (PI / 2.0)).toFloat()
+                        val outGain = cos(progress * (PI / 2.0)).toFloat()
+                        standbyPlayer.volume = inGain
+                        activePlayer.volume = outGain
+                        // The same headroom a crossfade takes, and for the same
+                        // reason — see [LoudnessProcessor]. More so here: two
+                        // versions of one song line up peak for peak.
+                        val swapTrim = 1f / sqrt((inGain + outGain).coerceAtLeast(1f))
+                        loudnessA.setBlendTrim(swapTrim)
+                        loudnessB.setBlendTrim(swapTrim)
+                    }
 
                     if (progress >= 1f) break
-                    delay(16)
+                    delay(if (quiet) 12 else 16)
                 }
 
                 // Adopt incoming player cleanly
@@ -5164,11 +5170,10 @@ class PlaybackService : MediaLibraryService() {
             stream.format.kbps,
             at.item.mediaMetadata.title?.toString() ?: mediaId,
         )
-        // Listening could not line the two up. The track stays on the copy it
-        // has unless the better one states a length that agrees with it to
-        // within a few milliseconds: then there is no pad to be off by, and
-        // swapping is as safe as it is for the listener who got a measurement.
-        val offsetMs = measuredMs ?: VersionAudioAligner.offsetFromLengths(
+        // If waveform cross-correlation didn't produce an offset, check runtime length agreement.
+        // If that also can't be judged, apply direct cut swap with offset 0ms so the user always
+        // gets the higher quality stream instead of remaining stuck on lower quality.
+        val lengthOffsetMs = VersionAudioAligner.offsetFromLengths(
             upgradedMs = stream.exactDurationMs,
             playingMs = at.duration.takeIf { it > 0 },
         )?.also {
@@ -5178,29 +5183,12 @@ class PlaybackService : MediaLibraryService() {
                 about = mediaId,
             )
         }
-        if (offsetMs == null) {
-            TrackLog.w(
+        val offsetMs = measuredMs ?: lengthOffsetMs ?: 0L.also {
+            TrackLog.d(
                 "BitChord",
-                "upgrade to ${stream.format.summary} left for later for '$mediaId': it could not be lined up with the playing copy, and a swap off by even a little is heard as a skip or an echo",
+                "upgrade for '$mediaId' not strictly aligned; applying direct cut swap to better quality (${stream.format.summary}) with offset 0ms",
                 about = mediaId,
             )
-            QualityUpgrade.forget(mediaId)
-            withContext(Dispatchers.IO) { AudioCache.discardRendition(Uri.parse(upgradedUri)) }
-            // Not asked for again for a while, so the same opening is not
-            // fetched, measured and thrown away at every retry.
-            QualityUpgrade.holdUnaligned(mediaId)
-            val sourceId = stream.sourceConfigId ?: "module"
-            val config = SourceRegistry.config(sourceId)
-            val sourceName = config?.displayName ?: "Fuente"
-            val sourceKind = config?.kind ?: SourceKind.ADDON
-            SourceResolutionTracker.record(
-                sourceId = sourceId,
-                displayName = sourceName,
-                kind = sourceKind,
-                status = "Disponible (desfase con audio actual)",
-                detail = "No se pudo sincronizar la posición con la copia en reproducción sin salto perceptible",
-            )
-            return
         }
 
         // There used to be an unconditional five-second hold here, keyed off the
