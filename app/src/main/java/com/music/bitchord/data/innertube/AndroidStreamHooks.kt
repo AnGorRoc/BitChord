@@ -24,7 +24,7 @@ object AndroidStreamHooks {
     fun installEarly() {
         MonotonicClock.nowMs = SystemClock::elapsedRealtime
         TrackLog.echo = { level, tag, message, error ->
-            if (BuildConfig.DEBUG) {
+            if (BuildConfig.DEBUG || BuildConfig.FLAVOR == "dev" || level == 'W' || level == 'E' || Log.isLoggable(tag, Log.DEBUG)) {
                 when (level) {
                     'D' -> Log.d(tag, message, error)
                     'I' -> Log.i(tag, message, error)
@@ -44,7 +44,7 @@ object AndroidStreamHooks {
             )
         }
         StreamResolver.maxKbps = { AppSettings.effectiveAudioQuality.maxKbps }
-        InnerTubeXResolver.debugLogging = BuildConfig.DEBUG
+        InnerTubeXResolver.debugLogging = BuildConfig.DEBUG || BuildConfig.FLAVOR == "dev"
     }
 
     /** What `InnerTubeXResolver.init(context)` did when it lived in the app. */

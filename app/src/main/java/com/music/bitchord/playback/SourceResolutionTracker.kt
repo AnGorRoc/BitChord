@@ -1,5 +1,6 @@
 package com.music.bitchord.playback
 
+import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.sources.SourceKind
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,6 +50,7 @@ object SourceResolutionTracker {
     fun resetForTrack(mediaId: String, title: String) {
         attemptMap.clear()
         _current.value = TrackResolutionState(mediaId = mediaId, title = title, reports = emptyList())
+        TrackLog.d("SourceTracker", "Reset for track '$title' ($mediaId)", about = mediaId)
     }
 
     /**
@@ -76,6 +78,7 @@ object SourceResolutionTracker {
             isWinner = isWinner,
         )
         attemptMap[sourceId] = report
+        TrackLog.d("SourceTracker", "[$displayName] -> $status${detail?.let { " ($it)" } ?: ""}${if (isWinner) " [WINNER]" else ""}")
         publish()
     }
 
@@ -90,11 +93,13 @@ object SourceResolutionTracker {
                     isWinner = true,
                     status = winnerStatus ?: old.status,
                 )
+                TrackLog.d("SourceTracker", "[${old.displayName}] promoted to WINNER: ${winnerStatus ?: old.status}")
             } else if (old.isWinner) {
                 attemptMap[id] = old.copy(
                     isWinner = false,
                     status = "Reemplazado por mayor calidad",
                 )
+                TrackLog.d("SourceTracker", "[${old.displayName}] demoted from winner (superseded by higher quality)")
             }
         }
         publish()

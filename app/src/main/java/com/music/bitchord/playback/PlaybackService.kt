@@ -7158,6 +7158,96 @@ class PlaybackService : MediaLibraryService() {
         QualityUpgrade.isAuditioning(mediaId) ||
         (upgradeJob?.isActive == true && activeMediaId == mediaId)
 
+    private class ThrottlingLoadControl(
+        private val delegate: DefaultLoadControl,
+        private val isUpgradeActive: () -> Boolean,
+        private val maxBufferUs: Long,
+    ) : LoadControl {
+        override fun onPrepared(playerId: androidx.media3.exoplayer.analytics.PlayerId) {
+            delegate.onPrepared(playerId)
+        }
+
+        override fun onTracksSelected(
+            parameters: LoadControl.Parameters,
+            trackGroups: androidx.media3.exoplayer.source.TrackGroupArray,
+            trackSelections: Array<androidx.media3.exoplayer.trackselection.ExoTrackSelection>,
+        ) {
+            delegate.onTracksSelected(parameters, trackGroups, trackSelections)
+        }
+
+        override fun onStopped(playerId: androidx.media3.exoplayer.analytics.PlayerId) {
+            delegate.onStopped(playerId)
+        }
+
+        override fun onReleased(playerId: androidx.media3.exoplayer.analytics.PlayerId) {
+            delegate.onReleased(playerId)
+        }
+
+        override fun getAllocator(playerId: androidx.media3.exoplayer.analytics.PlayerId): androidx.media3.exoplayer.upstream.Allocator {
+            return delegate.getAllocator(playerId)
+        }
+
+        override fun getBackBufferDurationUs(): Long {
+            return delegate.getBackBufferDurationUs(androidx.media3.exoplayer.analytics.PlayerId.UNSET)
+        }
+
+        override fun getBackBufferDurationUs(playerId: androidx.media3.exoplayer.analytics.PlayerId): Long {
+            return delegate.getBackBufferDurationUs(playerId)
+        }
+
+        override fun retainBackBufferFromKeyframe(): Boolean {
+            return delegate.retainBackBufferFromKeyframe(androidx.media3.exoplayer.analytics.PlayerId.UNSET)
+        }
+
+        override fun retainBackBufferFromKeyframe(playerId: androidx.media3.exoplayer.analytics.PlayerId): Boolean {
+            return delegate.retainBackBufferFromKeyframe(playerId)
+        }
+
+        override fun shouldContinueLoading(parameters: LoadControl.Parameters): Boolean {
+            if (isUpgradeActive() && parameters.bufferedDurationUs >= maxBufferUs) {
+                return false
+            }
+            return delegate.shouldContinueLoading(parameters)
+        }
+
+        override fun shouldContinueLoading(
+            playbackPositionUs: Long,
+            bufferedDurationUs: Long,
+            playbackSpeed: Float,
+        ): Boolean {
+            if (isUpgradeActive() && bufferedDurationUs >= maxBufferUs) {
+                return false
+            }
+            return delegate.shouldContinueLoading(
+                LoadControl.Parameters(
+                    androidx.media3.exoplayer.analytics.PlayerId.UNSET,
+                    androidx.media3.common.Timeline.EMPTY,
+                    LoadControl.EMPTY_MEDIA_PERIOD_ID,
+                    playbackPositionUs,
+                    bufferedDurationUs,
+                    playbackSpeed,
+                    /* playWhenReady = */ true,
+                    /* rebuffering = */ false,
+                    /* targetLiveOffsetUs = */ 0L,
+                    /* lastRebufferRealtimeMs = */ 0L,
+                ),
+            )
+        }
+
+        override fun shouldContinuePreloading(
+            playerId: androidx.media3.exoplayer.analytics.PlayerId,
+            timeline: androidx.media3.common.Timeline,
+            mediaPeriodId: androidx.media3.exoplayer.source.MediaSource.MediaPeriodId,
+            bufferedDurationUs: Long,
+        ): Boolean {
+            return delegate.shouldContinuePreloading(playerId, timeline, mediaPeriodId, bufferedDurationUs)
+        }
+
+        override fun shouldStartPlayback(parameters: LoadControl.Parameters): Boolean {
+            return delegate.shouldStartPlayback(parameters)
+        }
+    }
+
     private fun farBufferingLoadControl(): LoadControl {
         val delegate = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
@@ -7170,21 +7260,14 @@ class PlaybackService : MediaLibraryService() {
             .setBackBuffer(/* backBufferDurationMs = */ BACK_BUFFER_MS, /* retainBackBufferFromKeyframe = */ true)
             .build()
 
-        return object : LoadControl by delegate {
-            override fun shouldContinueLoading(
-                playbackPositionUs: Long,
-                bufferedDurationUs: Long,
-                playbackSpeed: Float,
-            ): Boolean {
+        return ThrottlingLoadControl(
+            delegate = delegate,
+            isUpgradeActive = {
                 val mediaId = activeMediaId
-                if (mediaId != null && isUpgradeActiveFor(mediaId)) {
-                    if (bufferedDurationUs >= UPGRADE_PENDING_MAX_BUFFER_US) {
-                        return false
-                    }
-                }
-                return delegate.shouldContinueLoading(playbackPositionUs, bufferedDurationUs, playbackSpeed)
-            }
-        }
+                mediaId != null && isUpgradeActiveFor(mediaId)
+            },
+            maxBufferUs = UPGRADE_PENDING_MAX_BUFFER_US,
+        )
     }
 
     /**
