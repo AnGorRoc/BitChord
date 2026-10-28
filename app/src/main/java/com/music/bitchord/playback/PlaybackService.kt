@@ -5703,6 +5703,13 @@ class PlaybackService : MediaLibraryService() {
                 "upgrade rejected by $sourceId; asking the next source (avoiding ${avoid.size})",
                 about = mediaId,
             )
+            // The rejection ran [QualityUpgrade.forget], which drops the race
+            // badge along with the parked stream. The search is not over - the
+            // next source is about to be asked - so the badge goes back up and
+            // stays there until this attempt settles. Without it the label went
+            // blank between the refusal and the swap, and the confirmed label
+            // then appeared out of nowhere.
+            NerdStats.onLosslessRaceStart(mediaId)
             when (val next = withContext(Dispatchers.IO) {
                 QualityUpgrade.lookAgain(mediaId, playingSeconds, avoid = avoid)
             }) {
