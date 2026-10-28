@@ -8,10 +8,12 @@ import androidx.media3.common.util.UnstableApi
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.playback.AudioCache
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -42,6 +44,30 @@ object VersionAudioAligner {
 
     /** How much of each opening [findRenditionOffsetMs] decodes. */
     const val RENDITION_WINDOW_SECONDS = 18.0
+
+    /**
+     * How closely the lengths of two renditions must agree for them to be taken
+     * as unshifted when listening could not line them up. A pad of silence at
+     * the start moves the end by the same amount, so lengths a few
+     * milliseconds apart leave no room for a shift anyone would hear.
+     */
+    const val LENGTH_AGREEMENT_MS = 40L
+
+    /**
+     * The shift of an upgraded rendition against the playing one judged from
+     * their lengths alone: zero when they agree to within [toleranceMs], null
+     * when they don't or either is unknown. Only a fallback for when the
+     * waveforms could not be lined up - a null here means the swap is not worth
+     * the risk of a skip or an echo.
+     */
+    fun offsetFromLengths(
+        upgradedMs: Long?,
+        playingMs: Long?,
+        toleranceMs: Long = LENGTH_AGREEMENT_MS,
+    ): Long? {
+        if (upgradedMs == null || playingMs == null || upgradedMs <= 0 || playingMs <= 0) return null
+        return if (kotlin.math.abs(upgradedMs - playingMs) <= toleranceMs) 0L else null
+    }
 
     /** Two renditions of one master differ by a pad of silence or video intro. */
     private const val RENDITION_MAX_LAG_SECONDS = 8.0
@@ -341,8 +367,15 @@ object VersionAudioAligner {
     ): Long? = withContext(Dispatchers.IO) {
         try {
             val (source, target) = coroutineScope {
-                val source = async { AudioDecoder.decodeRegion(playing, 0.0, RENDITION_WINDOW_SECONDS) }
-                val target = async { AudioDecoder.decodeRegion(upgraded, 0.0, RENDITION_WINDOW_SECONDS) }
+                // The decoders block and only look at `abort` between buffers,
+                // so a cancelled measurement is stopped by asking them to stop
+                // rather than by waiting for the coroutine to notice.
+                val source = async {
+                    AudioDecoder.decodeRegion(playing, 0.0, RENDITION_WINDOW_SECONDS, abort = { !isActive })
+                }
+                val target = async {
+                    AudioDecoder.decodeRegion(upgraded, 0.0, RENDITION_WINDOW_SECONDS, abort = { !isActive })
+                }
                 source.await() to target.await()
             }
             if (source == null || target == null) {
@@ -378,6 +411,8 @@ object VersionAudioAligner {
                     (fineLagMs?.let { "(waveform, envelope said ${envelopeLagMs}ms)" } ?: "(envelope only)"),
             )
             offset
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "Failed to align upgrade for '$label'", e)
             null

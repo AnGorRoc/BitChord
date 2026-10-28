@@ -71,6 +71,11 @@ object QualityUpgrade {
      * How long a throttled second look waits before it is made again: at least
      * this, and until the server's quiet window is over with this much to spare.
      */
+    /** How long a track whose better copy could not be aligned is left on what it has. */
+    private const val UNALIGNED_HOLD_MS = 30 * 60_000L
+
+    private const val MAX_UNALIGNED = 64
+
     private const val THROTTLED_HOLD_MS = 15_000L
     private const val THROTTLED_HOLD_SLACK_MS = 2_000L
 
@@ -302,10 +307,24 @@ object QualityUpgrade {
     private val holds = ConcurrentHashMap<String, Int>()
 
     /**
-     * Whether a look that began at [startedAtMs] and found nothing should be
-     * held for another try rather than recorded in [asked]; starts the hold
-     * when it should.
+     * Tracks whose better copy was found and fetched but could not be lined up
+     * with the one playing, and until when they are left alone. Swapping onto
+     * an unaligned copy is heard as a skip or an echo, so the track stays on
+     * what it has; what this stops is the same opening being fetched, measured
+     * and thrown away again at every retry.
      */
+    private val unalignedUntil = ConcurrentHashMap<String, Long>()
+
+    /** Leaves [mediaId] alone for [UNALIGNED_HOLD_MS]; see [unalignedUntil]. */
+    fun holdUnaligned(mediaId: String) {
+        if (unalignedUntil.size >= MAX_UNALIGNED) {
+            val at = MonotonicClock.nowMs()
+            unalignedUntil.entries.removeIf { it.value <= at }
+            if (unalignedUntil.size >= MAX_UNALIGNED) unalignedUntil.clear()
+        }
+        unalignedUntil[mediaId] = MonotonicClock.nowMs() + UNALIGNED_HOLD_MS
+    }
+
     /**
      * An upgrade that was found but refused on its way to the listener — the
      * audition's open turned away by Monochrome since [startedAtMs]. Held for
@@ -321,6 +340,11 @@ object QualityUpgrade {
         return true
     }
 
+    /**
+     * Whether a look that began at [startedAtMs] and found nothing should be
+     * held for another try rather than recorded in [asked]; starts the hold
+     * when it should.
+     */
     private fun heldByThrottle(mediaId: String, startedAtMs: Long): Boolean {
         if (!MonochromeGate.shared.refusedSince(startedAtMs)) return false
         if (holds.merge(mediaId, 1, Int::plus)!! > MAX_THROTTLED_HOLDS) return false
@@ -348,6 +372,7 @@ object QualityUpgrade {
         if (mediaId !in handAsked && uri.getQueryParameter(MARKER) != null) return false
         if (mediaId in asked || mediaId in refused || pending.containsKey(mediaId)) return false
         if ((heldUntil[mediaId] ?: 0L) > MonotonicClock.nowMs()) return false
+        if ((unalignedUntil[mediaId] ?: 0L) > MonotonicClock.nowMs() && mediaId !in handAsked) return false
         // Direct Source Stream never swaps on its own. Asking by hand still
         // works: that is the listener overruling the copy, not a background hunt.
         if (mediaId !in handAsked && DirectSourceGate.isActive()) return false
@@ -801,6 +826,7 @@ object QualityUpgrade {
         refused.clear()
         heldUntil.clear()
         holds.clear()
+        unalignedUntil.clear()
     }
 
     // ── Handing the stream to the player ────────────────────────────────────

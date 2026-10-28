@@ -52,6 +52,15 @@ data class SourceStream(
      * reproduces the stream already playing.
      */
     val sourceConfigId: String? = null,
+    /**
+     * The exact length of this file in milliseconds, when its own header states
+     * it — a FLAC's STREAMINFO counts every sample. Finer than [durationSec],
+     * which is the catalogue's rounded claim, and what lets a swap onto this
+     * stream be judged by how closely its length agrees with the copy playing
+     * when the two cannot be aligned by listening. Null when the header says
+     * nothing.
+     */
+    val exactDurationMs: Long? = null,
 )
 
 /**

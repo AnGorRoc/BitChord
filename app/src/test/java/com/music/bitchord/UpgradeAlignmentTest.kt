@@ -121,4 +121,25 @@ class UpgradeAlignmentTest {
         val source = envelope(seed = 7)
         assertNull(VersionAudioAligner.renditionOffsetMs(source, padded(source, 900), startDiffMs = 0))
     }
+
+    // When listening cannot line the copies up, their lengths are the only evidence left.
+
+    @Test
+    fun `lengths that agree to within a few milliseconds are taken as unshifted`() {
+        assertEquals(0L, VersionAudioAligner.offsetFromLengths(upgradedMs = 247_637, playingMs = 247_650))
+        assertEquals(0L, VersionAudioAligner.offsetFromLengths(upgradedMs = 247_637, playingMs = 247_597))
+    }
+
+    @Test
+    fun `lengths that differ by a pad are not taken as unshifted`() {
+        assertNull(VersionAudioAligner.offsetFromLengths(upgradedMs = 247_637, playingMs = 247_800))
+        assertNull(VersionAudioAligner.offsetFromLengths(upgradedMs = 247_637, playingMs = 247_000))
+    }
+
+    @Test
+    fun `a length that is not known says nothing`() {
+        assertNull(VersionAudioAligner.offsetFromLengths(upgradedMs = null, playingMs = 247_637))
+        assertNull(VersionAudioAligner.offsetFromLengths(upgradedMs = 247_637, playingMs = null))
+        assertNull(VersionAudioAligner.offsetFromLengths(upgradedMs = 0, playingMs = 0))
+    }
 }

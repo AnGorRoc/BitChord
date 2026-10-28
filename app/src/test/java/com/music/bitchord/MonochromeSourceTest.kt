@@ -433,6 +433,30 @@ class MonochromeSourceTest {
         assertFalse(MonochromeSource.isFlac(ByteArray(0)))
     }
 
+    @Test
+    fun `flacInfo reads the exact length the header counts`() {
+        val info = MonochromeSource.flacInfo(LIVE_FLAC_HEAD)!!
+
+        assertEquals(24, info.bitDepth)
+        assertEquals(44_100, info.sampleRateHz)
+        // 10,920,612 samples at 44.1 kHz.
+        assertEquals(10_920_612L, info.totalSamples)
+        assertEquals(247_632L, info.durationMs)
+    }
+
+    @Test
+    fun `a header that counts no samples gives no length`() {
+        val head = LIVE_FLAC_HEAD.copyOf()
+        // The 36-bit total sits in the low nibble of byte 21 and bytes 22 to 25.
+        head[21] = (head[21].toInt() and 0xf0).toByte()
+        for (i in 22..25) head[i] = 0
+
+        val info = MonochromeSource.flacInfo(head)!!
+
+        assertNull(info.totalSamples)
+        assertNull(info.durationMs)
+    }
+
     // ── Registry and policy ───────────────────────────────────────────────
 
     @Test

@@ -5169,21 +5169,38 @@ class PlaybackService : MediaLibraryService() {
         // Where the upgrade sits against the copy playing, so the crossfade
         // below joins the two on the same note. Measured now, while nothing
         // has been touched — see [measureUpgradeOffset].
-        val offsetMs = measureUpgradeOffset(
+        val measuredMs = measureUpgradeOffset(
             mediaId,
             at.uri,
             upgradedUri,
             stream.format.kbps,
             at.item.mediaMetadata.title?.toString() ?: mediaId,
         )
+        // Listening could not line the two up. The track stays on the copy it
+        // has unless the better one states a length that agrees with it to
+        // within a few milliseconds: then there is no pad to be off by, and
+        // swapping is as safe as it is for the listener who got a measurement.
+        val offsetMs = measuredMs ?: VersionAudioAligner.offsetFromLengths(
+            upgradedMs = stream.exactDurationMs,
+            playingMs = at.duration.takeIf { it > 0 },
+        )?.also {
+            TrackLog.d(
+                "BitChord",
+                "upgrade for '$mediaId' could not be aligned by listening; its length (${stream.exactDurationMs}ms) agrees with the playing copy's (${at.duration}ms), so it is swapped unshifted",
+                about = mediaId,
+            )
+        }
         if (offsetMs == null) {
             TrackLog.w(
                 "BitChord",
-                "upgrade to ${stream.format.summary} aborted for '$mediaId': time alignment could not be measured reliably; refusing unaligned swap to prevent audio desync",
+                "upgrade to ${stream.format.summary} left for later for '$mediaId': it could not be lined up with the playing copy, and a swap off by even a little is heard as a skip or an echo",
                 about = mediaId,
             )
             QualityUpgrade.forget(mediaId)
             withContext(Dispatchers.IO) { AudioCache.discardRendition(Uri.parse(upgradedUri)) }
+            // Not asked for again for a while, so the same opening is not
+            // fetched, measured and thrown away at every retry.
+            QualityUpgrade.holdUnaligned(mediaId)
             return
         }
 
@@ -5605,10 +5622,10 @@ class PlaybackService : MediaLibraryService() {
      * Runs while the old stream keeps playing and costs no silence; what it
      * costs is the upgrade's opening, fetched now instead of just after the
      * swap, where Automix's head warm used to fetch it anyway. Bounded by
-     * [UPGRADE_ALIGN_TIMEOUT_MS], and every way of not knowing — a timeout, an
-     * opening the playing copy never cached because the track was resumed
-     * mid-way, a weak match — is zero: two copies of one master crossfade
-     * cleanly unshifted, and only a wrong shift could do worse.
+     * [UPGRADE_ALIGN_TIMEOUT_MS]. Null for every way of not knowing - a timeout,
+     * an opening the playing copy never cached because the track was resumed
+     * mid-way, a weak match - and what that means for the swap is decided by
+     * the caller, not assumed here.
      */
     private suspend fun measureUpgradeOffset(
         mediaId: String,
@@ -9956,8 +9973,8 @@ class PlaybackService : MediaLibraryService() {
         const val YOUTUBE_KBPS = 160
 
         /**
-         * How long an upgrade waits for its alignment before crossfading
-         * unshifted. The old stream plays through all of it, so the cost of
+         * How long an upgrade waits for its alignment before giving up on
+         * measuring it. The old stream plays through all of it, so the cost of
          * waiting is only that the better copy arrives a little later.
          */
         const val UPGRADE_ALIGN_TIMEOUT_MS = 6_000L

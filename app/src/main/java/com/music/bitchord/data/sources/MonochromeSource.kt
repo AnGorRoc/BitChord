@@ -184,6 +184,7 @@ class MonochromeSource(
             sampleRateHz = probe.info?.sampleRateHz,
             bitDepth = probe.info?.bitDepth,
         )
+        val exactDurationMs = probe.info?.durationMs
         TrackLog.d(TAG, "  ✓ Monochrome $trackId is ${format.summary}, ${format.kbps ?: "?"} kbps")
         return SourceStream(
             // `mime` is ignored by the server and read by Cast, which is told
@@ -197,6 +198,7 @@ class MonochromeSource(
             // open-ended read was being dropped mid-song.
             url = "${trackUrl(trackId)}?mime=audio/flac" + probe.totalBytes?.let { "&clen=$it" }.orEmpty(),
             format = format,
+            exactDurationMs = exactDurationMs,
         )
     }
 
@@ -426,7 +428,10 @@ class MonochromeSource(
             val rate = (b(18) shl 12) or (b(19) shl 4) or (b(20) shr 4)
             val bits = (((b(20) and 0x01) shl 4) or (b(21) shr 4)) + 1
             if (rate !in 1..655_350 || bits !in 4..32) return null
-            return FlacInfo(bitDepth = bits, sampleRateHz = rate)
+            // 36 bits of total samples follow; zero means the encoder did not say.
+            val totalSamples = ((b(21) and 0x0f).toLong() shl 32) or (b(22).toLong() shl 24) or
+                (b(23).toLong() shl 16) or (b(24).toLong() shl 8) or b(25).toLong()
+            return FlacInfo(bitDepth = bits, sampleRateHz = rate, totalSamples = totalSamples.takeIf { it > 0 })
         }
     }
 }
@@ -446,7 +451,10 @@ private inline fun <T> attempt(block: () -> T): Result<T> =
     }
 
 /** What a FLAC's STREAMINFO states. */
-internal data class FlacInfo(val bitDepth: Int, val sampleRateHz: Int)
+internal data class FlacInfo(val bitDepth: Int, val sampleRateHz: Int, val totalSamples: Long? = null) {
+    /** The file's length to the millisecond, when STREAMINFO counted its samples. */
+    val durationMs: Long? get() = totalSamples?.let { it * 1000L / sampleRateHz }
+}
 
 /** One search row, reduced to what matching and opening need. */
 internal data class MonochromeRow(
