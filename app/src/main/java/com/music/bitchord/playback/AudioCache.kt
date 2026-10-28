@@ -180,6 +180,15 @@ object AudioCache {
     /** How long [probeLength] waits for a stream to say how long it is. */
     private const val PROBE_TIMEOUT_MS = 15_000L
 
+    /** Monochrome's range size — see [ChunkedDataSource]'s — reused as its segment and fill chunk. */
+    private const val MONOCHROME_SEGMENT_BYTES = 8L * 1024 * 1024
+
+    /** Below this estimate (bits per second, about 200 kB/s) a fill fetches [SLOW_CHUNK_BYTES] at a time. */
+    private const val SLOW_CONNECTION_BPS = 1_600_000L
+
+    /** A chunk one read of a slow connection gets through in a couple of seconds. */
+    private const val SLOW_CHUNK_BYTES = 512L * 1024
+
     /** Enough to cover a hand-over, not enough to keep chasing a lost race. */
     private const val MAX_ATTEMPTS = 4
 
@@ -465,6 +474,10 @@ object AudioCache {
     const val WATCH_READ_PARAM = "watch_read"
 
     private val keyFactory = CacheKeyFactory { spec ->
+        // A key settled once for a whole open and carried on each segment —
+        // see [BoundedCacheReads]. Answering afresh per segment could move a
+        // track to a different entry halfway through reading it.
+        spec.key?.takeIf { spec.uri.scheme == "bitchord" }?.let { return@CacheKeyFactory it }
         val key = phoneKey(spec)
         if (spec.uri.getQueryParameter(WATCH_READ_PARAM) != null) "$key#watch" else key
     }
@@ -1358,7 +1371,14 @@ object AudioCache {
      * Local file and content URIs bypass disk caching to prevent redundant writes.
      */
     fun playbackFactory(upstream: DataSource.Factory): DataSource.Factory = DataSource.Factory {
-        val cacheDs = cacheFactory(upstream).createDataSource()
+        // A segment at a time, so the player only ever locks the stretch it is
+        // reading — see [BoundedCacheReads] and [fillRendition].
+        val cacheDs = BoundedCacheReads(
+            cacheSource = cacheFactory(upstream).createDataSource(),
+            keyOf = keyFactory::buildCacheKey,
+            knownLength = { key -> lengthOf(key).coerceAtLeast(0L) },
+            segmentBytesFor = ::segmentBytesFor,
+        )
         val upstreamDs = upstream.createDataSource()
         object : DataSource {
             private var activeDs: DataSource = cacheDs
@@ -1436,13 +1456,11 @@ object AudioCache {
      * it can start the moment it's reached, then the rest of it, so that
      * seeking around it is a disk read from the first second it plays. Only
      * that one track — never the one playing, and never bytes for anything
-     * further out. Media3 locks a cache entry to a single writer and the
-     * player holds that lock for as long as it is streaming the track — a
-     * fetch aimed at the same entry is quietly served from the network and
-     * written nowhere, spending the listener's data to cache precisely
-     * nothing. Caching a track before it is reached gets the same result
-     * without the contention. And full-track bytes for tracks that may never
-     * be reached would spend real mobile data on nothing.
+     * further out. A fetch aimed at a range the player is reading is quietly
+     * served from the network and written nowhere, so the playing track is
+     * filled around the player instead — see [fillRendition]. And full-track
+     * bytes for tracks that may never be reached would spend real mobile data
+     * on nothing.
      *
      * The next [QUEUE_LOOKAHEAD] ids past that one get a lighter treatment:
      * just their stream URL resolved and held in [StreamResolver]'s own
@@ -1728,6 +1746,103 @@ object AudioCache {
         return total
     }
 
+    /**
+     * How [BoundedCacheReads] and [fillRendition] split a stream: Monochrome's
+     * own range size, which its server answers without pacing and which keeps
+     * the request count — and the 429s that come with it — down; [CHUNK_BYTES]
+     * for everything else. 0 for anything that is not a `bitchord://` read,
+     * which is then left as it is.
+     */
+    private fun segmentBytesFor(uri: Uri): Long {
+        if (uri.scheme != "bitchord") return 0L
+        val url = QualityUpgrade.forcedStream(uri)?.url ?: mediaIdIn(uri)?.let { StreamChoice.of(it)?.url }
+        val monochrome = url?.toHttpUrlOrNull()?.let(MonochromeGate.shared::gates) == true
+        return if (monochrome) MONOCHROME_SEGMENT_BYTES else CHUNK_BYTES
+    }
+
+    /** What became of a [fillRendition]. */
+    enum class Fill {
+        /** Every byte of the rendition is on disk. */
+        COMPLETE,
+
+        /** Some ranges are still missing: held by a player, or the fetch was refused. Worth asking again later. */
+        PARTIAL,
+
+        /** The rendition's length could not be learnt; nothing beyond its head was fetched. */
+        UNSIZED,
+    }
+
+    /**
+     * Downloads whatever of [uri]'s rendition is not on disk yet, around the
+     * ranges players are reading.
+     *
+     * The playing track's own entry included — that is what this is for. A
+     * player only holds the segment it is reading (see [BoundedCacheReads]),
+     * so everything else is free to write; the held range is stepped around
+     * rather than taken as the sign that the whole entry is busy, which is
+     * what [fetchWhole] has to assume. Ranges after the first held one go
+     * first, since that is where a player reads next; the ones before it — a
+     * seek's leftovers, the opening of an upgrade swapped in mid-track —
+     * after.
+     *
+     * Chunks shrink on a slow connection, so that cancelling this, which the
+     * scheduler does the moment the player is short of data, releases the
+     * connection within one small read.
+     *
+     * @param key the entry to fill, when the caller knows it better than
+     *   [keyFactory] would now — the key a player opened the track under.
+     * @param stillWanted asked between chunks; false stops the fill.
+     */
+    suspend fun fillRendition(uri: Uri, key: String? = null, stillWanted: () -> Boolean = { true }): Fill {
+        if (!::cache.isInitialized || upstreamFactory == null) return Fill.PARTIAL
+        val entry = key ?: keyFactory.buildCacheKey(DataSpec(uri))
+        val total = renditionLength(entry, uri)
+        if (total <= 0) {
+            fetch(entry, uri, 0, PRELOAD_BYTES, pinKey = true)
+            return Fill.UNSIZED
+        }
+        val chunk = fillChunkBytes(uri)
+        val starts = (0L until total step chunk).toList()
+        val firstHeld = BoundedCacheReads.claimsOn(entry).minOfOrNull { it.start } ?: 0L
+        val ordered = starts.filter { it >= firstHeld } + starts.filter { it < firstHeld }
+        for (start in ordered) {
+            if (!stillWanted()) return Fill.PARTIAL
+            val length = minOf(chunk, total - start)
+            if (cache.getCachedBytes(entry, start, length) >= length) continue
+            // Re-read per chunk: the player moves, and opens a new segment as
+            // it does.
+            if (BoundedCacheReads.claimsOn(entry).any { it.overlaps(start, start + length) }) continue
+            fetch(entry, uri, start, length, pinKey = true)
+        }
+        return if (isComplete(entry)) Fill.COMPLETE else Fill.PARTIAL
+    }
+
+    /**
+     * How many bytes of [uri]'s rendition are still missing, or -1 when its
+     * length is not known yet. Reads the cache index; call it off the main thread.
+     */
+    fun missingBytes(uri: Uri, key: String? = null): Long {
+        if (!::cache.isInitialized) return -1L
+        val entry = key ?: keyFactory.buildCacheKey(DataSpec(uri))
+        val total = lengthOf(entry).takeIf { it > 0 } ?: return -1L
+        return (total - cache.getCachedBytes(entry, 0, total)).coerceAtLeast(0L)
+    }
+
+    /** The key of the entry the player is reading for [mediaId] right now, if one is. */
+    fun claimedKeyOf(mediaId: String): String? {
+        val base = cacheKeyBaseOf(mediaId)
+        return BoundedCacheReads.allClaims()
+            .firstOrNull { (it.key == base || it.key.startsWith("$base#")) && !it.key.endsWith("#watch") }
+            ?.key
+    }
+
+    /** [segmentBytesFor], cut down on a slow connection so one read never holds the line for long. */
+    private fun fillChunkBytes(uri: Uri): Long {
+        val segment = segmentBytesFor(uri).takeIf { it > 0 } ?: CHUNK_BYTES
+        val bps = bandwidthEstimateBps()
+        return if (bps in 1 until SLOW_CONNECTION_BPS) SLOW_CHUNK_BYTES else segment
+    }
+
     private fun clenOf(url: String): Long? =
         runCatching { Uri.parse(url).getQueryParameter("clen")?.toLongOrNull() }.getOrNull()?.takeIf { it > 0 }
 
@@ -1769,9 +1884,9 @@ object AudioCache {
      * player's very first read after the swap — the one nothing can start
      * without — was a cache miss and a round trip to the CDN, in silence.
      *
-     * Call it *before* the audition rather than alongside: Media3 locks a cache
-     * entry to one writer, and two writers on the same rendition means one of
-     * them spends the listener's data caching nothing.
+     * Call it *before* the audition rather than alongside: Media3 locks each
+     * range of an entry to one writer, and two writers after the same range
+     * means one of them spends the listener's data caching nothing.
      */
     /**
      * What is actually on disk for [uri]'s rendition, as a log line.

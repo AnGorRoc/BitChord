@@ -36,8 +36,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  * [AudioCache] already fetches this way — it is why read-ahead can put a whole
  * track on disk in the time between songs. This puts the player's own reads on
  * the same footing, which matters for the track being listened to right now:
- * read-ahead deliberately never touches it (Media3 locks a cache entry to one
- * writer), so without this it is the one track that always streams throttled.
+ * the player reads most of it itself (Media3 locks each range it is reading to
+ * it), so without this it is the one track that always streams throttled.
  *
  * Transparent to everything above it. [CacheDataSource][androidx.media3.datasource.cache.CacheDataSource]
  * sees one continuous stream of the length it asked for. Bounded requests are
