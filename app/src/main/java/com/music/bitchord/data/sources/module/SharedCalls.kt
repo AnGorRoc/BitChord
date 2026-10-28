@@ -2,6 +2,7 @@ package com.music.bitchord.data.sources.module
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -87,6 +88,7 @@ internal class SharedCalls<T>(
      */
     private val lock = Mutex()
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     suspend fun get(key: String, describe: () -> String, produce: suspend () -> Result<T>): Result<T> {
         val entry = lock.withLock {
             val live = entries[key]?.takeIf { it.work.isActive || now() - it.startedAtMs < it.ttlMs }
@@ -95,14 +97,21 @@ internal class SharedCalls<T>(
                 live
             } else {
                 if (entries.size >= MAX_ENTRIES) prune()
-                Pending(scope.async { produce() }, now(), ttlMs).also { entries[key] = it }
+                val work = scope.async { produce() }
+                Pending(work, now(), ttlMs).also { pending ->
+                    entries[key] = pending
+                    work.invokeOnCompletion { cause ->
+                        if (cause != null || work.getCompleted().isFailure) {
+                            entries.remove(key, pending)
+                        }
+                    }
+                }
             }
         }
         return entry.work.await().also { result ->
-            // By identity, so a retry that has already replaced this entry is
-            // not thrown away along with the failure it replaced.
-            if (result.isFailure) entries.remove(key, entry)
-            else if (isMiss(result.getOrThrow())) entry.ttlMs = minOf(entry.ttlMs, missTtlMs)
+            if (result.isSuccess && isMiss(result.getOrThrow())) {
+                entry.ttlMs = minOf(entry.ttlMs, missTtlMs)
+            }
         }
     }
 
