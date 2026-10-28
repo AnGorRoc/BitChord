@@ -2,6 +2,7 @@ package com.music.bitchord.playback
 
 import android.net.Uri
 import android.util.Log
+import com.music.bitchord.data.MonotonicClock
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.sources.MonochromeGate
@@ -323,7 +324,7 @@ object QualityUpgrade {
     private fun heldByThrottle(mediaId: String, startedAtMs: Long): Boolean {
         if (!MonochromeGate.shared.refusedSince(startedAtMs)) return false
         if (holds.merge(mediaId, 1, Int::plus)!! > MAX_THROTTLED_HOLDS) return false
-        heldUntil[mediaId] = System.currentTimeMillis() + maxOf(THROTTLED_HOLD_MS, MonochromeGate.shared.remainingMs() + THROTTLED_HOLD_SLACK_MS)
+        heldUntil[mediaId] = MonotonicClock.nowMs() + maxOf(THROTTLED_HOLD_MS, MonochromeGate.shared.remainingMs() + THROTTLED_HOLD_SLACK_MS)
         return true
     }
 
@@ -346,7 +347,7 @@ object QualityUpgrade {
         // overruled — see [askByHand].
         if (mediaId !in handAsked && uri.getQueryParameter(MARKER) != null) return false
         if (mediaId in asked || mediaId in refused || pending.containsKey(mediaId)) return false
-        if ((heldUntil[mediaId] ?: 0L) > System.currentTimeMillis()) return false
+        if ((heldUntil[mediaId] ?: 0L) > MonotonicClock.nowMs()) return false
         // Direct Source Stream never swaps on its own. Asking by hand still
         // works: that is the listener overruling the copy, not a background hunt.
         if (mediaId !in handAsked && DirectSourceGate.isActive()) return false
@@ -490,7 +491,7 @@ object QualityUpgrade {
 
     suspend fun lookAgain(mediaId: String, playingDurationSec: Int?): SourceStream? {
         val waiting = pending[mediaId] ?: return null
-        val startedAtMs = System.currentTimeMillis()
+        val startedAtMs = MonotonicClock.nowMs()
         var found: SourceStream? = null
         /**
          * Whether the search got as far as an answer, as opposed to being

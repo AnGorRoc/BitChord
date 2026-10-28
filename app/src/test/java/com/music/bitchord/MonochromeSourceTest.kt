@@ -5,6 +5,7 @@ import com.music.bitchord.data.settings.permits
 import com.music.bitchord.data.sources.MonochromeGate
 import com.music.bitchord.data.sources.MonochromeSource
 import com.music.bitchord.data.sources.SkipPace
+import com.music.bitchord.data.sources.OPT_IN_KINDS
 import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceHealth
 import com.music.bitchord.data.sources.SourceKind
@@ -339,12 +340,12 @@ class MonochromeSourceTest {
     @Test
     fun `a refusal is noted for a lookup that was running through it`() = runBlocking {
         script(throttled("1"))
-        val before = System.currentTimeMillis()
+        val before = com.music.bitchord.data.MonotonicClock.nowMs()
 
         refused { source().stream("1", StreamRequest.Lossless) }
 
         assertTrue(MonochromeGate.shared.refusedSince(before))
-        assertFalse(MonochromeGate.shared.refusedSince(System.currentTimeMillis() + 60_000))
+        assertFalse(MonochromeGate.shared.refusedSince(com.music.bitchord.data.MonotonicClock.nowMs() + 60_000))
     }
 
     /** Never more than two files being opened at once, however many tracks ask. */
@@ -435,15 +436,33 @@ class MonochromeSourceTest {
     // ── Registry and policy ───────────────────────────────────────────────
 
     @Test
-    fun `Monochrome ships on, including for installs that predate it`() {
+    fun `Monochrome is opt-in, on a fresh install and for installs that predate it`() {
+        assertFalse(SourceConfig(kind = SourceKind.MONOCHROME).enabled)
+        assertTrue(SourceKind.MONOCHROME in OPT_IN_KINDS)
+
         val fresh = SourceRegistry.sourcesForInit(emptyList(), forceJioSaavnOff = false)
-        assertTrue(fresh.single { it.kind == SourceKind.MONOCHROME }.enabled)
+        assertFalse(fresh.single { it.kind == SourceKind.MONOCHROME }.enabled)
+        assertTrue(fresh.single { it.kind == SourceKind.YOUTUBE }.enabled)
 
         val upgraded = SourceRegistry.sourcesForInit(
             listOf(SourceConfig(kind = SourceKind.JIOSAAVN, enabled = false), SourceConfig(kind = SourceKind.YOUTUBE)),
             forceJioSaavnOff = false,
         )
-        assertTrue(upgraded.single { it.kind == SourceKind.MONOCHROME }.enabled)
+        assertFalse(upgraded.single { it.kind == SourceKind.MONOCHROME }.enabled)
+    }
+
+    @Test
+    fun `the opt-in migration switches an already-enabled Monochrome off exactly once`() {
+        val shippedOn = SourceConfig(kind = SourceKind.MONOCHROME, enabled = true)
+
+        val migrated = SourceRegistry.sourcesForInit(
+            listOf(shippedOn), forceJioSaavnOff = false, forceMonochromeOff = true,
+        )
+        assertFalse(migrated.single { it.kind == SourceKind.MONOCHROME }.enabled)
+
+        val optedIn = migrated.map { if (it.kind == SourceKind.MONOCHROME) it.copy(enabled = true) else it }
+        val nextLaunch = SourceRegistry.sourcesForInit(optedIn, forceJioSaavnOff = false, forceMonochromeOff = false)
+        assertTrue(nextLaunch.single { it.kind == SourceKind.MONOCHROME }.enabled)
     }
 
     @Test

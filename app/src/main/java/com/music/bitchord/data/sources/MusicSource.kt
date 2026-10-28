@@ -156,6 +156,20 @@ interface MusicSource {
      *   asked too often, so no other row of this source is worth asking either.
      */
     suspend fun stream(trackId: String, request: StreamRequest): SourceStream?
+
+    /**
+     * Whether this source has asked to be left alone for now, for the lookups
+     * that can wait — a warm-up and a second look — to leave it out of. Only
+     * the live resolve still asks it then. A pure question; see
+     * [noteTurnedAway] for acting on the answer.
+     */
+    fun isResting(): Boolean = false
+
+    /**
+     * Records that a lookup was left out because of [isResting], so that when
+     * it finds nothing it can tell the source's silence from its refusal.
+     */
+    fun noteTurnedAway() {}
 }
 
 /**

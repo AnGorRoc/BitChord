@@ -123,6 +123,7 @@ import java.util.concurrent.atomic.AtomicLong
 import com.music.bitchord.data.Http
 import com.music.bitchord.auth.SignedIn
 import com.music.bitchord.data.LikeState
+import com.music.bitchord.data.MonotonicClock
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.discord.DiscordRPC
@@ -5147,7 +5148,7 @@ class PlaybackService : MediaLibraryService() {
         // reaches its bytes through the same resolving data source the real one
         // does, and that is where a marked URI is turned back into a stream.
         QualityUpgrade.force(mediaId, stream)
-        val auditionStartedAtMs = System.currentTimeMillis()
+        val auditionStartedAtMs = MonotonicClock.nowMs()
         val warmedThrough = auditionUpgrade(mediaId, at, upgradedUri, stream, alreadyFilled)
         if (warmedThrough == null) {
             // Nothing was cut, so there is nothing to put back: the listener

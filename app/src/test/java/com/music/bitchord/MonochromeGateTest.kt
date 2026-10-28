@@ -1,6 +1,7 @@
 package com.music.bitchord
 
 import com.music.bitchord.data.sources.MonochromeGate
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.mockwebserver.MockResponse
@@ -10,6 +11,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -158,15 +160,37 @@ class MonochromeGateTest {
     }
 
     @Test
-    fun `turning a wait-able lookup away counts as a refusal`() {
-        assertFalse(gate.turnsAway())
+    fun `asking whether the gate is resting changes nothing, noting a turn-away does`() {
+        assertFalse(gate.isResting())
         answer(429)
         get()
         clock += 1
         val asked = clock
 
-        assertTrue(gate.turnsAway())
+        assertTrue(gate.isResting())
+        assertTrue(gate.isResting())
+        assertFalse(gate.refusedSince(asked))
+
+        gate.noteTurnedAway()
         assertTrue(gate.refusedSince(asked))
+    }
+
+    @Test
+    fun `a trial that ends on something other than an IOException still settles`() {
+        answer(429)
+        get()
+        clock += MonochromeGate.BASE_WINDOW_MS + 1
+
+        val boom = Interceptor { throw IllegalStateException("another interceptor failed") }
+        val client = OkHttpClient.Builder().addInterceptor(gate).addInterceptor(boom).build()
+        assertThrows(IllegalStateException::class.java) {
+            client.newCall(Request.Builder().url(server.url("/track/1")).build()).execute()
+        }
+
+        // The trial was settled, so the next request is let through as the trial
+        // rather than turned away by a circuit stuck waiting for one in flight.
+        answer(200)
+        assertEquals(200, get().code)
     }
 
     @Test

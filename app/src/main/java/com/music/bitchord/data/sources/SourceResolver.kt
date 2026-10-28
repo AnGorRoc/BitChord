@@ -848,7 +848,7 @@ object SourceResolver {
      * without a request.
      */
     private fun resting(source: MusicSource): Boolean =
-        source.kind == SourceKind.MONOCHROME && MonochromeGate.shared.turnsAway()
+        source.isResting().also { if (it) source.noteTurnedAway() }
 
     /**
      * The sources ranked above [configId], in order.

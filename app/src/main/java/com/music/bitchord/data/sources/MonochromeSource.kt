@@ -5,6 +5,7 @@ import com.music.bitchord.data.Http
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.sources.module.SharedCalls
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,6 +18,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
+import java.util.Collections
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -45,6 +47,8 @@ private const val TAG = "BitChord"
  */
 class MonochromeSource(
     override val config: SourceConfig,
+    private val gate: MonochromeGate = MonochromeGate.shared,
+    private val pace: SkipPace = SkipPace.shared,
 ) : MusicSource, SourceRegistry.ConfigBacked {
 
     override val configId: String get() = config.id
@@ -70,29 +74,45 @@ class MonochromeSource(
 
     /**
      * What a track id's file turned out to be, kept so a seek or a second look
-     * doesn't read its header again. A miss (not FLAC) is an answer and is
-     * kept; a failure to ask is not, see [SharedCalls.get].
+     * doesn't read its header again. A failure to ask is not kept, see
+     * [SharedCalls.get]; a miss (not FLAC) is, but only briefly, because the
+     * same endpoint was measured answering AAC for a file it served as FLAC a
+     * minute later, and a day of believing it would pin the track to lossy.
      */
-    private val probes = SharedCalls<Probe?>(PROBE_TTL_MS, calls, log = ::logReuse)
+    private val probes = SharedCalls<Probe?>(
+        ttlMs = PROBE_TTL_MS,
+        scope = calls,
+        log = ::logReuse,
+        isMiss = { it == null },
+        missTtlMs = MISS_TTL_MS,
+    )
 
     /**
      * Each row's length, by track id, from the searches that issued the ids.
      * Paired with the file's size it gives the stream's real bitrate — see
      * [bitrateKbps].
      */
-    private val durations = ConcurrentHashMap<String, Int>()
+    private val durations: MutableMap<String, Int> = Collections.synchronizedMap(
+        object : LinkedHashMap<String, Int>(64, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Int>) = size > MAX_DURATIONS
+        },
+    )
 
     private fun logReuse(line: String) = TrackLog.d(TAG, line)
 
     init {
         // An instance at another address is gated like the shipped one.
-        base.toHttpUrlOrNull()?.host?.let(MonochromeGate.shared::watch)
+        base.toHttpUrlOrNull()?.host?.let(gate::watch)
     }
 
+    override fun isResting(): Boolean = gate.isResting()
+
+    override fun noteTurnedAway() = gate.noteTurnedAway()
+
     override suspend fun health(): SourceHealth = withContext(Dispatchers.IO) {
-        runCatching { fetchJson(searchUrl("test", 1)) }.fold(
+        attempt { fetchJson(searchUrl("test", 1)) }.fold(
             onSuccess = { SourceHealth.Ok() },
-            onFailure = { SourceHealth.Unreachable(it.message ?: "Monochrome didn't answer") },
+            onFailure = { SourceHealth.Unreachable(it.message ?: it.javaClass.simpleName) },
         )
     }
 
@@ -114,12 +134,12 @@ class MonochromeSource(
         if (query.isBlank()) return emptyList()
         val url = searchUrl(query, SEARCH_LIMIT) ?: return emptyList()
         // A search for a song the listener is skipping past is not made at all.
-        if (!searches.has(url)) SkipPace.shared.settle()
+        if (!searches.has(url)) pace.settle()
         val rows = searches.get(
             key = url,
             describe = { "▶ Monochrome search \"$query\"" },
         ) {
-            runCatching { rowsOf(fetchJson(url)) }
+            attempt { rowsOf(fetchJson(url)) }
         }.getOrElse {
             TrackLog.w(TAG, "Monochrome search failed for \"$query\": ${it.message}")
             return emptyList()
@@ -142,12 +162,12 @@ class MonochromeSource(
             TrackLog.w(TAG, "Monochrome: refusing malformed track id '$trackId'")
             return null
         }
-        if (!probes.has(trackId)) SkipPace.shared.settle()
+        if (!probes.has(trackId)) pace.settle()
         val probe = probes.get(
             key = trackId,
             describe = { "▶ Monochrome probe $trackId" },
         ) {
-            runCatching { probe(trackId) }
+            attempt { probe(trackId) }
         }.getOrElse {
             TrackLog.w(TAG, "Monochrome: couldn't open $trackId: ${it.message}")
             // Said about the server, so said up: the resolver's next row would
@@ -249,7 +269,11 @@ class MonochromeSource(
         searchClient.newCall(request).execute().use { response ->
             if (response.code == 429) throw IOException("HTTP 429")
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
-            return response.body?.string() ?: throw IOException("Empty body")
+            // Bounded: this is a search answer of a few kilobytes, and a body
+            // that outgrows the cap is not one.
+            val source = (response.body ?: throw IOException("Empty body")).source()
+            if (source.request(MAX_JSON_BYTES + 1)) throw IOException("Answer larger than $MAX_JSON_BYTES bytes")
+            return source.readUtf8()
         }
     }
 
@@ -293,8 +317,19 @@ class MonochromeSource(
          */
         const val PROBE_TTL_MS = 24 * 60 * 60 * 1000L
 
+        /** How long "not FLAC" is believed; see [probes]. */
+        const val MISS_TTL_MS = 5 * 60 * 1000L
+
         /** Files opened at once; see [probeGate]. */
         const val MAX_PARALLEL_PROBES = 2
+
+        /** More than a queue's worth of track lengths, so a long session doesn't grow [durations] for ever. */
+        const val MAX_DURATIONS = 512
+
+        /** A search answer is kilobytes; this is for the one that isn't. */
+        const val MAX_JSON_BYTES = 2L * 1024 * 1024
+
+        private val PLAIN_HTTP = Regex("^http://")
 
         private val USER_AGENT = "BitChord/v${BuildConfig.VERSION_NAME}"
 
@@ -340,7 +375,7 @@ class MonochromeSource(
                     // under ten seconds long in ms or over ten thousand in s.
                     durationSec = track.duration?.takeIf { it > 0 }
                         ?.let { if (it > 10_000) (it / 1000).toInt() else it.toInt() },
-                    artwork = track.artwork?.replace(Regex("^http://"), "https://"),
+                    artwork = track.artwork?.replace(PLAIN_HTTP, "https://"),
                     explicit = track.explicit,
                 )
             }.distinctBy { it.id }
@@ -395,6 +430,20 @@ class MonochromeSource(
         }
     }
 }
+
+/**
+ * [runCatching] for code that may be cancelled: a cancellation is not a
+ * failure to report but the caller going away, and wrapping it would let a
+ * cancelled coroutine carry on as if it had merely been refused.
+ */
+private inline fun <T> attempt(block: () -> T): Result<T> =
+    try {
+        Result.success(block())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 
 /** What a FLAC's STREAMINFO states. */
 internal data class FlacInfo(val bitDepth: Int, val sampleRateHz: Int)

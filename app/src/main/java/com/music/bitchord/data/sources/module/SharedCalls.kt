@@ -58,7 +58,14 @@ internal class SharedCalls<T>(
     private val scope: CoroutineScope,
     /** Where a reuse is reported, so a log still shows one line per question asked. */
     private val log: (String) -> Unit = {},
-    private val now: () -> Long = System::currentTimeMillis,
+    private val now: () -> Long = { com.music.bitchord.data.MonotonicClock.nowMs() },
+    /**
+     * Whether a completed answer is a miss. A miss is kept only for
+     * [missTtlMs], so one that came from a server having a bad minute is asked
+     * again soon rather than believed for the whole of [ttlMs].
+     */
+    private val isMiss: (T) -> Boolean = { false },
+    private val missTtlMs: Long = ttlMs,
 ) {
 
     /**
@@ -68,7 +75,7 @@ internal class SharedCalls<T>(
      * lets a caller arriving mid-flight wait on it instead of starting a
      * second copy.
      */
-    private class Pending<T>(val work: Deferred<Result<T>>, val startedAtMs: Long)
+    private class Pending<T>(val work: Deferred<Result<T>>, val startedAtMs: Long, @Volatile var ttlMs: Long)
 
     private val entries = ConcurrentHashMap<String, Pending<T>>()
 
@@ -82,25 +89,26 @@ internal class SharedCalls<T>(
 
     suspend fun get(key: String, describe: () -> String, produce: suspend () -> Result<T>): Result<T> {
         val entry = lock.withLock {
-            val live = entries[key]?.takeIf { it.work.isActive || now() - it.startedAtMs < ttlMs }
+            val live = entries[key]?.takeIf { it.work.isActive || now() - it.startedAtMs < it.ttlMs }
             if (live != null) {
                 log(describe() + if (live.work.isActive) " — ALREADY RUNNING" else " — CACHE HIT")
                 live
             } else {
                 if (entries.size >= MAX_ENTRIES) prune()
-                Pending(scope.async { produce() }, now()).also { entries[key] = it }
+                Pending(scope.async { produce() }, now(), ttlMs).also { entries[key] = it }
             }
         }
         return entry.work.await().also { result ->
             // By identity, so a retry that has already replaced this entry is
             // not thrown away along with the failure it replaced.
             if (result.isFailure) entries.remove(key, entry)
+            else if (isMiss(result.getOrThrow())) entry.ttlMs = minOf(entry.ttlMs, missTtlMs)
         }
     }
 
     /** Whether [key] is being answered or already was recently, so asking costs nothing. */
     fun has(key: String): Boolean =
-        entries[key]?.let { it.work.isActive || now() - it.startedAtMs < ttlMs } == true
+        entries[key]?.let { it.work.isActive || now() - it.startedAtMs < it.ttlMs } == true
 
     /** Everything held, dropped — the configuration it was all about is gone. */
     fun clear() = entries.clear()
@@ -128,7 +136,7 @@ internal class SharedCalls<T>(
         // dropping it here would not cancel it, only hide it from the next
         // caller — who would then start a second copy of work already in
         // flight, which is the one thing this class exists to prevent.
-        entries.entries.removeIf { !it.value.work.isActive && at - it.value.startedAtMs >= ttlMs }
+        entries.entries.removeIf { !it.value.work.isActive && at - it.value.startedAtMs >= it.value.ttlMs }
         if (entries.size >= MAX_ENTRIES) {
             entries.entries
                 .filterNot { it.value.work.isActive }

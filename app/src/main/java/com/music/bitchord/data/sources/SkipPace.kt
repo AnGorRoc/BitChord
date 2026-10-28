@@ -20,7 +20,7 @@ import kotlinx.coroutines.delay
  */
 class SkipPace(
     private val settleMs: Long = SETTLE_MS,
-    private val now: () -> Long = System::currentTimeMillis,
+    private val now: () -> Long = { com.music.bitchord.data.MonotonicClock.nowMs() },
 ) {
     private val skips = ArrayDeque<Long>()
 

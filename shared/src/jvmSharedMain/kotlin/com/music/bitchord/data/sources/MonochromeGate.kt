@@ -50,7 +50,7 @@ import java.util.concurrent.ConcurrentHashMap
  * before it opened, and doesn't lengthen the window.
  */
 class MonochromeGate(
-    private val now: () -> Long = System::currentTimeMillis,
+    private val now: () -> Long = { com.music.bitchord.data.MonotonicClock.nowMs() },
 ) : Interceptor {
 
     private val hosts: MutableSet<String> = ConcurrentHashMap.newKeySet<String>().apply { add(DEFAULT_HOST) }
@@ -84,14 +84,15 @@ class MonochromeGate(
             Admission.TRIAL -> true
             Admission.OPEN_DOOR -> false
         }
-        val response = try {
-            chain.proceed(request)
-        } catch (e: IOException) {
-            settle(code = null, trial = trial)
-            throw e
+        // Settled whatever happens, not only on an IOException: a trial that
+        // ended on any other throwable and was never settled would leave the
+        // circuit answering 429 itself until the process died.
+        var code: Int? = null
+        try {
+            return chain.proceed(request).also { code = it.code }
+        } finally {
+            settle(code, trial)
         }
-        settle(response.code, trial)
-        return response
     }
 
     private enum class Admission { OPEN_DOOR, TRIAL, REFUSED }
@@ -149,13 +150,20 @@ class MonochromeGate(
 
     /**
      * Whether a lookup that can wait — a warm-up, a second look — should leave
-     * Monochrome out. Counts as a refusal for [refusedSince] when it does, so
-     * the second look comes back for the track rather than taking the silence
-     * as Monochrome not having it.
+     * Monochrome out right now. A pure question: it changes nothing, so it can
+     * be asked from a filter, twice, or by something that never acts on it.
      */
-    fun turnsAway(): Boolean = synchronized(this) {
-        val at = now()
-        (at < openUntilMs || (trips > 0 && trialInFlight)).also { if (it) lastRefusedAtMs = at }
+    fun isResting(): Boolean = synchronized(this) {
+        now() < openUntilMs || (trips > 0 && trialInFlight)
+    }
+
+    /**
+     * Records that a lookup was left out because [isResting], which counts as
+     * a refusal for [refusedSince]: the second look comes back for the track
+     * rather than taking the silence as Monochrome not having it.
+     */
+    fun noteTurnedAway() = synchronized(this) {
+        lastRefusedAtMs = now()
     }
 
     /** Back to closed with no history. For tests. */
