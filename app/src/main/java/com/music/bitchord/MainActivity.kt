@@ -1034,6 +1034,15 @@ private fun BitChordApp(
             showQueueNotice(event.message(exportContext))
         }
     }
+    // Each batch that lands on YouTube Music is put on the account's Playlists
+    // list straight away, so the playlist shows up while it is still filling.
+    LaunchedEffect(Unit) {
+        com.music.bitchord.data.spotify.YouTubeExportLedger.changes.collect { (localId, entry) ->
+            val title = com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(localId)?.title
+                ?: return@collect
+            viewModel.upsertExportedPlaylist(entry.youtubeId, title, entry.exported.size)
+        }
+    }
 
     // Lossless streaming over mobile data, said once and quietly — see
     // [LosslessDataNotice] for when, and for how it retires itself.

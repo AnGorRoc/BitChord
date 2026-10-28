@@ -1157,6 +1157,35 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
+     * Puts a playlist exported from this device on the account's own Playlists
+     * list, or updates its song count, as the export goes. Called once per
+     * batch, so the list fills while the export runs rather than after it.
+     * The same two places [createPlaylistWithVideoIds] writes to on success.
+     */
+    fun upsertExportedPlaylist(playlistId: String, title: String, songCount: Int) {
+        setPlaylistOwned("VL$playlistId", true)
+        libraryStale = true
+        val item = UserPlaylist(
+            playlistId = playlistId,
+            title = title,
+            subtitle = "$songCount songs",
+            thumbnailUrl = _playlists.value.firstOrNull { it.playlistId == playlistId }?.thumbnailUrl,
+        )
+        _playlists.value = listOf(item) + _playlists.value.filterNot { it.playlistId == playlistId }
+        editPlaylistShelf { items ->
+            listOf(
+                ShelfItem(
+                    title = item.title,
+                    subtitle = item.subtitle,
+                    thumbnailUrl = item.thumbnailUrl,
+                    videoId = null,
+                    browseId = item.browseId,
+                ),
+            ) + items.filterNot { it.browseId == item.browseId }
+        }
+    }
+
+    /**
      * Drops [song] from the playlist page it is being read on, and takes the
      * row out from under the reader rather than waiting for a re-fetch.
      */

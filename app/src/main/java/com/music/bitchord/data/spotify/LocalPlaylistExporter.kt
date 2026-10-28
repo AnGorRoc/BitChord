@@ -33,6 +33,10 @@ data class ExportEvent(val title: String, val state: ExportState)
 object YouTubeExportLedger : ExportLedger {
     private lateinit var prefs: SharedPreferences
 
+    private val _changes = MutableSharedFlow<Pair<String, LedgerEntry>>(extraBufferCapacity = 64)
+    /** Each batch as it is recorded: the local playlist's id and what is now on YouTube for it. */
+    val changes: SharedFlow<Pair<String, LedgerEntry>> = _changes.asSharedFlow()
+
     fun init(context: Context) {
         prefs = context.getSharedPreferences("bitchord_youtube_export", Context.MODE_PRIVATE)
     }
@@ -53,6 +57,7 @@ object YouTubeExportLedger : ExportLedger {
             .put("yt", entry.youtubeId)
             .put("ids", JSONArray(entry.exported.toList()))
         prefs.edit().putString(localId, obj.toString()).apply()
+        _changes.tryEmit(localId to entry)
     }
 
     override fun remove(localId: String) {
