@@ -885,6 +885,7 @@ object AppSettings {
         prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
         this.authStore = authStore
         com.music.bitchord.data.spotify.LocalPlaylistStore.init(context)
+        com.music.bitchord.data.spotify.SpotifyCache.init(context)
         com.music.bitchord.data.spotify.YouTubeExportLedger.init(context)
         com.music.bitchord.data.OfflinePlaylists.init(
             context,

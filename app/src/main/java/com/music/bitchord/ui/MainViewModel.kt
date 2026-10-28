@@ -33,7 +33,9 @@ import com.music.bitchord.data.model.SPOTIFY_PENDING_PREFIX
 import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX
 import com.music.bitchord.data.spotify.SpotifyImporter
 import com.music.bitchord.data.spotify.SpotifyLibrary
+import com.music.bitchord.data.spotify.SpotifyCache
 import com.music.bitchord.data.spotify.SpotifyTrack
+import com.music.bitchord.data.model.isUnresolvedSpotify
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
@@ -2907,63 +2909,140 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * before the last song has been found.
      */
     private fun openSpotifyPage(browseId: String, title: String, subtitle: String, thumbnailUrl: String?) {
+        val playlistId = browseId.removePrefix(SPOTIFY_PAGE_PREFIX)
+        val cached = SpotifyCache.getPlaylist(playlistId)
+
+        val initialSongs: UiState<List<Song>> = if (cached != null && cached.songs.isNotEmpty()) {
+            UiState.Success(cached.songs)
+        } else {
+            UiState.Loading
+        }
+
+        val initialCover = cached?.coverUrl ?: thumbnailUrl
+
         _detailStack.value += DetailPage(
             browseId = browseId,
             title = title,
             subtitle = subtitle,
-            thumbnailUrl = thumbnailUrl,
-            songs = UiState.Loading,
+            thumbnailUrl = initialCover,
+            songs = initialSongs,
             type = BrowseType.PLAYLIST,
         )
         viewModelScope.launch {
-            val playlistId = browseId.removePrefix(SPOTIFY_PAGE_PREFIX)
             fun open() = _detailStack.value.any { it.browseId == browseId }
             fun setSongs(songs: UiState<List<Song>>) {
                 _detailStack.value = _detailStack.value.map {
                     if (it.browseId == browseId) it.copy(songs = songs) else it
                 }
             }
-            // The list only had a thumbnail; the full-size cover replaces it
-            // once this page has asked for it.
-            launch {
-                val cover = runCatching { SpotifyLibrary.cover(playlistId) }.getOrNull() ?: return@launch
+            fun setCover(cover: String) {
                 _detailStack.value = _detailStack.value.map {
                     if (it.browseId == browseId) it.copy(thumbnailUrl = cover) else it
                 }
             }
+            // The list only had a thumbnail; the full-size cover replaces it
+            // once this page has asked for it.
+            launch {
+                val cover = runCatching { SpotifyLibrary.cover(playlistId) }.getOrNull() ?: return@launch
+                if (cover != initialCover) {
+                    setCover(cover)
+                    SpotifyCache.updateCover(playlistId, cover)
+                }
+            }
             val tracks = runCatching {
                 SpotifyLibrary.tracks(playlistId) { soFar ->
-                    setSongs(UiState.Success(soFar.map { it.asPendingSong() }))
+                    if (cached == null || cached.songs.isEmpty()) {
+                        setSongs(UiState.Success(soFar.map { it.asPendingSong() }))
+                    }
                 }
-            }.getOrElse {
-                setSongs(UiState.Error(it.message ?: text(R.string.failed)))
+            }.getOrElse { error ->
+                if (cached == null || cached.songs.isEmpty()) {
+                    setSongs(UiState.Error(error.message ?: text(R.string.failed)))
+                }
                 return@launch
             }
             if (tracks.isEmpty()) {
-                setSongs(UiState.Error(text(R.string.spotify_empty_tracks)))
+                if (cached == null || cached.songs.isEmpty()) {
+                    setSongs(UiState.Error(text(R.string.spotify_empty_tracks)))
+                }
                 return@launch
             }
-            val gate = Semaphore(SPOTIFY_MATCH_PARALLELISM)
-            coroutineScope {
-                tracks.forEachIndexed { index, track ->
-                    launch {
-                        gate.withPermit {
-                            if (!open()) return@withPermit
-                            val match = runCatching { SpotifyImporter.matchTrack(track) }.getOrNull()
-                            val found = match?.copy(thumbnailUrl = match.thumbnailUrl ?: track.imageUrl)
-                                ?: track.asPendingSong().let {
-                                    it.copy(videoId = SPOTIFY_MISSING_PREFIX + track.id)
+
+            val freshTrackIds = tracks.map { it.id }
+            val cachedTrackIds = cached?.trackIds?.takeIf { it.isNotEmpty() }
+                ?: cached?.tracks?.map { it.id }.orEmpty()
+
+            val allCachedResolved = cached != null && cached.songs.size == tracks.size &&
+                cached.songs.none { it.isUnresolvedSpotify }
+
+            if (cached != null && freshTrackIds == cachedTrackIds && allCachedResolved) {
+                SpotifyCache.touch(playlistId)
+                return@launch
+            }
+
+            val knownSongs = mutableMapOf<String, Song>()
+            if (cached != null) {
+                cachedTrackIds.zip(cached.songs).forEach { (id, song) ->
+                    if (!song.isUnresolvedSpotify) knownSongs[id] = song
+                }
+            }
+
+            val currentList = tracks.map { track ->
+                knownSongs[track.id]
+                    ?: SpotifyCache.getMatch(track.id)
+                    ?: track.asPendingSong()
+            }.toMutableList()
+
+            if (cached == null || cached.songs.isEmpty() || freshTrackIds != cachedTrackIds) {
+                setSongs(UiState.Success(currentList.toList()))
+            }
+
+            val needsMatching = tracks.indices.filter { currentList[it].isUnresolvedSpotify }
+            if (needsMatching.isNotEmpty()) {
+                val gate = Semaphore(SPOTIFY_MATCH_PARALLELISM)
+                coroutineScope {
+                    needsMatching.forEach { index ->
+                        launch {
+                            val track = tracks[index]
+                            gate.withPermit {
+                                val match = runCatching { SpotifyImporter.matchTrack(track) }.getOrNull()
+                                val found = match?.copy(thumbnailUrl = match.thumbnailUrl ?: track.imageUrl)
+                                    ?: track.asPendingSong().let {
+                                        it.copy(videoId = SPOTIFY_MISSING_PREFIX + track.id)
+                                    }
+
+                                if (!found.isUnresolvedSpotify) {
+                                    SpotifyCache.putMatch(track.id, found)
                                 }
-                            _detailStack.value = _detailStack.value.map { page ->
-                                val list = (page.songs as? UiState.Success<List<Song>>)?.data
-                                if (page.browseId == browseId && list != null && index < list.size) {
-                                    page.copy(songs = UiState.Success(list.toMutableList().also { it[index] = found }))
-                                } else page
+
+                                synchronized(currentList) {
+                                    if (index < currentList.size) {
+                                        currentList[index] = found
+                                    }
+                                }
+
+                                if (open()) {
+                                    _detailStack.value = _detailStack.value.map { page ->
+                                        val list = (page.songs as? UiState.Success<List<Song>>)?.data
+                                        if (page.browseId == browseId && list != null && index < list.size) {
+                                            page.copy(songs = UiState.Success(list.toMutableList().also { it[index] = found }))
+                                        } else page
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
+
+            val finalCover = _detailStack.value.firstOrNull { it.browseId == browseId }?.thumbnailUrl ?: initialCover
+            SpotifyCache.savePlaylist(
+                playlistId = playlistId,
+                title = title,
+                coverUrl = finalCover,
+                tracks = tracks,
+                songs = currentList.toList(),
+            )
         }
     }
 

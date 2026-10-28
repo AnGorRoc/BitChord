@@ -1,6 +1,7 @@
 package com.music.bitchord.data.spotify
 
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.isUnresolvedSpotify
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -181,9 +182,12 @@ object SpotifySync {
         val matched: List<Song?> = coroutineScope {
             tracks.map { track ->
                 async {
-                    val song = known[track.id] ?: gate.withPermit {
+                    val song = known[track.id] ?: SpotifyCache.getMatch(track.id) ?: gate.withPermit {
                         runCatching { SpotifyImporter.matchTrack(track) }.getOrNull()
                             ?.let { it.copy(thumbnailUrl = it.thumbnailUrl ?: track.imageUrl) }
+                    }
+                    if (song != null && !song.isUnresolvedSpotify) {
+                        SpotifyCache.putMatch(track.id, song)
                     }
                     publishProgress(playlist, done.incrementAndGet(), tracks.size)
                     song

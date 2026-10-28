@@ -66,6 +66,7 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.spotify.LocalPlaylistStore
+import com.music.bitchord.data.spotify.SpotifyCache
 import com.music.bitchord.data.spotify.SpotifyLibrary
 import com.music.bitchord.data.spotify.SpotifyPlaylist
 import com.music.bitchord.data.spotify.SpotifySync
@@ -87,7 +88,7 @@ import org.jetbrains.compose.resources.painterResource
  */
 @Stable
 class SpotifyLibraryState {
-    var playlists by mutableStateOf<List<SpotifyPlaylist>>(emptyList())
+    var playlists by mutableStateOf<List<SpotifyPlaylist>>(SpotifyCache.getPlaylists().orEmpty())
         internal set
 
     /** True while the list is being picked from rather than opened. */
@@ -154,14 +155,28 @@ fun SpotifyLibraryScreen(
         if (cookie.isBlank()) {
             state.playlists = emptyList()
             state.clear()
+            SpotifyCache.clear()
             error = null
             return@LaunchedEffect
+        }
+        if (state.playlists.isEmpty()) {
+            val cached = SpotifyCache.getPlaylists()
+            if (!cached.isNullOrEmpty()) {
+                state.playlists = cached
+            }
         }
         loading = true
         error = null
         runCatching { SpotifyLibrary.playlists() }
-            .onSuccess { state.playlists = it }
-            .onFailure { error = it.message }
+            .onSuccess {
+                state.playlists = it
+                SpotifyCache.savePlaylists(it)
+            }
+            .onFailure {
+                if (state.playlists.isEmpty() || reload > 0) {
+                    error = it.message
+                }
+            }
         loading = false
     }
 
