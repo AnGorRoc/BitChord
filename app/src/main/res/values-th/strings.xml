@@ -1422,4 +1422,8 @@
     <string name="yt_export_failed_other">ส่งออก “%1$s” ไม่สำเร็จ: %2$s</string>
     <string name="enable_monochrome">เปิดใช้ Monochrome หรือไม่</string>
     <string name="monochrome_opt_in_warning">ส่งชื่อเพลงและศิลปินของทุกเพลงที่คุณเล่น รวมถึงที่อยู่ IP ของคุณ ไปยัง Monochrome ซึ่งเป็นบริการของบุคคลที่สามที่ไม่เป็นทางการ เพื่อค้นหาสำเนาแบบไม่สูญเสียคุณภาพ เปิดใช้โดยยอมรับความเสี่ยงเอง</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

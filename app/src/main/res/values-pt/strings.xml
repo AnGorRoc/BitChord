@@ -1445,4 +1445,8 @@
     <string name="remove_from_history_failed">Não foi possível remover do histórico</string>
     <string name="enable_monochrome">Ativar o Monochrome?</string>
     <string name="monochrome_opt_in_warning">Envia o título e o artista de cada música que você toca, e o seu endereço IP, ao Monochrome, um serviço de terceiros não oficial, para encontrar uma cópia sem perdas. Ative por sua conta e risco.</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

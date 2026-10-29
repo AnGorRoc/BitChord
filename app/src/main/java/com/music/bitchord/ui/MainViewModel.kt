@@ -1028,6 +1028,43 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun addSongsToPlaylists(
+        playlists: List<UserPlaylist>,
+        songs: List<Song>,
+        onResult: (added: Int, alreadyThere: Int, failed: Int) -> Unit = { _, _, _ -> },
+    ) {
+        if (playlists.isEmpty() || songs.isEmpty()) return
+        viewModelScope.launch {
+            val videoIds = songs.map { it.videoId }
+            var addedCount = 0
+            var failedCount = 0
+            playlists.forEach { playlist ->
+                val local = com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(playlist.playlistId)
+                if (local != null) {
+                    com.music.bitchord.data.spotify.LocalPlaylistStore.addSongs(local.id, songs)
+                    addedCount++
+                } else if (authStore.isSignedIn) {
+                    var allSuccess = true
+                    videoIds.chunked(50).forEach { chunk ->
+                        YtMusicRepository.addToPlaylist(playlist.playlistId, chunk).fold(
+                            onSuccess = { addedMap ->
+                                libraryStale = true
+                                songs.forEach { s ->
+                                    appendToOpenPlaylist(playlist.browseId, s, addedMap[s.videoId])
+                                }
+                            },
+                            onFailure = {
+                                allSuccess = false
+                            },
+                        )
+                    }
+                    if (allSuccess) addedCount++ else failedCount++
+                }
+            }
+            onResult(addedCount, 0, failedCount)
+        }
+    }
+
     private enum class AddOutcome { ADDED, ALREADY_THERE, FAILED }
 
     private suspend fun addOne(playlist: UserPlaylist, song: Song): AddOutcome {

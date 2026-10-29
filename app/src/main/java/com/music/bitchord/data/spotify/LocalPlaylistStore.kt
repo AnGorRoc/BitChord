@@ -155,6 +155,22 @@ object LocalPlaylistStore {
         }
     }
 
+    fun addSongs(id: String, songsToAdd: List<Song>): Int {
+        val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
+        var addedCount = 0
+        mutate { list -> list.map { playlist ->
+            if (playlist.id == cleanId || playlist.id == id || playlist.browseId == id) {
+                val existingIds = playlist.songs.mapTo(HashSet()) { it.videoId }
+                val toAdd = songsToAdd.filter { it.videoId !in existingIds }
+                addedCount = toAdd.size
+                if (toAdd.isNotEmpty()) {
+                    playlist.copy(songs = playlist.songs + toAdd)
+                } else playlist
+            } else playlist
+        } }
+        return addedCount
+    }
+
     fun removeSong(id: String, videoId: String) {
         val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
         mutate { list -> list.map { playlist ->

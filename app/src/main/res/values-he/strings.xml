@@ -1444,4 +1444,8 @@
     <string name="yt_export_failed_other">לא ניתן היה לייצא את “%1$s”: %2$s</string>
     <string name="enable_monochrome">להפעיל את Monochrome?</string>
     <string name="monochrome_opt_in_warning">שולח את שם השיר והאמן של כל שיר שאתם מנגנים, ואת כתובת ה-IP שלכם, אל Monochrome, שירות צד שלישי לא רשמי, כדי למצוא עותק ללא אובדן. ההפעלה על אחריותכם.</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

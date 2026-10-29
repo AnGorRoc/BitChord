@@ -1416,4 +1416,8 @@
     <string name="yt_export_failed_other">Tidak dapat mengekspor “%1$s”: %2$s</string>
     <string name="enable_monochrome">Aktifkan Monochrome?</string>
     <string name="monochrome_opt_in_warning">Mengirim judul dan artis setiap lagu yang Anda putar, beserta alamat IP Anda, ke Monochrome, layanan pihak ketiga tidak resmi, untuk mencari salinan lossless. Aktifkan dengan risiko sendiri.</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

@@ -1416,4 +1416,8 @@
     <string name="yt_export_failed_other">无法导出“%1$s”：%2$s</string>
     <string name="enable_monochrome">启用 Monochrome？</string>
     <string name="monochrome_opt_in_warning">会将你播放的每首歌曲的标题和艺术家，以及你的 IP 地址，发送给非官方第三方服务 Monochrome，以查找无损副本。启用风险自负。</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

@@ -1356,4 +1356,8 @@
     <string name="yt_export_failed_other">Không xuất được “%1$s”: %2$s</string>
     <string name="enable_monochrome">Bật Monochrome?</string>
     <string name="monochrome_opt_in_warning">Gửi tên bài hát và nghệ sĩ của mỗi bài bạn phát, cùng địa chỉ IP của bạn, tới Monochrome, một dịch vụ bên thứ ba không chính thức, để tìm bản không mất dữ liệu. Tự chịu rủi ro khi bật.</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

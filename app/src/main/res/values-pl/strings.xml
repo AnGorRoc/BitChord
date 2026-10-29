@@ -1479,4 +1479,8 @@
     <string name="yt_export_failed_other">Nie udało się wyeksportować „%1$s”: %2$s</string>
     <string name="enable_monochrome">Włączyć Monochrome?</string>
     <string name="monochrome_opt_in_warning">Wysyła tytuł i wykonawcę każdego odtwarzanego utworu oraz Twój adres IP do Monochrome, nieoficjalnej usługi zewnętrznej, aby znaleźć kopię bezstratną. Włączasz na własne ryzyko.</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

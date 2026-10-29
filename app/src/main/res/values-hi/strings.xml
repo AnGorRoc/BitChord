@@ -1439,4 +1439,8 @@
     <string name="yt_export_failed_other">“%1$s” एक्सपोर्ट नहीं हो सकी: %2$s</string>
     <string name="enable_monochrome">Monochrome चालू करें?</string>
     <string name="monochrome_opt_in_warning">आप जो भी गाना चलाते हैं उसका शीर्षक और कलाकार, और आपका IP पता, लॉसलेस कॉपी खोजने के लिए Monochrome को भेजता है, जो एक अनधिकृत थर्ड-पार्टी सेवा है। अपने जोखिम पर चालू करें।</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>
