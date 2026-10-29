@@ -4212,15 +4212,26 @@ private fun BitChordApp(
                 // A tab is a fresh start: everything pushed over the old one —
                 // routes and release pages alike — goes with it.
                 val onTabSelected: (Int) -> Unit = { index ->
-                    navigator.clear()
-                    viewModel.closeMoodGenre()
-                    selectedTab = index
+                    if (selectedTab == index) {
+                        if (route != null || detail != null || selectedMoodGenre != null) {
+                            navigator.clear()
+                            viewModel.closeMoodGenre()
+                        } else {
+                            scope.launch {
+                                currentListState.animateScrollToItem(0)
+                            }
+                        }
+                    } else {
+                        navigator.clear()
+                        viewModel.closeMoodGenre()
+                        selectedTab = index
 
-                    // Every search tab tap resets the field, focuses it, and opens
-                    // the keyboard through SearchScreen's focus request.
-                    if (index == TAB_SEARCH) {
-                        viewModel.onQueryChange("")
-                        searchFocusRequested = true
+                        // Every search tab tap resets the field, focuses it, and opens
+                        // the keyboard through SearchScreen's focus request.
+                        if (index == TAB_SEARCH) {
+                            viewModel.onQueryChange("")
+                            searchFocusRequested = true
+                        }
                     }
                 }
 
