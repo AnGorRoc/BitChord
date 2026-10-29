@@ -90,6 +90,7 @@
     <string name="testing">Probando…</string>
     <string name="connected">Conectado</string>
     <string name="account_integrations">Cuenta e integraciones</string>
+    <string name="player_and_lyrics">Reproductor y letras</string>
     <string name="account_scrobbling">Cuenta y registro de reproducciones</string>
     <string name="rich_presence">Presencia enriquecida</string>
     <string name="scrobbling">Registro de reproducciones</string>
@@ -232,6 +233,8 @@
     <string name="animated_cover_art">Portada animada</string>
     <string name="synced_lyrics">Letras sincronizadas</string>
     <string name="synced_lyrics_subtitle">Ilumina las palabras mientras se cantan</string>
+    <string name="lyric_above_scrubber">Letra sobre la barra de reproducción</string>
+    <string name="lyric_above_scrubber_subtitle">Muestra la línea actual de la letra sobre la línea de tiempo</string>
     <string name="lyrics_sources">Fuentes de letras</string>
     <string name="song_cache_limit">Límite de caché de canciones</string>
     <string name="lossless_cache">Sin pérdida en caché</string>
