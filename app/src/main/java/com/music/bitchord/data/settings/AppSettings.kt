@@ -1631,7 +1631,8 @@ object AppSettings {
     }
 
     private fun clampCacheLimit(value: Long): Long =
-        if (value > MAX_CACHE_LIMIT_BYTES) UNLIMITED_CACHE_LIMIT_BYTES
+        if (value == 0L) DISABLED_CACHE_LIMIT_BYTES
+        else if (value > MAX_CACHE_LIMIT_BYTES) UNLIMITED_CACHE_LIMIT_BYTES
         else value.coerceAtLeast(DEFAULT_CACHE_LIMIT_BYTES)
 
     fun setLosslessCacheLevel(value: LosslessCacheLevel) {
@@ -2166,6 +2167,9 @@ object AppSettings {
 
     const val DEFAULT_CACHE_LIMIT_BYTES = 512L * 1024 * 1024
     const val MAX_CACHE_LIMIT_BYTES = 10L * 1024 * 1024 * 1024
+
+    /** Cache limit set to zero means caching is fully disabled. */
+    const val DISABLED_CACHE_LIMIT_BYTES = 0L
 
     /** Room for about thirty CD-quality FLACs, or four or five hi-res masters. */
     const val DEFAULT_LOSSLESS_CACHE_LIMIT_BYTES = 1L * 1024 * 1024 * 1024

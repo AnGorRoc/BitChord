@@ -1265,6 +1265,8 @@
     <string name="show_cache_folder">Mostrar carpeta de canciones en caché</string>
     <string name="show_cache_folder_subtitle">Añade a la Biblioteca una carpeta con las canciones de YouTube y JioSaavn guardadas en la caché</string>
     <string name="song_cache_unlimited">Ilimitado</string>
+    <string name="song_cache_disabled">Desactivado</string>
+    <string name="song_cache_disabled_subtitle">La caché está desactivada: las canciones se transmitirán cada vez en lugar de guardarse en el disco.</string>
     <string name="song_cache_unlimited_subtitle">Sin límite. El audio en caché puede crecer hasta llenar tu almacenamiento.</string>
     <string name="clear_song_cache_title">¿Borrar caché de canciones?</string>
     <string name="clear_song_cache_warning">Se eliminarán todas las canciones en caché y la carpeta de canciones en caché quedará vacía. Se volverán a transmitir la próxima vez que las reproduzcas.</string>
