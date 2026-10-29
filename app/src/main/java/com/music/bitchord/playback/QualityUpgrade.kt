@@ -631,7 +631,7 @@ object QualityUpgrade {
             when (val outcome = SourceResolver.upgradeFor(
                 waiting.target.copy(durationSec = effectiveDurationSec),
                 playing = waiting.playing,
-                servedBy = waiting.servedBy,
+                servedBy = waiting.servedBy?.takeIf { waiting.playing?.isLossless == true },
                 avoid = avoid,
             )) {
                 is SourceResolver.Upgrade.Found -> {
