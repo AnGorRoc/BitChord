@@ -222,6 +222,60 @@ class EmbeddedLyricsTest {
 
     // ---- Minimal containers, just enough shape for each tagger to accept ----
 
+    @Test
+    fun `an mp3 with an id3v2_3 uslt frame reads back`() {
+        val tag = minimalId3Uslt(lrc, version = 3)
+        assertEquals(lrc, EmbeddedLyrics.fromBytes(tag))
+    }
+
+    @Test
+    fun `an mp3 with an id3v2_4 uslt frame reads back`() {
+        val tag = minimalId3Uslt(lrc, version = 4)
+        assertEquals(lrc, EmbeddedLyrics.fromBytes(tag))
+    }
+
+    private fun minimalId3Uslt(lyrics: String, version: Int): ByteArray {
+        val lyricsBytes = lyrics.toByteArray(Charsets.UTF_8)
+        // Encoding 3 (UTF-8) + lang "eng" + null descriptor + lyrics
+        val payload = byteArrayOf(0x03, 'e'.code.toByte(), 'n'.code.toByte(), 'g'.code.toByte(), 0) + lyricsBytes
+        val frameHeader = if (version == 2) {
+            val sz = payload.size
+            "USL".toByteArray(Charsets.US_ASCII) + byteArrayOf(
+                ((sz ushr 16) and 0xFF).toByte(),
+                ((sz ushr 8) and 0xFF).toByte(),
+                (sz and 0xFF).toByte(),
+            )
+        } else {
+            val sz = payload.size
+            val sizeBytes = if (version == 4) {
+                // syncsafe
+                byteArrayOf(
+                    ((sz ushr 21) and 0x7F).toByte(),
+                    ((sz ushr 14) and 0x7F).toByte(),
+                    ((sz ushr 7) and 0x7F).toByte(),
+                    (sz and 0x7F).toByte(),
+                )
+            } else {
+                byteArrayOf(
+                    ((sz ushr 24) and 0xFF).toByte(),
+                    ((sz ushr 16) and 0xFF).toByte(),
+                    ((sz ushr 8) and 0xFF).toByte(),
+                    (sz and 0xFF).toByte(),
+                )
+            }
+            "USLT".toByteArray(Charsets.US_ASCII) + sizeBytes + byteArrayOf(0, 0)
+        }
+        val frames = frameHeader + payload
+        val tagSize = frames.size
+        val tagSizeBytes = byteArrayOf(
+            ((tagSize ushr 21) and 0x7F).toByte(),
+            ((tagSize ushr 14) and 0x7F).toByte(),
+            ((tagSize ushr 7) and 0x7F).toByte(),
+            (tagSize and 0x7F).toByte(),
+        )
+        return "ID3".toByteArray(Charsets.US_ASCII) + byteArrayOf(version.toByte(), 0, 0) + tagSizeBytes + frames
+    }
+
     /** `ftyp` then an empty `moov`, which is all [Mp4Tagger] looks for. */
     private fun minimalMp4(): ByteArray = box("ftyp", "isom".toByteArray()) + box("moov", ByteArray(0))
 
