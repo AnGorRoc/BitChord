@@ -8,6 +8,13 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.Spring
@@ -384,15 +391,6 @@ private fun ArtworkPageActions(
     ActionsRow(
         modifier = modifier
             .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState))
-            // Keep the right edge fixed while a new action opens room to its
-            // left. The surface itself therefore grows instead of jumping to
-            // its new width in a single frame.
-            .animateContentSize(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMediumLow,
-                ),
-            )
             // One profile target with no inset is a true circle, the back
             // button's size. Once another action exists, Apple's inset opens at
             // both ends. This is layout padding inside the surface, not an
@@ -404,6 +402,65 @@ private fun ArtworkPageActions(
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
             content()
         }
+    }
+}
+
+/**
+ * An action slot in the top bar pill that choreographs with the pill's border:
+ * when appearing, the border widens first and then the icon appears;
+ * when disappearing, the icon disappears first and then the border narrows.
+ */
+@Composable
+fun TopBarAction(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = expandHorizontally(
+            animationSpec = tween(
+                durationMillis = 280,
+                easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f),
+            ),
+            expandFrom = Alignment.End,
+            clip = false,
+        ) + fadeIn(
+            animationSpec = tween(
+                durationMillis = 160,
+                delayMillis = 120,
+                easing = LinearOutSlowInEasing,
+            ),
+        ) + scaleIn(
+            initialScale = 0.55f,
+            animationSpec = spring(
+                dampingRatio = 0.68f,
+                stiffness = Spring.StiffnessMediumLow,
+            ),
+        ),
+        exit = fadeOut(
+            animationSpec = tween(
+                durationMillis = 120,
+                easing = FastOutLinearInEasing,
+            ),
+        ) + scaleOut(
+            targetScale = 0.55f,
+            animationSpec = tween(
+                durationMillis = 120,
+                easing = FastOutLinearInEasing,
+            ),
+        ) + shrinkHorizontally(
+            animationSpec = tween(
+                durationMillis = 240,
+                delayMillis = 80,
+                easing = CubicBezierEasing(0.3f, 0.0f, 0.2f, 1.0f),
+            ),
+            shrinkTowards = Alignment.End,
+            clip = false,
+        ),
+    ) {
+        content()
     }
 }
 
@@ -421,12 +478,28 @@ private fun ActionsRow(modifier: Modifier, content: @Composable () -> Unit) {
         val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
         val target = TOP_CONTROL_SIZE.roundToPx()
         val gap = ACTION_GAP.toPx()
-        val gaps = placeables.mapIndexed { index, placeable ->
-            if (index == 0) 0 else (gap * (placeable.width.toFloat() / target).coerceIn(0f, 1f)).roundToInt()
+
+        var calculatedWidth = 0
+        var lastVisibleWidth = 0
+        val gaps = IntArray(placeables.size)
+
+        placeables.forEachIndexed { index, placeable ->
+            if (placeable.width > 0) {
+                val currentGap = if (lastVisibleWidth > 0) {
+                    (gap * (minOf(lastVisibleWidth, placeable.width).toFloat() / target).coerceIn(0f, 1f)).roundToInt()
+                } else {
+                    0
+                }
+                gaps[index] = currentGap
+                calculatedWidth += currentGap + placeable.width
+                lastVisibleWidth = placeable.width
+            } else {
+                gaps[index] = 0
+            }
         }
-        val width = placeables.sumOf { it.width } + gaps.sum()
+
         val height = placeables.maxOfOrNull { it.height } ?: 0
-        layout(width, height) {
+        layout(calculatedWidth, height) {
             var x = 0
             placeables.forEachIndexed { index, placeable ->
                 x += gaps[index]

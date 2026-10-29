@@ -269,6 +269,7 @@ import com.music.bitchord.ui.components.MiniPlayer
 import com.music.bitchord.ui.components.QueueActionNotice
 import com.music.bitchord.ui.components.QueueActionNoticeHost
 import com.music.bitchord.ui.components.TopBarAccountButton
+import com.music.bitchord.ui.components.TopBarAction
 import com.music.bitchord.ui.screens.SegmentedControl
 import com.music.bitchord.ui.components.SearchField
 import com.music.bitchord.sharedui.resources.Res as SharedRes
@@ -3828,8 +3829,9 @@ private fun BitChordApp(
                         // can be done with the whole list. Gone while the list is
                         // being picked from or imported — the bar on the page has
                         // that in hand.
-                        if (route == AppRoute.Spotify && spotifyLibraryState.playlists.isNotEmpty() &&
-                            !spotifyLibraryState.selecting && !spotifySyncRunning
+                        TopBarAction(
+                            visible = route == AppRoute.Spotify && spotifyLibraryState.playlists.isNotEmpty() &&
+                                !spotifyLibraryState.selecting && !spotifySyncRunning,
                         ) {
                             Box {
                                 IconButton(onClick = { spotifyMenuOpen = true }) {
@@ -3857,7 +3859,7 @@ private fun BitChordApp(
                         // This is intentionally scoped to Listen together: the
                         // round-trip time is meaningful while coordinating a
                         // party, but would be noise in the rest of the app.
-                        if (route == AppRoute.ListenTogether) {
+                        TopBarAction(visible = route == AppRoute.ListenTogether) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(horizontal = 8.dp),
@@ -3915,7 +3917,9 @@ private fun BitChordApp(
                         }
                         // Only worth surfacing where there's room for it and it won't
                         // be mistaken for a per-page action — Home, at rest.
-                        if (route == null && detail == null && selectedTab == TAB_HOME) {
+                        TopBarAction(
+                            visible = route == null && detail == null && selectedTab == TAB_HOME && updateNotice != null,
+                        ) {
                             updateNotice?.let { update ->
                                 IconButton(onClick = { showUpdateDialog = true }) {
                                     Icon(
@@ -3933,171 +3937,193 @@ private fun BitChordApp(
                         }
                         // None on Settings or the pages opened from it: those are
                         // about the account, and the photo would only reopen them.
-                        if (!(route != null && AppRoute.Settings in navigator)) {
-                            // Left of the account photo, and only on Library itself:
-                            // a history is a record of what was played, which reads
-                            // as that tab's business rather than every tab's.
-                            if ((route == null && detail == null && selectedTab == TAB_LIBRARY) ||
-                                route is AppRoute.LibraryShowAll
+                        val notInSettings = !(route != null && AppRoute.Settings in navigator)
+
+                        // Left of the account photo, and only on Library itself:
+                        // a history is a record of what was played, which reads
+                        // as that tab's business rather than every tab's.
+                        TopBarAction(
+                            visible = notInSettings && ((route == null && detail == null && selectedTab == TAB_LIBRARY) ||
+                                route is AppRoute.LibraryShowAll),
+                        ) {
+                            // Cards or rows — one choice for the Library's
+                            // collections, here and on their "Show all" pages.
+                            val listStyle = libraryViewType == LibraryViewType.LIST
+                            IconButton(
+                                onClick = {
+                                    AppSettings.setLibraryViewType(
+                                        if (listStyle) LibraryViewType.GRID else LibraryViewType.LIST,
+                                    )
+                                },
                             ) {
-                                // Cards or rows — one choice for the Library's
-                                // collections, here and on their "Show all" pages.
-                                val listStyle = libraryViewType == LibraryViewType.LIST
-                                IconButton(
-                                    onClick = {
-                                        AppSettings.setLibraryViewType(
-                                            if (listStyle) LibraryViewType.GRID else LibraryViewType.LIST,
-                                        )
-                                    },
-                                ) {
-                                    Icon(
-                                        if (listStyle) BitChordIcons.GridView else BitChordIcons.ListView,
-                                        contentDescription = stringResource(
-                                            if (listStyle) R.string.switch_to_grid_view else R.string.switch_to_list_view,
-                                        ),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
+                                Icon(
+                                    if (listStyle) BitChordIcons.GridView else BitChordIcons.ListView,
+                                    contentDescription = stringResource(
+                                        if (listStyle) R.string.switch_to_grid_view else R.string.switch_to_list_view,
+                                    ),
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
                             }
-                            if (route == null && detail == null && selectedTab == TAB_LIBRARY) {
-                                IconButton(
-                                    onClick = {
-                                        navigator.push(AppRoute.History)
-                                        viewModel.loadHistory()
-                                    },
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.History,
-                                        contentDescription = stringResource(R.string.listening_history),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
+                        }
+
+                        TopBarAction(
+                            visible = notInSettings && (route == null && detail == null && selectedTab == TAB_LIBRARY),
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    navigator.push(AppRoute.History)
+                                    viewModel.loadHistory()
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Rounded.History,
+                                    contentDescription = stringResource(R.string.listening_history),
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
                             }
-                            // Left of the account photo, and only on a Library
-                            // "Show all" grid — the same control the Downloads
-                            // folder offers (see `LocalSearchField`), adapted to
-                            // the one thing a playlist or album card carries: a
-                            // title.
-                            if (route is AppRoute.LibraryShowAll) {
-                                Box {
-                                    IconButton(onClick = { librarySortMenuOpen = true }) {
-                                        Icon(
-                                            Icons.Rounded.Sort,
-                                            contentDescription = stringResource(R.string.sort_library),
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                    }
-                                    DropdownMenu(
-                                        expanded = librarySortMenuOpen,
-                                        onDismissRequest = { librarySortMenuOpen = false },
-                                    ) {
-                                        LibrarySort.entries.forEach { option ->
-                                            DropdownMenuItem(
-                                                text = { Text(option.localizedLabel()) },
-                                                trailingIcon = if (option == librarySort) {
-                                                    { Icon(Icons.Rounded.Check, contentDescription = null) }
-                                                } else null,
-                                                onClick = {
-                                                    AppSettings.setLibrarySort(option)
-                                                    librarySortMenuOpen = false
-                                                },
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            // Sort, only on an album or playlist page or a device
-                            // folder — an artist page has no single track list to
-                            // reorder. A folder's opens its own menu: its sort
-                            // orders, and list or grid for its tabs.
-                            //
-                            // Search and the overflow flank it, as the share and
-                            // "…" pair do on Apple Music's album page: the header
-                            // below is left with just the sleeve, the title and
-                            // Shuffle / Play / Add.
-                            if ((isReleaseDetail || isLocalDetail) && detail != null) {
-                                val releaseSongs = (detail.songs as? UiState.Success)?.data.orEmpty()
-                                if (releaseSongs.isNotEmpty()) {
-                                    IconButton(onClick = { detailSearching = !detailSearching }) {
-                                        Icon(
-                                            if (detailSearching) Icons.Rounded.Close else BitChordIcons.Search,
-                                            contentDescription = stringResource(
-                                                if (detailSearching) R.string.close_search else R.string.search_this_list,
-                                            ),
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                    }
-                                }
-                                // The menu itself is [FrostedSortMenu], composed
-                                // with the app's other frosted overlays further
-                                // down — in the main hierarchy, where the haze
-                                // can see the content it blurs.
-                                IconButton(
-                                    onClick = { if (isLocalDetail) folderMenuOpen = true else songSortMenuOpen = true },
-                                ) {
+                        }
+
+                        // Left of the account photo, and only on a Library
+                        // "Show all" grid — the same control the Downloads
+                        // folder offers (see `LocalSearchField`), adapted to
+                        // the one thing a playlist or album card carries: a
+                        // title.
+                        TopBarAction(
+                            visible = notInSettings && (route is AppRoute.LibraryShowAll),
+                        ) {
+                            Box {
+                                IconButton(onClick = { librarySortMenuOpen = true }) {
                                     Icon(
                                         Icons.Rounded.Sort,
-                                        contentDescription = stringResource(
-                                            if (isLocalDetail) R.string.sort_music else R.string.sort_songs,
-                                        ),
+                                        contentDescription = stringResource(R.string.sort_library),
                                         tint = MaterialTheme.colorScheme.onSurface,
                                     )
                                 }
-                                val isLocalPlaylist = detail.browseId.startsWith("local:playlist:") &&
-                                    com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(detail.browseId) != null
-                                if (isReleaseDetail && (releaseSongs.isNotEmpty() || detail.type == BrowseType.PLAYLIST || isLocalPlaylist)) {
-                                    // The page's own tracks, in the order the page
-                                    // shows them, so the sheet has them already and
-                                    // Play, Shuffle and Open are the buttons beside
-                                    // the one that opened it rather than rows on it.
-                                    // Download lives in the sheet too — and the
-                                    // tracks arrive stamped with the album they came
-                                    // off, which is what the download record groups
-                                    // them under.
-                                    IconButton(
-                                        onClick = {
-                                            browseActions = BrowseTarget(
-                                                browseId = detail.browseId,
-                                                title = detail.title,
-                                                subtitle = detail.subtitle,
-                                                thumbnailUrl = detail.thumbnailUrl,
-                                                type = detail.type,
-                                                songs = releaseSongs.sortedForDetail(songSort).map { song ->
-                                                    if (detail.type == BrowseType.ALBUM) {
-                                                        song.copy(albumName = song.albumName ?: detail.title)
-                                                    } else {
-                                                        song
-                                                    }
-                                                },
-                                                fromCard = false,
-                                                downloadId = downloadIdFor(detail.browseId),
-                                            )
-                                        },
-                                    ) {
-                                        Icon(
-                                            Icons.Rounded.MoreHoriz,
-                                            contentDescription = stringResource(R.string.more),
-                                            tint = MaterialTheme.colorScheme.onSurface,
+                                DropdownMenu(
+                                    expanded = librarySortMenuOpen,
+                                    onDismissRequest = { librarySortMenuOpen = false },
+                                ) {
+                                    LibrarySort.entries.forEach { option ->
+                                        DropdownMenuItem(
+                                            text = { Text(option.localizedLabel()) },
+                                            trailingIcon = if (option == librarySort) {
+                                                { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                            } else null,
+                                            onClick = {
+                                                AppSettings.setLibrarySort(option)
+                                                librarySortMenuOpen = false
+                                            },
                                         )
                                     }
                                 }
                             }
-                            // Left of the account photo, on an artist page: iOS's
-                            // share glyph, sending the artist's channel link — the
-                            // one YouTube Music itself shares for an artist.
-                            if (detail != null && !isLocalDetail && detail.type == BrowseType.ARTIST &&
-                                detailActiveShelf == null && detail.browseId.startsWith("UC")
+                        }
+
+                        // Sort, only on an album or playlist page or a device
+                        // folder — an artist page has no single track list to
+                        // reorder. A folder's opens its own menu: its sort
+                        // orders, and list or grid for its tabs.
+                        //
+                        // Search and the overflow flank it, as the share and
+                        // "…" pair do on Apple Music's album page: the header
+                        // below is left with just the sleeve, the title and
+                        // Shuffle / Play / Add.
+                        val releaseSongs = (detail?.songs as? UiState.Success)?.data.orEmpty()
+                        TopBarAction(
+                            visible = notInSettings && (isReleaseDetail || isLocalDetail) && detail != null && releaseSongs.isNotEmpty(),
+                        ) {
+                            IconButton(onClick = { detailSearching = !detailSearching }) {
+                                Icon(
+                                    if (detailSearching) Icons.Rounded.Close else BitChordIcons.Search,
+                                    contentDescription = stringResource(
+                                        if (detailSearching) R.string.close_search else R.string.search_this_list,
+                                    ),
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+
+                        // The menu itself is [FrostedSortMenu], composed
+                        // with the app's other frosted overlays further
+                        // down — in the main hierarchy, where the haze
+                        // can see the content it blurs.
+                        TopBarAction(
+                            visible = notInSettings && (isReleaseDetail || isLocalDetail) && detail != null,
+                        ) {
+                            IconButton(
+                                onClick = { if (isLocalDetail) folderMenuOpen = true else songSortMenuOpen = true },
                             ) {
+                                Icon(
+                                    Icons.Rounded.Sort,
+                                    contentDescription = stringResource(
+                                        if (isLocalDetail) R.string.sort_music else R.string.sort_songs,
+                                    ),
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+
+                        val isLocalPlaylist = detail?.browseId?.startsWith("local:playlist:") == true &&
+                            com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(detail?.browseId.orEmpty()) != null
+                        TopBarAction(
+                            visible = notInSettings && isReleaseDetail && detail != null && (releaseSongs.isNotEmpty() || detail?.type == BrowseType.PLAYLIST || isLocalPlaylist),
+                        ) {
+                            detail?.let { d ->
+                                // The page's own tracks, in the order the page
+                                // shows them, so the sheet has them already and
+                                // Play, Shuffle and Open are the buttons beside
+                                // the one that opened it rather than rows on it.
+                                // Download lives in the sheet too — and the
+                                // tracks arrive stamped with the album they came
+                                // off, which is what the download record groups
+                                // them under.
+                                IconButton(
+                                    onClick = {
+                                        browseActions = BrowseTarget(
+                                            browseId = d.browseId,
+                                            title = d.title,
+                                            subtitle = d.subtitle,
+                                            thumbnailUrl = d.thumbnailUrl,
+                                            type = d.type,
+                                            songs = releaseSongs.sortedForDetail(songSort).map { song ->
+                                                if (d.type == BrowseType.ALBUM) {
+                                                    song.copy(albumName = song.albumName ?: d.title)
+                                                } else {
+                                                    song
+                                                }
+                                            },
+                                            fromCard = false,
+                                            downloadId = downloadIdFor(d.browseId),
+                                        )
+                                    },
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.MoreHoriz,
+                                        contentDescription = stringResource(R.string.more),
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                            }
+                        }
+
+                        // Left of the account photo, on an artist page: iOS's
+                        // share glyph, sending the artist's channel link — the
+                        // one YouTube Music itself shares for an artist.
+                        TopBarAction(
+                            visible = notInSettings && detail != null && !isLocalDetail && detail?.type == BrowseType.ARTIST &&
+                                detailActiveShelf == null && detail?.browseId?.startsWith("UC") == true,
+                        ) {
+                            detail?.let { d ->
                                 IconButton(
                                     onClick = {
                                         val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                             type = "text/plain"
                                             putExtra(
                                                 Intent.EXTRA_TEXT,
-                                                "https://music.youtube.com/channel/${detail.browseId}",
+                                                "https://music.youtube.com/channel/${d.browseId}",
                                             )
                                         }
-                                        context.startActivity(Intent.createChooser(sendIntent, detail.title))
+                                        context.startActivity(Intent.createChooser(sendIntent, d.title))
                                     },
                                 ) {
                                     Icon(
@@ -4107,15 +4133,21 @@ private fun BitChordApp(
                                     )
                                 }
                             }
-                            // Left of the account photo, and only there while
-                            // there is a batch to report on — see
-                            // [TopBarDownloadButton], which decides that for
-                            // itself rather than being told.
-                            TopBarDownloadButton(onClick = { showDownloadManager = true })
-                            // Not on a release page, whose pill already carries
-                            // three of its own controls — Apple Music leaves the
-                            // profile off its album pages too.
-                            if (!isReleaseDetail) TopBarAccountButton(
+                        }
+
+                        // Left of the account photo, and only there while
+                        // there is a batch to report on — see
+                        // [TopBarDownloadButton], which decides that for
+                        // itself rather than being told.
+                        TopBarDownloadButton(onClick = { showDownloadManager = true })
+
+                        // Not on a release page, whose pill already carries
+                        // three of its own controls — Apple Music leaves the
+                        // profile off its album pages too.
+                        TopBarAction(
+                            visible = notInSettings && !isReleaseDetail,
+                        ) {
+                            TopBarAccountButton(
                                 account = account,
                                 onClick = {
                                     if (signedIn) {

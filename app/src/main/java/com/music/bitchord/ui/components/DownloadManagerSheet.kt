@@ -102,24 +102,9 @@ fun TopBarDownloadButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
         label = "downloadRingTint",
     )
 
-    AnimatedVisibility(
+    TopBarAction(
         visible = session.visible,
         modifier = modifier,
-        // Open the slot first; the glyph arrives as the pill approaches its
-        // new width. Siblings move with the expanding slot and make room rather
-        // than jumping directly to their final positions.
-        enter = expandHorizontally(
-            animationSpec = tween(260),
-            expandFrom = Alignment.End,
-        ) + fadeIn(
-            animationSpec = tween(durationMillis = 160, delayMillis = 100),
-        ),
-        exit = fadeOut(
-            animationSpec = tween(120),
-        ) + shrinkHorizontally(
-            animationSpec = tween(durationMillis = 220, delayMillis = 60),
-            shrinkTowards = Alignment.End,
-        ),
     ) {
         IconButton(
             onClick = {
