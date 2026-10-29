@@ -298,7 +298,7 @@ private const val QUEUE_FLICK_VELOCITY = 450f
  */
 private val DISMISS_STRIP_HEIGHT = 32.dp
 /** The breathing room above the sleeve, needed twice: once to apply, once to measure past. */
-private val ART_BOX_TOP_PAD = 8.dp
+private val ART_BOX_TOP_PAD = 20.dp
 /**
  * Share of the motion-artwork banner's height given over to its dissolve.
  *
@@ -362,7 +362,7 @@ internal object CanvasStills {
 }
 
 /** The player's side margin. Scrollable panels reach back across it. */
-internal val PLAYER_GUTTER = 30.dp
+internal val PLAYER_GUTTER = 20.dp
 /**
  * How wide the player's content is ever allowed to get. A sleeve and a volume
  * slider stretched right across a tablet aren't a bigger player, just a coarser
@@ -875,6 +875,7 @@ fun NowPlayingScreen(
     val openListenTogetherMembers: () -> Unit = { showListenTogetherMembers = true }
 
     val syncedLyricsEnabled by PlayerSettings.syncedLyrics.collectAsStateWithLifecycle()
+    val lyricAboveScrubber by PlayerSettings.lyricAboveScrubber.collectAsStateWithLifecycle()
     val lyricsOffsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
     // A lambda, not a value: read by the lyric strip and panel in scopes of
     // their own, so a tick recomposes them and not the player around them.
@@ -2138,7 +2139,7 @@ fun NowPlayingScreen(
                                     onOpenArtist = onOpenArtist,
                                 )
                             },
-                            lyricStrip = if (syncedLyricsEnabled) {
+                            lyricStrip = if (syncedLyricsEnabled && lyricAboveScrubber) {
                                 {
                                     CurrentLyricStrip(
                                         lines = lyricsTranslation.displayedLyrics,
@@ -2782,19 +2783,20 @@ fun NowPlayingScreen(
                         // over once the credits row and the gap above it have had
                         // theirs. Sizing it off the width alone is what pushed the
                         // credits down across the scrubber on anything but a phone.
-                        val wantArt = minOf(maxWidth, roomy - ART_TITLE_GAP - HEADER_HEIGHT)
+                        val currentTitleGap = if (lyricAboveScrubber) ART_TITLE_GAP else (ART_TITLE_GAP + 14.dp)
+                        val wantArt = minOf(maxWidth, roomy - currentTitleGap - HEADER_HEIGHT)
                         // Held to what the box has actually got, for the single frame it
                         // takes the gaps below to catch up with a change in their own
                         // height: a sleeve a few dp under for one frame is a better
                         // failure than a credits row overhanging the lyric strip.
-                        val fullArt = minOf(wantArt, maxHeight - ART_TITLE_GAP - HEADER_HEIGHT)
+                        val fullArt = minOf(wantArt, maxHeight - currentTitleGap - HEADER_HEIGHT)
                             .coerceAtLeast(THUMB_SIZE)
                         // What's left over once the sleeve, the gap and the credits have
                         // had theirs. A few dp on a phone; the better part of a
                         // centimetre on anything taller, and since the group is centred,
                         // half of it used to land between the credits and the lyric strip
                         // as one wide hole in the middle of the controls.
-                        val slack = (roomy - wantArt - ART_TITLE_GAP - HEADER_HEIGHT)
+                        val slack = (roomy - wantArt - currentTitleGap - HEADER_HEIGHT)
                             .coerceAtLeast(0.dp)
                         // Handed to the two gaps around the transport row instead, which
                         // is where a tall screen should be doing its breathing.
@@ -2859,12 +2861,12 @@ fun NowPlayingScreen(
                                 }
                             }
                         }
-                        // Artwork and the title row travel together as one block, so
-                        // the pair sits centred while the queue is closed — in whatever
-                        // the controls couldn't take, which on all but the tallest
-                        // screens is nothing.
-                        val groupTop = (maxHeight - fullArt - ART_TITLE_GAP - HEADER_HEIGHT)
-                            .coerceAtLeast(0.dp) / 2
+                        // Artwork and the title row travel together as one block, settled
+                        // slightly lower on tall screens so the sleeve breathes below the top
+                        // bar and the credits stay close to the playback controls.
+                        val groupMultiplier = if (lyricAboveScrubber) 0.65f else 0.82f
+                        val groupTop = (maxHeight - fullArt - currentTitleGap - HEADER_HEIGHT)
+                            .coerceAtLeast(0.dp) * groupMultiplier
                         // Functions of the collapse, called at placement and measure
                         // — see [p]. Composition never reads them.
                         fun artSize(): Dp = lerp(fullArt, THUMB_SIZE, p())
@@ -2873,7 +2875,7 @@ fun NowPlayingScreen(
                         // player and has to be centred in it; collapsed, it belongs
                         // hard against the left edge with the credits beside it.
                         fun artStart(): Dp = lerp((maxWidth - fullArt) / 2, 0.dp, p())
-                        fun regularTitleTop(): Dp = lerp(groupTop + fullArt + ART_TITLE_GAP, 0.dp, p())
+                        fun regularTitleTop(): Dp = lerp(groupTop + fullArt + currentTitleGap, 0.dp, p())
                         // Once Spotify's control deck has left, keep the only remaining
                         // player chrome against the bottom edge instead of stranding it
                         // where the artwork's title normally sits near mid-screen.
@@ -2906,7 +2908,7 @@ fun NowPlayingScreen(
                         // screen's top and this box's own top is fixed padding, so it
                         // can simply be added back up rather than measured.
                         val bannerBottom = statusBarTop + topStrip + ART_BOX_TOP_PAD +
-                            groupTop + fullArt + ART_TITLE_GAP / 2
+                            groupTop + fullArt + currentTitleGap / 2
                         // Frozen while lyrics are up. The controls now retain their full
                         // footprint across the transition, so this answer is identical
                         // on both sides; avoiding writes during the panel keeps the
@@ -3542,7 +3544,7 @@ fun NowPlayingScreen(
                                 modifier = Modifier
                                     .align(Alignment.TopCenter)
                                     .offset {
-                                        IntOffset(0, (artTop() + artSize() + (ART_TITLE_GAP - 16.dp) / 2).roundToPx())
+                                        IntOffset(0, (artTop() + artSize() + (currentTitleGap - 16.dp) / 2).roundToPx())
                                     }
                                     .size(16.dp)
                                     .graphicsLayer {
@@ -3957,7 +3959,7 @@ fun NowPlayingScreen(
                     // accompanied by a dedicated lyrics button in the bottom row. Its
                     // one-line slot remains, invisibly, so opening lyrics cannot grow
                     // the half-player merely to make room for the source label.
-                    if (!lyricsOpen && syncedLyricsEnabled) {
+                    if (!lyricsOpen && syncedLyricsEnabled && lyricAboveScrubber) {
                         CurrentLyricStrip(
                             lines = lyricsTranslation.displayedLyrics,
                             trackKey = song.videoId,
@@ -3973,7 +3975,7 @@ fun NowPlayingScreen(
                             onClick = openLyrics,
                         )
                     }
-                    if (!lyricsOpen && !syncedLyricsEnabled) {
+                    if (!lyricsOpen && !syncedLyricsEnabled && lyricAboveScrubber) {
                         Text(
                             text = "\u00A0",
                             style = MaterialTheme.typography.titleMedium,

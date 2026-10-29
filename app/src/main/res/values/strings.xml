@@ -108,6 +108,7 @@
     <string name="testing">Testing…</string>
     <string name="connected">Connected</string>
     <string name="account_integrations">Account &amp; integrations</string>
+    <string name="player_and_lyrics">Player &amp; lyrics</string>
     <string name="spotify">Spotify</string>
     <string name="spotify_connect_subtitle">Sign in to load your playlists. Playback uses YouTube Music.</string>
     <string name="spotify_sign_in">Sign in with Spotify</string>
@@ -343,6 +344,8 @@
     <string name="artist_signatures_test_failed">Could not reach the API at that URL</string>
     <string name="synced_lyrics">Synced lyrics</string>
     <string name="synced_lyrics_subtitle">Lights up the words on the player as they’re sung</string>
+    <string name="lyric_above_scrubber">Show lyric above scrubber</string>
+    <string name="lyric_above_scrubber_subtitle">Displays current lyric line above the timeline in player</string>
     <string name="lyrics_sources">Lyrics sources</string>
     <string name="song_cache_limit">Song cache limit</string>
     <string name="lossless_cache">Lossless in cache</string>
