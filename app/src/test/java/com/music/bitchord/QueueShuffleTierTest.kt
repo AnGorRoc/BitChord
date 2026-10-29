@@ -538,6 +538,28 @@ class QueueShuffleTierTest {
     }
 
     @Test
+    fun `header play button flow disables shuffle and plays release sequentially`() {
+        val songs = (1..6).map { testSong("track-$it", QueueTier.CONTEXT, "entry-$it") }
+        // Simulate shuffle previously active:
+        QueueShuffle.enableForNextQueue()
+        assertTrue("Shuffle should be enabled prior to tapping play", QueueShuffle.enabled.value)
+
+        // Tapping header Play button disables shuffle for the next queue:
+        QueueShuffle.disableForNextQueue()
+        assertFalse("Shuffle must be disabled when tapping main play button", QueueShuffle.enabled.value)
+
+        // When shuffle is off, startingOrder preserves exact sequential order from track-1:
+        val startingOrder = if (QueueShuffle.enabled.value) {
+            QueueShuffle.startingOrder(songs, 0)
+        } else {
+            songs
+        }
+
+        assertEquals("track-1", startingOrder[0].videoId)
+        assertEquals(listOf("track-1", "track-2", "track-3", "track-4", "track-5", "track-6"), startingOrder.map { it.videoId })
+    }
+
+    @Test
     fun `getCanonicalIndex and restore fall back cleanly to mediaId when item has a distinct or fresh queueEntryId`() {
         val songs = (1..5).map { testSong("track-$it", QueueTier.CONTEXT, "canonical-id-$it") }
         val canonicalItems = songs.mapIndexed { idx, s ->

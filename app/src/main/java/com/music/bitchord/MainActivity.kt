@@ -3263,6 +3263,12 @@ private fun BitChordApp(
                                 // Album/playlist playback hands the page snapshot to
                                 // the service, which then owns continuation loading.
                                 onSongClick = ::playDetailSongs,
+                                onPlayAll = { songs ->
+                                    if (songs.isNotEmpty()) {
+                                        QueueShuffle.disableForNextQueue()
+                                        playDetailSongs(songs, 0)
+                                    }
+                                },
                                 onSongLongPress = { openSongMenu(withAlbum(it)) },
                                 onSongSwipe = { onSongSwipe(withAlbum(it)) },
                                 onShuffle = { songs ->
@@ -5188,7 +5194,10 @@ private fun BitChordApp(
                 startRenaming = browseRenameInSheet,
                 onPlayNext = act(playSongsNext),
                 onAddToQueue = act(addSongsToQueue),
-                onPlay = act { songs -> play(songs, 0) }.takeIf { target.fromCard },
+                onPlay = act { songs ->
+                    QueueShuffle.disableForNextQueue()
+                    play(songs, 0)
+                }.takeIf { target.fromCard },
                 onShuffle = act { songs ->
                     // As on a release page: shuffle goes on before the queue
                     // is built, so it is built shuffled rather than played

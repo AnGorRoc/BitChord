@@ -181,6 +181,18 @@ object QueueShuffle {
     }
 
     /**
+     * Turns shuffle off without touching the current queue — for the Play
+     * button on an album or playlist page, so starting a release plays it
+     * sequentially from the beginning regardless of whether shuffle was previously on.
+     */
+    fun disableForNextQueue() {
+        original = emptyList()
+        clearCanonicalContext()
+        _enabled.value = false
+        AppSettings.setShuffleEnabled(false)
+    }
+
+    /**
      * The order a queue should go in when it is started while shuffle is on:
      * the track the user picked leads, the rest follow at random. The order it
      * arrived in is remembered, so turning shuffle off restores it.
