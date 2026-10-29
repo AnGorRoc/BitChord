@@ -385,4 +385,53 @@ class AudioPipelineTest {
         assertFalse(yt.isWinner)
         assertEquals("Reemplazado por mayor calidad", yt.status)
     }
+
+    @Test
+    fun `SourceResolutionTracker keeps the playing winner when a later lookup fails`() {
+        SourceResolutionTracker.resetForTrack("vid789", "Blinding Lights")
+
+        SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, "Consultando...")
+        SourceResolutionTracker.setWinner("youtube", "En reproducción (YouTube Opus)")
+        SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, "No se pudo obtener enlace de audio")
+
+        val yt = SourceResolutionTracker.current.value.reports.first { it.sourceId == "youtube" }
+        assertTrue(yt.isWinner)
+        assertEquals("En reproducción (YouTube Opus)", yt.status)
+    }
+
+    @Test
+    fun `SourceResolutionTracker lists a winner that was never recorded`() {
+        SourceResolutionTracker.resetForTrack("vid101", "Levitating")
+
+        SourceResolutionTracker.setWinner("module", "En reproducción (FLAC Lossless)")
+
+        val reports = SourceResolutionTracker.current.value.reports
+        assertEquals(1, reports.size)
+        assertTrue(reports[0].isWinner)
+        assertEquals("En reproducción (FLAC Lossless)", reports[0].status)
+    }
+
+    @Test
+    fun `SourceResolutionTracker ignores a winner reported for a different track`() {
+        SourceResolutionTracker.resetForTrack("vidNow", "Current")
+        SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, "Consultando...")
+        SourceResolutionTracker.setWinner("youtube", "En reproducción (YouTube Opus)", mediaId = "vidNow")
+
+        // A late upgrade from the previous track must not take over this one.
+        SourceResolutionTracker.setWinner("monochrome", "En reproducción (FLAC Lossless)", mediaId = "vidOld")
+
+        val reports = SourceResolutionTracker.current.value.reports
+        assertEquals(1, reports.size)
+        assertEquals("youtube", reports[0].sourceId)
+        assertTrue(reports[0].isWinner)
+    }
+
+    @Test
+    fun `sameTrack matches source-backed keys against their bare track id`() {
+        assertTrue(SourceResolutionTracker.sameTrack("src:addon1::abc", "abc"))
+        assertTrue(SourceResolutionTracker.sameTrack("abc", "src:addon1::abc"))
+        assertTrue(SourceResolutionTracker.sameTrack("abc", "abc"))
+        assertFalse(SourceResolutionTracker.sameTrack("abc", "xyz"))
+        assertFalse(SourceResolutionTracker.sameTrack("abc", null))
+    }
 }

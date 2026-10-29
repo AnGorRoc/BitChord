@@ -543,6 +543,16 @@ fun AudioPipelineDialog(
 
             // 6. Source Inspection Stage
             val resolutionState by SourceResolutionTracker.current.collectAsStateWithLifecycle()
+            // Reports for the previous track can still be on the tracker
+            // between a track change and the next resolve; they are not
+            // this track's sources, so they are not shown as such.
+            val resolutionReports = if (
+                SourceResolutionTracker.sameTrack(resolutionState.mediaId, nerdStats?.mediaId)
+            ) {
+                resolutionState.reports
+            } else {
+                emptyList()
+            }
             PipelineRule()
             PipelineSection(
                 stageIndex = 5,
@@ -552,10 +562,10 @@ fun AudioPipelineDialog(
                 stageActivationProvider = stageActivation,
                 onStageIconPositioned = onStageIconPositioned,
             ) {
-                if (resolutionState.reports.isEmpty()) {
+                if (resolutionReports.isEmpty()) {
                     PipelineRow("Estado", "Sin consultas activas para esta pista")
                 } else {
-                    resolutionState.reports.forEach { report ->
+                    resolutionReports.forEach { report ->
                         val valueText = if (report.detail != null && !report.status.contains(report.detail)) {
                             "${report.status} (${report.detail})"
                         } else {

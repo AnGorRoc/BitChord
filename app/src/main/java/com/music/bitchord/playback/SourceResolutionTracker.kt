@@ -2,6 +2,7 @@ package com.music.bitchord.playback
 
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.data.sources.SourceTrackKeys
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,6 +56,10 @@ object SourceResolutionTracker {
 
     /**
      * Records or updates the resolution outcome for [sourceId].
+     *
+     * A later lookup that comes back empty or failing for the source that is
+     * currently serving the audio does not demote it: the stream is still
+     * playing, so the row keeps saying so. Only [setWinner] changes who wins.
      */
     fun record(
         sourceId: String,
@@ -65,10 +70,7 @@ object SourceResolutionTracker {
         isWinner: Boolean = false,
     ) {
         val existing = attemptMap[sourceId]
-        // Do not overwrite an active winner with an unaligned or inferior upgrade reject note
-        if (existing?.isWinner == true && !isWinner && (status.contains("menor") || status.contains("inferior"))) {
-            return
-        }
+        if (existing?.isWinner == true && !isWinner) return
         val report = SourceAttemptReport(
             sourceId = sourceId,
             displayName = displayName,
@@ -85,16 +87,26 @@ object SourceResolutionTracker {
     /**
      * Declares [sourceId] as the active winning source that is currently serving the audio.
      * Any previously active winner is demoted (e.g. when upgraded to lossless).
+     *
+     * A winner nobody recorded a lookup for (a module or upgrade stream that
+     * was never asked about by name) gets a row of its own, so the playing
+     * source is always listed. When [mediaId] names a track other than the one
+     * being tracked, the call is a late report from a previous track and is
+     * dropped rather than demoting the current winner.
      */
-    fun setWinner(sourceId: String, winnerStatus: String? = null) {
+    fun setWinner(sourceId: String, winnerStatus: String? = null, mediaId: String? = null) {
+        if (mediaId != null && !sameTrack(mediaId, _current.value.mediaId)) {
+            TrackLog.d("SourceTracker", "ignored winner '$sourceId' for $mediaId; tracking ${_current.value.mediaId}")
+            return
+        }
+        val base = attemptMap[sourceId] ?: SourceAttemptReport(
+            sourceId = sourceId,
+            displayName = sourceId,
+            kind = SourceKind.MODULE,
+            status = winnerStatus ?: "En reproducción",
+        )
         attemptMap.forEach { (id, old) ->
-            if (id == sourceId) {
-                attemptMap[id] = old.copy(
-                    isWinner = true,
-                    status = winnerStatus ?: old.status,
-                )
-                TrackLog.d("SourceTracker", "[${old.displayName}] promoted to WINNER: ${winnerStatus ?: old.status}")
-            } else if (old.isWinner) {
+            if (id != sourceId && old.isWinner) {
                 attemptMap[id] = old.copy(
                     isWinner = false,
                     status = "Reemplazado por mayor calidad",
@@ -102,11 +114,27 @@ object SourceResolutionTracker {
                 TrackLog.d("SourceTracker", "[${old.displayName}] demoted from winner (superseded by higher quality)")
             }
         }
+        attemptMap[sourceId] = base.copy(
+            isWinner = true,
+            status = winnerStatus ?: base.status,
+        )
+        TrackLog.d("SourceTracker", "[${base.displayName}] promoted to WINNER: ${winnerStatus ?: base.status}")
         publish()
     }
 
     private fun publish() {
         val sorted = attemptMap.values.sortedBy { it.kind.rank }
         _current.update { it.copy(reports = sorted) }
+    }
+
+    /**
+     * Whether two track ids name the same track. Source-backed queue items
+     * carry `src:<config>::<track>`; the resolver keys its reports by the
+     * bare track id, so the two are compared on that part.
+     */
+    fun sameTrack(a: String?, b: String?): Boolean {
+        if (a == null || b == null) return a == b
+        if (a == b) return true
+        return SourceTrackKeys.parse(a)?.second == b || SourceTrackKeys.parse(b)?.second == a
     }
 }

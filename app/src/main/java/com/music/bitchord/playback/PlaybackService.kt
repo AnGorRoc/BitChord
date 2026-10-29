@@ -5687,7 +5687,11 @@ class PlaybackService : MediaLibraryService() {
                 ?: "Upgrade"
             NerdStats.onSourceStream(mediaId, stream.format, upgradedSourceName)
             NerdStats.recordSource(mediaId, upgradedSourceName)
-            SourceResolutionTracker.setWinner(stream.sourceConfigId ?: "upgrade", "En reproducción (${stream.format.summary})")
+            SourceResolutionTracker.setWinner(
+                stream.sourceConfigId ?: "upgrade",
+                "En reproducción (${stream.format.summary})",
+                mediaId = mediaId,
+            )
             QualityUpgrade.unshelve(mediaId)
             if (stream.format.isLossless == true) losslessRetry.reset()
             val playing = this@PlaybackService.player
@@ -6407,7 +6411,7 @@ class PlaybackService : MediaLibraryService() {
             if (lossless != null && !StreamContainer.isManifest(lossless.url)) {
                 NerdStats.onLosslessRaceEnd(videoId)
                 val configId = lossless.sourceConfigId ?: "module"
-                SourceResolutionTracker.setWinner(configId, "En reproducción (${lossless.format.summary})")
+                SourceResolutionTracker.setWinner(configId, "En reproducción (${lossless.format.summary})", mediaId = videoId)
                 SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, "Omitido (se prefirió Lossless directo)")
                 return Resolved.Module(lossless)
             }
@@ -6506,7 +6510,7 @@ class PlaybackService : MediaLibraryService() {
             // finish into its own cache.
             fallback.cancel()
             val quickConfigId = quick.sourceConfigId ?: "module"
-            SourceResolutionTracker.setWinner(quickConfigId, "En reproducción (${quick.format.summary})")
+            SourceResolutionTracker.setWinner(quickConfigId, "En reproducción (${quick.format.summary})", mediaId = videoId)
             SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, "Omitido (se prefirió fuente de mayor calidad)")
             // Everything that was asked for, ahead of the fallback: the
             // ordinary good case, and the one with no seam in it.
@@ -6529,7 +6533,7 @@ class PlaybackService : MediaLibraryService() {
 
         val url = fallback.await().getOrThrow()
         val ytBitrate = NerdStats.pickedBitrateKbps(videoId) ?: 160
-        SourceResolutionTracker.setWinner("youtube", "En reproducción (~$ytBitrate kbps Opus)")
+        SourceResolutionTracker.setWinner("youtube", "En reproducción (~$ytBitrate kbps Opus)", mediaId = videoId)
         // Marked pending only here, with the fallback's own bitrate in hand:
         // that figure is the answer to "better than what?" the second look
         // measures candidates against, and it isn't known until the client
@@ -6565,7 +6569,7 @@ class PlaybackService : MediaLibraryService() {
             .getOrNull()
         if (direct != null) {
             val configId = direct.sourceConfigId ?: "addon"
-            SourceResolutionTracker.setWinner(configId, "En reproducción directa (${direct.format.summary})")
+            SourceResolutionTracker.setWinner(configId, "En reproducción directa (${direct.format.summary})", mediaId = videoId)
             SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, "Omitido (reproducción directa desde Addon)")
             return Resolved.Module(direct)
         }
@@ -6574,7 +6578,7 @@ class PlaybackService : MediaLibraryService() {
             "no addon served '${target.title}' directly; playing it from YouTube",
             about = videoId,
         )
-        SourceResolutionTracker.setWinner("youtube", "En reproducción (YouTube Opus)")
+        SourceResolutionTracker.setWinner("youtube", "En reproducción (YouTube Opus)", mediaId = videoId)
         return Resolved.YouTube(StreamResolver.resolve(videoId))
     }
 
