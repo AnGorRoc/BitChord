@@ -30,6 +30,7 @@ import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.TrackMatcher
@@ -684,6 +685,15 @@ internal fun Song.streamUri(sourceTrack: Pair<String, String>? = SourceRegistry.
         else -> "bitchord://watch?v=$videoId${matchQuery()}"
     }
 
+internal fun shouldPlayLocalFile(hasLocalFile: Boolean, canStream: Boolean): Boolean =
+    hasLocalFile && !canStream
+
+internal fun shouldPlayLocalFile(hasLocalFile: Boolean): Boolean =
+    shouldPlayLocalFile(
+        hasLocalFile = hasLocalFile,
+        canStream = !AppSettings.effectiveOffline.value,
+    )
+
 fun Song.toMediaItem(): MediaItem {
     val sourceTrack = SourceRegistry.parseTrackKey(videoId)
     // A row from search or a playlist carries no file of its own, but the track
@@ -712,7 +722,11 @@ fun Song.toMediaItem(): MediaItem {
     // leaves that path unguarded.
     val offlineUri = localUri?.takeUnless(Downloads::isMissingLocalFile)
         ?: Downloads.verifiedSavedUri(videoId)
-    val uriString = offlineUri ?: streamUri(sourceTrack)
+    val playFile = shouldPlayLocalFile(hasLocalFile = offlineUri != null)
+    val offlineFormat: String? = if (playFile) Downloads.savedFormat(videoId) else null
+    val formatBadge: String? = downloadFormat ?: offlineFormat
+    val playUri = offlineUri?.takeIf { playFile }
+    val uriString = playUri ?: streamUri(sourceTrack)
     return MediaItem.Builder()
         .setMediaId(videoId)
         .setUri(resolvePlaybackUri(uriString, localPath))

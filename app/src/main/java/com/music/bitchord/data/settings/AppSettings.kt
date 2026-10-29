@@ -14,7 +14,19 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
+import com.music.bitchord.playback.SingMethod
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 
 /**
@@ -215,6 +227,51 @@ object AppSettings {
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
 
+    private val networkScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private const val NETWORK_LOST_GRACE_MS = 750L
+    private val streamingAvailableFlow = MutableStateFlow(true)
+
+    private val offlineModeFlow = MutableStateFlow(false)
+    val offlineMode: StateFlow<Boolean> = offlineModeFlow.asStateFlow()
+
+    /** Applies ReplayGain metadata to decoded local PCM when enabled. */
+    val replayGainEnabled = MutableStateFlow(false)
+    val replayGainAlbumMode = MutableStateFlow(false)
+    val replayGainPreampDb = MutableStateFlow(0f)
+    val replayGainPreventClipping = MutableStateFlow(true)
+
+    fun setReplayGainEnabled(value: Boolean) {
+        replayGainEnabled.value = value
+        if (::prefs.isInitialized) prefs.edit().putBoolean(KEY_REPLAYGAIN_ENABLED, value).apply()
+    }
+
+    fun setReplayGainAlbumMode(value: Boolean) {
+        replayGainAlbumMode.value = value
+        if (::prefs.isInitialized) prefs.edit().putBoolean(KEY_REPLAYGAIN_ALBUM_MODE, value).apply()
+    }
+
+    fun setReplayGainPreampDb(value: Float) {
+        val normalized = value.coerceIn(-12f, 12f)
+        replayGainPreampDb.value = normalized
+        if (::prefs.isInitialized) prefs.edit().putFloat(KEY_REPLAYGAIN_PREAMP_DB, normalized).apply()
+    }
+
+    fun setReplayGainPreventClipping(value: Boolean) {
+        replayGainPreventClipping.value = value
+        if (::prefs.isInitialized) prefs.edit().putBoolean(KEY_REPLAYGAIN_PREVENT_CLIPPING, value).apply()
+    }
+
+
+    val effectiveOffline: StateFlow<Boolean> =
+        combine(offlineModeFlow, streamingAvailableFlow) { manual, streaming -> manual || !streaming }
+            .stateIn(networkScope, SharingStarted.Eagerly, false)
+
+    fun setOfflineMode(value: Boolean) {
+        if (offlineModeFlow.value == value) return
+        offlineModeFlow.value = value
+        if (::prefs.isInitialized) prefs.edit().putBoolean(KEY_OFFLINE_MODE, value).apply()
+    }
+
     // `losslessAudio` used to live here, behind a "Prefer lossless" switch on
     // the Sources screen. It is gone: sources are asked for their best and each
     // degrades on its own terms, so the switch's only real effect was to ask a
@@ -313,6 +370,24 @@ object AppSettings {
      * us a stereo stream, so there's no Atmos-style source to render.
      */
     val spatialAudio = MutableStateFlow(false)
+
+    /**
+     * How much of the lead vocal to duck, 0..1 -- see [SingMethod].
+     */
+    val singLevel = MutableStateFlow(0f)
+
+    val singMethod = MutableStateFlow(SingMethod.VOICE_GATE)
+
+    fun setSingMethod(value: SingMethod) {
+        singMethod.value = value
+        if (::prefs.isInitialized) prefs.edit().putString(KEY_SING_METHOD, value.name).apply()
+    }
+
+    fun setSingLevel(value: Float) {
+        val coerced = value.coerceIn(0f, 1f)
+        singLevel.value = coerced
+        if (::prefs.isInitialized) prefs.edit().putFloat(KEY_SING_LEVEL, coerced).apply()
+    }
 
     /**
      * The app's own equaliser, master switch.
@@ -905,6 +980,8 @@ object AppSettings {
             context,
             likedTitle = context.getString(com.music.bitchord.R.string.auto_liked),
         )
+        offlineModeFlow.value =
+            runCatching { prefs.getBoolean(KEY_OFFLINE_MODE, false) }.getOrDefault(false)
         readAll()
         watchConnection(context)
     }
@@ -959,6 +1036,8 @@ object AppSettings {
         dolbyAtmos.value = prefs.getBoolean(KEY_DOLBY_ATMOS, true)
         directSourceStream.value = prefs.getBoolean(KEY_DIRECT_SOURCE_STREAM, false)
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
+        singLevel.value = prefs.getFloat(KEY_SING_LEVEL, 0f).coerceIn(0f, 1f)
+        singMethod.value = SingMethod.fromName(prefs.getString(KEY_SING_METHOD, null))
         equalizerEnabled.value = prefs.getBoolean(KEY_EQ_ENABLED, false)
         equalizerMode.value = runCatching {
             EqualizerMode.valueOf(prefs.getString(KEY_EQ_MODE, null) ?: EqualizerMode.DYNAMIC.name)
@@ -1191,7 +1270,35 @@ object AppSettings {
      */
     private fun watchConnection(context: Context) {
         val manager = context.getSystemService(ConnectivityManager::class.java) ?: return
+        var pendingCheck: Job? = null
+
+        val actuallyUp = {
+            runCatching {
+                val network = manager.activeNetwork ?: return@runCatching false
+                val capabilities = manager.getNetworkCapabilities(network)
+                    ?: return@runCatching false
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            }.getOrDefault(false)
+        }
+
+        val markStreaming = {
+            pendingCheck?.cancel()
+            pendingCheck = null
+            streamingAvailableFlow.value = true
+        }
+
         val refresh = {
+            if (actuallyUp()) {
+                markStreaming()
+            } else {
+                pendingCheck?.cancel()
+                pendingCheck = networkScope.launch {
+                    delay(NETWORK_LOST_GRACE_MS)
+                    if (!actuallyUp()) streamingAvailableFlow.value = false
+                    pendingCheck = null
+                }
+            }
             meteredConnection.value = runCatching {
                 if (manager.activeNetwork == null) null else manager.isActiveNetworkMetered
             }.getOrNull()
@@ -2232,6 +2339,13 @@ object AppSettings {
     private const val KEY_DOLBY_ATMOS = "dolby_atmos"
     private const val KEY_DIRECT_SOURCE_STREAM = "direct_source_stream"
     private const val KEY_SPATIAL_AUDIO = "spatial_audio"
+    private const val KEY_OFFLINE_MODE = "offline_mode"
+    private const val KEY_REPLAYGAIN_ENABLED = "replaygain_enabled"
+    private const val KEY_REPLAYGAIN_ALBUM_MODE = "replaygain_album_mode"
+    private const val KEY_REPLAYGAIN_PREAMP_DB = "replaygain_preamp_db"
+    private const val KEY_REPLAYGAIN_PREVENT_CLIPPING = "replaygain_prevent_clipping"
+    private const val KEY_SING_METHOD = "sing_method"
+    private const val KEY_SING_LEVEL = "sing_level"
     private const val KEY_EQ_ENABLED = "equalizer_enabled"
     private const val KEY_EQ_MODE = "equalizer_mode"
     private const val KEY_EQ_TONE_X = "equalizer_tone_x"

@@ -1,5 +1,10 @@
 package com.music.bitchord.ui.screens
 
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.music.bitchord.playback.ReplayGainScanner
+import com.music.bitchord.ui.screens.equalizer.components.ReplayGainControls
+
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -92,6 +97,12 @@ fun EqualizerScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val replayGainEnabled by AppSettings.replayGainEnabled.collectAsStateWithLifecycle()
+    val replayGainAlbumMode by AppSettings.replayGainAlbumMode.collectAsStateWithLifecycle()
+    val replayGainPreampDb by AppSettings.replayGainPreampDb.collectAsStateWithLifecycle()
+    val replayGainPreventClipping by AppSettings.replayGainPreventClipping.collectAsStateWithLifecycle()
+    val scanState by ReplayGainScanner.state.collectAsStateWithLifecycle()
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
     val enabled by AppSettings.equalizerEnabled.collectAsStateWithLifecycle()
     val mode by AppSettings.equalizerMode.collectAsStateWithLifecycle()
@@ -262,6 +273,20 @@ fun EqualizerScreen(
         // Outside the dimmed block on purpose: the device's own panel works
         // whether or not ours is switched on, and greying out a route to
         // somebody else's equaliser would be claiming ground we do not hold.
+        ReplayGainControls(
+            enabled = replayGainEnabled,
+            useAlbumGain = replayGainAlbumMode,
+            preampDb = replayGainPreampDb,
+            preventClipping = replayGainPreventClipping,
+            onEnabledChange = AppSettings::setReplayGainEnabled,
+            onAlbumGainChange = AppSettings::setReplayGainAlbumMode,
+            onPreampChange = AppSettings::setReplayGainPreampDb,
+            onPreventClippingChange = AppSettings::setReplayGainPreventClipping,
+            scanState = scanState,
+            onScan = { coroutineScope.launch { ReplayGainScanner.start(context) } },
+            onCancelScan = { ReplayGainScanner.cancel() },
+        )
+
         SettingsGroup(footer = stringResource(R.string.system_equalizer_footer)) {
             SettingsRow(
                 icon = Icons.Rounded.GraphicEq,

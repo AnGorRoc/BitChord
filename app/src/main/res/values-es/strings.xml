@@ -735,12 +735,12 @@
     <string name="listen_together_server_unknown">Toca para comprobar</string>
     <string name="listen_together_custom_server">Usar tu propio servidor</string>
     <string name="listen_together_custom_server_footer">Déjalo vacío para usar el servidor integrado. Si tienes tu propia copia, todos en la fiesta deben apuntar al mismo.</string>
-    <string name="listen_together_share_app_header">Invitar amigos</string>
-    <string name="listen_together_share_app_footer">Envía la aplicación a tus amigos por WhatsApp, Quick Share o cualquier chat para que puedan instalarla y unirse a tu fiesta de inmediato.</string>
-    <string name="listen_together_share_apk">Enviar aplicación a amigos</string>
-    <string name="listen_together_share_apk_subtitle">Envía el archivo para instalar BitChord</string>
-    <string name="listen_together_sharing_apk">Preparando para enviar…</string>
-    <string name="listen_together_share_apk_error">No se pudo preparar la aplicación para compartir</string>
+    <string name="listen_together_share_app_header">Compartir BitChord</string>
+    <string name="listen_together_share_app_footer">Envía el instalador de la app directamente por Quick Share, WhatsApp o cualquier otra app para que otros se unan fácilmente.</string>
+    <string name="listen_together_share_apk">Compartir archivo de la app (APK)</string>
+    <string name="listen_together_share_apk_subtitle">Versión %1$s · Instalador directo</string>
+    <string name="listen_together_sharing_apk">Preparando instalador…</string>
+    <string name="listen_together_share_apk_error">No se pudo extraer el APK para compartir</string>
     <string name="listen_together_using_default">Usando el servidor integrado</string>
     <string name="listen_together_remove_server">Quitar servidor</string>
     <string name="listen_together_switched_to_default">Se cambió al servidor predeterminado</string>
@@ -1433,4 +1433,59 @@
     <string name="save_cover_art">Guardar portada</string>
     <string name="cover_saved">Guardado %1$s</string>
     <string name="cover_save_failed">No se pudo guardar la portada</string>
+    <!-- Modo Offline -->
+    <string name="offline_mode">Modo sin conexión</string>
+    <string name="offline_mode_detected">Sin conexión</string>
+    <string name="offline_mode_subtitle">Reproducir solo archivos descargados. Permanece activo hasta que lo desactives.</string>
+
+    <!-- Sing / Karaoke -->
+    <string name="sing">Cantar</string>
+    <string name="sing_title">Cantar</string>
+    <string name="sing_subtitle">Baja la voz principal para cantar sobre la pista</string>
+    <string name="sing_level_percent">Voces al %1$d%%</string>
+    <string name="sing_full_vocals">Voces completas</string>
+    <string name="sing_no_vocals">Sin voces</string>
+    <string name="sing_duet_note">A!mitad de camino se conservan los coros mientras la voz principal disminuye.</string>
+    <string name="sing_turn_off">Desactivar</string>
+    <string name="sing_method_original">Clásico</string>
+    <string name="sing_method_band">Banda</string>
+    <string name="sing_method_gate">Inteligente</string>
+    <string name="sing_method_gate_note">La misma banda, reconstruida como paso banda real con detector de voz para respetar los pasajes instrumentales.</string>
+    <!-- Flow Mode -->
+    <string name="flow">Flow</string>
+    <string name="flow_subtitle">Tu banda sonora personal</string>
+    <string name="flow_started">Flow iniciado</string>
+    <string name="flow_locked_title">Flow se desbloquea con 16 favoritos</string>
+    <string name="flow_locked_subtitle">Indica que te gustan %1$d más para iniciar tu mezcla infinita</string>
+    <string name="flow_temp_playlist">Flow — temporal</string>
+    <string name="flow_growing">Creciendo a medida que escuchas</string>
+    <string name="flow_save">Guardar Flow</string>
+    <string name="flow_saved">Flow guardado en listas de reproducción</string>
+    <string name="flow_save_failed">No se pudo guardar Flow</string>
+    <string name="flow_moods">Estados de ánimo</string>
+    <string name="flow_tuner">Sintonizador de Flow</string>
+    <string name="flow_discovery">Descubrimiento</string>
+    <string name="flow_discovery_subtitle">Más descubrimientos frente a favoritos</string>
+    <string name="flow_favorites">Favoritos</string>
+    <string name="flow_favorites_subtitle">Peso de las pistas que te gustan en la mezcla</string>
+    <string name="flow_genres">Géneros en mi Flow</string>
+    <string name="flow_banned">Bloqueados en Flow</string>
+    <string name="flow_empty_banned">Nada bloqueado — mantén pulsada una pista para bloquearla en Flow</string>
+    <string name="flow_apply">Aplicar y reconstruir</string>
+    <string name="flow_save_title">Guardar Flow</string>
+    <string name="flow_draft_hint">Las modificaciones permanecen locales hasta que las apliques</string>
+    <string name="flow_mix_title">En esta mezcla — %1$d</string>
+    <string name="flow_temp_count">%1$d pistas — estado de ánimo %2$s — temporal</string>
+    <string name="flow_temp_meta">%1$d pistas — temporal</string>
+    <string name="flow_new_mix">Nueva mezcla</string>
+    <string name="flow_memory">Memoria</string>
+    <string name="flow_memory_subtitle">Favoritos de siempre frente a lo que has escuchado recientemente</string>
+    <string name="flow_alltime">Todo el tiempo</string>
+    <string name="flow_recent">Reciente</string>
+    <string name="flow_rebuilding">Reconstruyendo Flow…</string>
+    <string name="flow_personal">Personal</string>
+    <string name="flow_adventurous">Aventurero</string>
+
+    <string name="replaygain_scan_no_tracks">No se encontraron pistas locales accesibles.</string>
+    <string name="replaygain_scan_failed">No se pudo iniciar el análisis. Verifica el acceso al almacenamiento.</string>
 </resources>

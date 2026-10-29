@@ -6,6 +6,8 @@ import com.music.bitchord.playback.EqualizerProcessor
 import com.music.bitchord.playback.LoudnessProcessor
 import com.music.bitchord.playback.SpatialAudioProcessor
 import com.music.bitchord.playback.TransitionFilterProcessor
+import com.music.bitchord.playback.ReplayGainAudioProcessor
+import com.music.bitchord.playback.VocalCutProcessor
 
 /**
  * Composite DSP chain executing BitChord's custom audio processors in their canonical sequence:
@@ -32,9 +34,11 @@ import com.music.bitchord.playback.TransitionFilterProcessor
  * 24-bit integers unchanged — see `PrecisionAudioSink.publishOutputExactness`.
  */
 class DspChain(
+    val sing: VocalCutProcessor = VocalCutProcessor(),
     val spatial: SpatialAudioProcessor = SpatialAudioProcessor(),
     val equalizer: EqualizerProcessor = EqualizerProcessor(),
     val transition: TransitionFilterProcessor = TransitionFilterProcessor(),
+    val replayGain: ReplayGainAudioProcessor = ReplayGainAudioProcessor(),
     val loudness: LoudnessProcessor = LoudnessProcessor(),
 ) : FloatAudioProcessor {
 
@@ -43,9 +47,11 @@ class DspChain(
 
     override fun configure(sampleRate: Int, channelCount: Int) {
         this.currentSampleRate = sampleRate
+        sing.configure(sampleRate, channelCount)
         spatial.configure(sampleRate, channelCount)
         equalizer.configure(sampleRate, channelCount)
         transition.configure(sampleRate, channelCount)
+        replayGain.configure(sampleRate, channelCount)
         loudness.configure(sampleRate, channelCount)
     }
 
@@ -56,6 +62,7 @@ class DspChain(
 
     override fun process(block: AudioBlock) {
         if (block.frameCount == 0) return
+        sing.process(block)
 
         if (BuildConfig.DEBUG) {
             processCounter++
@@ -80,6 +87,7 @@ class DspChain(
         spatial.process(block)
         equalizer.process(block)
         transition.process(block)
+        replayGain.process(block)
         // The equaliser leaves its overs in place for the stages after it to
         // see; the loudness stage's limiter is what catches whatever survives.
         loudness.holdLimiter = equalizer.isShaping
@@ -88,17 +96,21 @@ class DspChain(
 
     @Suppress("DEPRECATION")
     override fun flush() {
+        sing.flush()
         spatial.flush()
         equalizer.flush()
         transition.flush()
+        replayGain.flush()
         loudness.flush()
     }
 
     override fun reset() {
         processCounter = 0L
+        sing.reset()
         spatial.reset()
         equalizer.reset()
         transition.reset()
+        replayGain.reset()
         loudness.reset()
     }
 

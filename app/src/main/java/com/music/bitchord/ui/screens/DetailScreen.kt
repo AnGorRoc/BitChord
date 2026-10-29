@@ -1,5 +1,8 @@
 package com.music.bitchord.ui.screens
 
+import com.music.bitchord.ui.components.FastScroller
+import com.music.bitchord.ui.components.SectionIndexer
+
 import com.music.bitchord.ui.components.trackArtSize
 import android.os.Build
 import com.music.bitchord.R
@@ -891,6 +894,22 @@ fun DetailScreen(
             }
             if (isArtist) aboutItem()
         }
+
+                if (matches.size > 20) {
+                    FastScroller(
+                        listState = listState,
+                        itemCount = matches.size,
+                        sectionNameForIndex = { idx ->
+                            if (idx in matches.indices) {
+                                SectionIndexer.getSectionName(matches[idx].value.title)
+                            } else ""
+                        },
+                        contentPadding = contentPadding,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(bottom = contentPadding.calculateBottomPadding()),
+                    )
+                }
 
                 if (folder != null && folderState != null && folderState.selecting) {
                     LocalFolderSelectionBar(

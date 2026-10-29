@@ -318,6 +318,8 @@ object Downloads {
      * has just been shown to be false is not worth keeping to be shown false
      * again on the next play.
      */
+    fun savedFormat(videoId: String): String? = _savedMetadata.value[videoId]?.downloadFormat
+
     fun verifiedSavedUri(videoId: String): String? {
         val recorded = _saved.value[videoId] ?: return null
         if (!isMissingLocalFile(recorded)) return recorded

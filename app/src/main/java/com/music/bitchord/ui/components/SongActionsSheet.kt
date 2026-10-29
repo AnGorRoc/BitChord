@@ -1,5 +1,7 @@
 package com.music.bitchord.ui.components
 
+import com.music.bitchord.data.settings.AppSettings
+
 import com.music.bitchord.ui.components.trackArtSize
 import androidx.compose.ui.layout.ContentScale
 import com.music.bitchord.R
@@ -44,6 +46,7 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Radio
@@ -97,6 +100,7 @@ import com.music.bitchord.data.webdav.WebDavUploads
 import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.SleepTimer
+import kotlin.math.roundToInt
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.theme.ArtworkPalette
@@ -200,6 +204,7 @@ fun SongActionsSheet(
     audioVersionMissing: Boolean = false,
     onShare: (() -> Unit)? = null,
     onSaveArtwork: (() -> Unit)? = null,
+    onOpenSing: (() -> Unit)? = null,
     /**
      * Copies what the app logged while starting this track. Null everywhere
      * except the player, where "this track" means something.
@@ -401,6 +406,15 @@ fun SongActionsSheet(
                     value = sleepTimerStatus(),
                     accent = palette.accent,
                 ) { pickingSleepTimer = true }
+            }
+            onOpenSing?.let {
+                ActionRow(
+                    icon = Icons.Rounded.Mic,
+                    label = stringResource(R.string.sing),
+                    value = singStatus(),
+                    accent = palette.accent,
+                    onClick = it,
+                )
             }
             onLyricsOffset?.let {
                 ActionRow(
@@ -958,6 +972,13 @@ private fun SleepOption(
 }
 
 /** What the sleep timer row shows on the right, or null when none is armed. */
+@Composable
+private fun singStatus(): String? {
+    val level by AppSettings.singLevel.collectAsStateWithLifecycle()
+    if (level <= 0.001f) return null
+    return stringResource(R.string.sing_level_percent, (level * 100).roundToInt())
+}
+
 @Composable
 private fun sleepTimerStatus(): String? {
     val afterTrack by SleepTimer.afterTrack.collectAsStateWithLifecycle()

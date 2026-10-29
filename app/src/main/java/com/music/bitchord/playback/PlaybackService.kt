@@ -637,6 +637,19 @@ class PlaybackService : MediaLibraryService() {
     private val equalizerProcessorB = EqualizerProcessor()
     private val transitionFilterA = TransitionFilterProcessor()
     private val transitionFilterB = TransitionFilterProcessor()
+    private val singProcessorA = VocalCutProcessor()
+    private val singProcessorB = VocalCutProcessor()
+    private val replayGainA = ReplayGainAudioProcessor()
+    private val replayGainB = ReplayGainAudioProcessor()
+    private var replayGainLookupJob: Job? = null
+    private var spareReplayGainJob: Job? = null
+    private var replayGainConfigToken: String? = null
+
+    private fun activeReplayGain(): ReplayGainAudioProcessor =
+        if (activeFilter === transitionFilterA) replayGainA else replayGainB
+
+    private fun spareReplayGain(): ReplayGainAudioProcessor =
+        if (activeFilter === transitionFilterA) replayGainB else replayGainA
 
     /**
      * Loudness normalization, one per player like the other stages — see
@@ -1780,16 +1793,20 @@ class PlaybackService : MediaLibraryService() {
 
         configuredFloatOutput = shouldEnableFloatOutput()
         val exoPlayer = buildPlayer(
+            singProcessorA,
             spatialAudioProcessorA,
             equalizerProcessorA,
             transitionFilterA,
+            replayGainA,
             loudnessA,
             ownsSession = true,
         )
         val sparePlayer = buildPlayer(
+            singProcessorB,
             spatialAudioProcessorB,
             equalizerProcessorB,
             transitionFilterB,
+            replayGainB,
             loudnessB,
             ownsSession = false,
         )
@@ -3591,13 +3608,15 @@ class PlaybackService : MediaLibraryService() {
      * re-resolving a stream URL for audio that is already local.
      */
     private fun buildPlayer(
+        sing: VocalCutProcessor,
         spatial: SpatialAudioProcessor,
         equalizer: EqualizerProcessor,
         filter: TransitionFilterProcessor,
+        replayGain: ReplayGainAudioProcessor,
         loudness: LoudnessProcessor,
         ownsSession: Boolean,
     ): ExoPlayer = ExoPlayer.Builder(this)
-        .setRenderersFactory(silenceSkippingRenderers(spatial, equalizer, filter, loudness))
+        .setRenderersFactory(silenceSkippingRenderers(sing, spatial, equalizer, filter, replayGain, loudness))
         .setMediaSourceFactory(requireNotNull(mediaSourceFactory))
         .setLoadControl(farBufferingLoadControl())
         .setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ ownsSession)
@@ -4183,6 +4202,19 @@ class PlaybackService : MediaLibraryService() {
         ) {
             return
         }
+        if (AppSettings.effectiveOffline.value && Downloads.verifiedSavedUri(mediaId) == null) {
+            TrackLog.d(
+                "BitChord",
+                "$mediaId has no downloaded copy while offline; moving down the queue",
+                about = mediaId,
+            )
+            scope.launch(TrackLog.about(mediaId)) {
+                withContext(Dispatchers.Main) {
+                    skipPastUnplayable(mediaId, "offline — not downloaded")
+                }
+            }
+            return
+        }
         // An addon/JioSaavn stream gets one chance. If it fails after selection,
         // retrying the ordinary item only lets the same deterministic lookup win
         // again. Rebuild it as an explicit YouTube request instead. This also
@@ -4691,7 +4723,14 @@ class PlaybackService : MediaLibraryService() {
      * served from the disk cache was never resolved at all and is judged here
      * instead — see [adoptCachedTrack] and [QualityUpgrade.adoptUnresolved].
      */
+    private fun offlineBlocksUpgrades(): Boolean {
+        if (!AppSettings.effectiveOffline.value) return false
+        TrackLog.d("BitChord", "offline mode: skipping the second look")
+        return true
+    }
+
     private fun lookForBetterCopy(player: ExoPlayer) {
+        if (offlineBlocksUpgrades()) return
         val item = player.currentMediaItem ?: return
         val mediaId = item.mediaId
         val uri = item.localConfiguration?.uri
@@ -4999,6 +5038,7 @@ class PlaybackService : MediaLibraryService() {
      */
     private fun upgradeQualityNow() {
         val player = player ?: return
+        if (offlineBlocksUpgrades()) return
         val mediaId = player.currentMediaItem?.mediaId ?: return
         // Do not charge the manual cooldown for a command that merely arrived
         // while this track's automatic or manual upgrade was already running.
@@ -7643,9 +7683,11 @@ class PlaybackService : MediaLibraryService() {
      * `skipSilenceEnabled` keeps driving it as before.
      */
     private fun silenceSkippingRenderers(
+        sing: VocalCutProcessor,
         spatial: SpatialAudioProcessor,
         equalizer: EqualizerProcessor,
         transition: TransitionFilterProcessor,
+        replayGain: ReplayGainAudioProcessor,
         loudness: LoudnessProcessor,
     ) = object : FfmpegFallbackRenderersFactory(this) {
         init {
@@ -7727,7 +7769,7 @@ class PlaybackService : MediaLibraryService() {
             // them for the same reason: it belongs to the listener and
             // the whole session, while the transition filter belongs to
             // one handoff and has to have the last word on it.
-            val dspChain = DspChain(spatial, equalizer, transition, loudness)
+            val dspChain = DspChain(sing, spatial, equalizer, transition, replayGain, loudness)
             return PrecisionAudioSink(
                 delegate = defaultSink,
                 dspChain = dspChain,
@@ -7973,16 +8015,20 @@ class PlaybackService : MediaLibraryService() {
         activeFilter = transitionFilterA
         spareFilter = transitionFilterB
         val newActive = buildPlayer(
+            singProcessorA,
             spatialAudioProcessorA,
             equalizerProcessorA,
             transitionFilterA,
+            replayGainA,
             loudnessA,
             ownsSession = true,
         )
         val newSpare = buildPlayer(
+            singProcessorB,
             spatialAudioProcessorB,
             equalizerProcessorB,
             transitionFilterB,
+            replayGainB,
             loudnessB,
             ownsSession = false,
         )
@@ -8117,6 +8163,23 @@ class PlaybackService : MediaLibraryService() {
             AppSettings.spatialAudio.collect { applySpatialAudioEnabled() }
         }
         scope.launch {
+            AppSettings.singLevel.collect { applySingLevel() }
+        }
+        scope.launch {
+            AppSettings.singMethod.collect { method ->
+                singProcessorA.setMethod(method)
+                singProcessorB.setMethod(method)
+            }
+        }
+        scope.launch {
+            var wasOffline = AppSettings.effectiveOffline.value
+            AppSettings.effectiveOffline.collect { offline ->
+                if (wasOffline && !offline) restoreStreamingAfterOffline()
+                if (!wasOffline && offline) applyOfflineFilesToQueue()
+                wasOffline = offline
+            }
+        }
+        scope.launch {
             AppSettings.loudnessNormalization.collect {
                 setupLoudness(player?.currentMediaItem?.mediaId)
             }
@@ -8190,6 +8253,50 @@ class PlaybackService : MediaLibraryService() {
         val enabled = AppSettings.spatialAudio.value && !activeTrackIsDolbyAtmos
         spatialAudioProcessorA.enabled = enabled
         spatialAudioProcessorB.enabled = enabled
+    }
+
+    private fun applySingLevel() {
+        val level = AppSettings.singLevel.value
+        singProcessorA.level = level
+        singProcessorB.level = level
+    }
+
+        private suspend fun restoreStreamingAfterOffline() {
+        val player = player ?: return
+        val count = player.mediaItemCount
+        if (count == 0) return
+        val items: List<MediaItem> = (0 until count).map { player.getMediaItemAt(it) }
+        val from = player.currentMediaItemIndex + 1
+        if (from >= items.size) return
+        val rebuilt = (from until items.size)
+            .mapNotNull { items[it].toSong().takeIf { song -> song.localUri != null } }
+            .map { it.toMediaItem() }
+        if (rebuilt.isEmpty()) return
+        TrackLog.d(
+            "BitChord",
+            "back online; ${rebuilt.size} queued track(s) return to streaming",
+            about = player.currentMediaItem?.mediaId,
+        )
+        player.replaceMediaItems(from, items.size, rebuilt)
+    }
+
+    private fun applyOfflineFilesToQueue() {
+        val player = player ?: return
+        val count = player.mediaItemCount
+        if (count == 0) return
+        val items: List<MediaItem> = (0 until count).map { player.getMediaItemAt(it) }
+        val from = player.currentMediaItemIndex + 1
+        if (from >= items.size) return
+        val rebuilt = (from until items.size)
+            .mapNotNull { items[it].toSong().takeIf { song -> song.localUri != null } }
+            .map { it.toMediaItem() }
+        if (rebuilt.isEmpty()) return
+        TrackLog.d(
+            "BitChord",
+            "offline; ${rebuilt.size} queued track(s) with files switch to them",
+            about = player.currentMediaItem?.mediaId,
+        )
+        player.replaceMediaItems(from, items.size, rebuilt)
     }
 
     /**

@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BlurOff
 import androidx.compose.material.icons.rounded.BlurOn
@@ -206,6 +207,8 @@ fun SettingsScreen(
     val context = LocalContext.current
 
     val wifiQuality by AppSettings.audioQualityWifi.collectAsStateWithLifecycle()
+    val offlineOn by AppSettings.offlineMode.collectAsStateWithLifecycle()
+    val detectedOffline by AppSettings.effectiveOffline.collectAsStateWithLifecycle()
     val cellularQuality by AppSettings.audioQualityCellular.collectAsStateWithLifecycle()
     val losslessDowngrade by AppSettings.losslessDowngrade.collectAsStateWithLifecycle()
     val losslessFromStart by AppSettings.losslessFromStart.collectAsStateWithLifecycle()
@@ -475,6 +478,30 @@ fun SettingsScreen(
         // longer a setting at all — see
         // [SourceResolver.requestForNow][com.music.bitchord.data.sources.SourceResolver.requestForNow].
         SearchableSettingsGroup(search, header = stringResource(R.string.audio_quality)) {
+            val offlineToggle = { AppSettings.setOfflineMode(!offlineOn) }
+            row(stringResource(R.string.offline_mode), stringResource(R.string.offline_mode_subtitle), "local", "downloads") {
+                SettingsRow(
+                    icon = Icons.Rounded.CloudOff,
+                    title = stringResource(R.string.offline_mode),
+                    subtitle = stringResource(R.string.offline_mode_subtitle),
+                    badge = when {
+                        offlineOn -> stringResource(R.string.in_use)
+                        detectedOffline -> stringResource(R.string.offline_mode_detected)
+                        else -> null
+                    },
+                    trailing = {
+                        Switch(
+                            checked = offlineOn,
+                            onCheckedChange = AppSettings::setOfflineMode,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = offlineToggle,
+                )
+            }
             val sourceTitle = stringResource(R.string.source)
             val sourceSubtitle = stringResource(R.string.sources_subtitle)
             row(sourceTitle, sourceSubtitle, "addon", "lossless") {

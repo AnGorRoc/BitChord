@@ -946,12 +946,12 @@
     <string name="listen_together_server_unknown">Tap to check</string>
     <string name="listen_together_custom_server">Use your own server</string>
     <string name="listen_together_custom_server_footer">Leave this empty to use the default server. If you run your own copy, everyone in the party has to be pointed at the same one.</string>
-    <string name="listen_together_share_app_header">Invite friends</string>
-    <string name="listen_together_share_app_footer">Send the app directly to your friends via WhatsApp, Quick Share, or any chat so they can install it and join your party right away.</string>
-    <string name="listen_together_share_apk">Send app to friends</string>
-    <string name="listen_together_share_apk_subtitle">Send the file to install BitChord</string>
-    <string name="listen_together_sharing_apk">Preparing to send…</string>
-    <string name="listen_together_share_apk_error">Could not prepare the app to share</string>
+    <string name="listen_together_share_app_header">Share BitChord</string>
+    <string name="listen_together_share_app_footer">Send the app installer directly via Quick Share, WhatsApp, or any app so others can join without searching.</string>
+    <string name="listen_together_share_apk">Share app file (APK)</string>
+    <string name="listen_together_share_apk_subtitle">Version %1$s · Direct installer</string>
+    <string name="listen_together_sharing_apk">Preparing installer…</string>
+    <string name="listen_together_share_apk_error">Could not extract APK for sharing</string>
     <string name="listen_together_using_default">Using default server</string>
     <string name="listen_together_remove_server">Remove server</string>
     <string name="listen_together_switched_to_default">Switched to default server</string>
@@ -1316,4 +1316,75 @@
     <string name="save_cover_art">Save cover art</string>
     <string name="cover_saved">Saved %1$s</string>
     <string name="cover_save_failed">Couldn\'t save cover art</string>
+    <!-- Offline Mode -->
+    <string name="offline_mode">Offline mode</string>
+    <string name="offline_mode_detected">No connection</string>
+    <string name="offline_mode_subtitle">Play downloaded files only. Stays on until you turn it off.</string>
+
+    <!-- Sing / Karaoke -->
+    <string name="sing">Sing</string>
+    <string name="sing_title">Sing</string>
+    <string name="sing_subtitle">Turn the lead vocal down and sing over the track</string>
+    <string name="sing_level_percent">Vocals at %1$d%%</string>
+    <string name="sing_full_vocals">Full vocals</string>
+    <string name="sing_no_vocals">No vocals</string>
+    <string name="sing_duet_note">Halfway down keeps the backing vocals while the lead steps back — that middle is the duet mix.</string>
+    <string name="sing_turn_off">Turn off</string>
+    <string name="sing_method_original">Classic</string>
+    <string name="sing_method_band">Band</string>
+    <string name="sing_method_gate">Smart</string>
+    <string name="sing_method_gate_note">The same band, rebuilt as a true bandpass, with a voice detector that leaves instrumentals alone and side makeup that replaces the removed energy.</string>
+    <!-- Flow Mode -->
+    <string name="flow">Flow</string>
+    <string name="flow_subtitle">Your personal soundtrack</string>
+    <string name="flow_started">Flow started</string>
+    <string name="flow_locked_title">Flow unlocks at 16 favorites</string>
+    <string name="flow_locked_subtitle">Like %1$d more to start your endless mix</string>
+    <string name="flow_temp_playlist">Flow · temporary</string>
+    <string name="flow_growing">Growing as you listen</string>
+    <string name="flow_save">Save Flow</string>
+    <string name="flow_saved">Flow saved to playlists</string>
+    <string name="flow_save_failed">Couldn\'t save Flow</string>
+    <string name="flow_moods">Moods</string>
+    <string name="flow_tuner">Flow Tuner</string>
+    <string name="flow_discovery">Discovery</string>
+    <string name="flow_discovery_subtitle">More fresh finds vs favorites</string>
+    <string name="flow_favorites">Favorites</string>
+    <string name="flow_favorites_subtitle">Weight of liked tracks in the mix</string>
+    <string name="flow_genres">Genres in my Flow</string>
+    <string name="flow_banned">Banned from Flow</string>
+    <string name="flow_empty_banned">Nothing banned — hold a track to ban it from Flow</string>
+    <string name="flow_apply">Apply &amp; rebuild</string>
+    <string name="flow_save_title">Save Flow</string>
+    <string name="flow_draft_hint">Edits stay local until you apply them</string>
+    <string name="flow_mix_title">In this mix · %1$d</string>
+    <string name="flow_temp_count">%1$d tracks · %2$s mood · temporary</string>
+    <string name="flow_temp_meta">%1$d tracks · temporary</string>
+    <string name="flow_new_mix">New mix</string>
+    <string name="flow_memory">Memory</string>
+    <string name="flow_memory_subtitle">All-time likes vs what you have been playing lately</string>
+    <string name="flow_alltime">All-time</string>
+    <string name="flow_recent">Recent</string>
+    <string name="flow_rebuilding">Rebuilding Flow…</string>
+    <string name="flow_personal">Personal</string>
+    <string name="flow_adventurous">Adventurous</string>
+
+    
+    <string name="sing_method_original_note">The plain centre cut, from the first version. Fastest and cleanest on an old recording; takes the kick and snare with the vocal on anything modern.</string>
+    <string name="sing_method_band_note">Cuts only 150 Hz to 10 kHz and lets drum hits through. Leaves a faint thinning from the crossover phase.</string>
+    <!-- ReplayGain -->
+    <string name="replaygain">ReplayGain</string>
+    <string name="replaygain_description">Adjust track loudness using ReplayGain tags</string>
+    <string name="replaygain_scan_description">Analyze local tracks with no ReplayGain tags. Results stay in app storage; audio files are not changed.</string>
+    <string name="replaygain_scan_action">Analyze local tracks</string>
+    <string name="replaygain_scan_cancel">Cancel scan</string>
+    <string name="replaygain_scan_progress">Scanned %1$d of %2$d · %3$d analyzed · %4$d already tagged · %5$d skipped</string>
+    <string name="replaygain_scan_complete">Finished · %1$d analyzed · %2$d already tagged · %3$d skipped</string>
+    <string name="replaygain_scan_cancelled">Scan cancelled</string>
+    <string name="replaygain_scan_no_tracks">No accessible local tracks were found.</string>
+    <string name="replaygain_scan_failed">The scan could not start. Check access to local audio files.</string>
+    <string name="replaygain_preamp">Preamp</string>
+    <string name="replaygain_prevent_clipping">Prevent clipping</string>
+    <string name="track_gain">Track gain</string>
+    <string name="album_gain">Album gain</string>
 </resources>

@@ -235,6 +235,7 @@ import com.music.bitchord.ui.components.ReorderPlaylistPage
 import com.music.bitchord.ui.components.LongPressOrigin
 import com.music.bitchord.ui.components.SongActionsPresentation
 import com.music.bitchord.ui.components.SongActionsSheet
+import com.music.bitchord.ui.components.SingSheet
 import com.music.bitchord.ui.components.HeldContextMenu
 import com.music.bitchord.ui.components.HeldItem
 import androidx.media3.session.MediaController
@@ -645,6 +646,7 @@ private fun BitChordApp(
     var discordDialog by remember { mutableStateOf<DiscordDialog?>(null) }
     var songActions by remember { mutableStateOf<Song?>(null) }
     var showLyricsOffset by remember { mutableStateOf(false) }
+    var showSing by remember { mutableStateOf(false) }
     /**
      * Whether the track menu that is up was opened from the player.
      *
@@ -3752,6 +3754,14 @@ private fun BitChordApp(
                     )
                 }
 
+                val offlineBannerActive by AppSettings.effectiveOffline.collectAsStateWithLifecycle()
+                com.music.bitchord.ui.components.OfflineBanner(
+                    visible = offlineBannerActive,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = com.music.bitchord.ui.components.topBarHeight()),
+                )
+
                 FrostedTopBar(
                     title = when (route) {
                         AppRoute.Spotify -> stringResource(R.string.spotify)
@@ -4894,6 +4904,14 @@ private fun BitChordApp(
                 } else {
                     null
                 },
+                onOpenSing = if (fromPlayer) {
+                    {
+                        songActions = null
+                        showSing = true
+                    }
+                } else {
+                    null
+                },
                 onLyricsOffset = if (fromPlayer) {
                     {
                         songActions = null
@@ -5780,6 +5798,16 @@ private fun BitChordApp(
                 },
                 onDismiss = { showWebDavEditor = false },
             )
+        }
+
+        if (showSing) {
+            BackHandler { showSing = false }
+            ModalBottomSheet(
+                onDismissRequest = { showSing = false },
+                containerColor = MaterialTheme.colorScheme.background,
+            ) {
+                SingSheet(onDismiss = { showSing = false })
+            }
         }
 
         if (showSmbEditor) {
