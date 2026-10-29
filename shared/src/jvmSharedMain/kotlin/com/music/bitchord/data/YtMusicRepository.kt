@@ -330,9 +330,9 @@ object YtMusicRepository {
         }
 
     /** Fetches the next page of a search only when the result list needs it. */
-    suspend fun searchContinuation(token: String, filter: SearchFilter): Result<SearchPage> = call("search:continuation") {
+    suspend fun searchContinuation(token: String, filter: SearchFilter, anonymous: Boolean = true): Result<SearchPage> = call("search:continuation") {
         InnertubeParser.parseSearchPage(
-            Innertube.searchContinuation(token),
+            Innertube.searchContinuation(token, anonymous),
             includeVideos = filter == SearchFilter.VIDEOS,
         ).let { page ->
             SearchPage(page.rows.distinctBy { it.identityKey() }, page.continuation)

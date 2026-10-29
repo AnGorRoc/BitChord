@@ -8591,7 +8591,7 @@ class PlaybackService : MediaLibraryService() {
      * Called by Android when the user swipes this app's task away from the
      * recent apps screen.
      *
-     * When [AppSettings.stopOnTaskRemoved] is on we stop the player and let the
+     * When [AppSettings.stopOnTaskRemoved] is on (default), we stop the player and
      * service die naturally; otherwise we leave it running in the background so
      * music continues past the swipe, which is the default Android behaviour for
      * a foreground-service-backed media session.
@@ -8606,6 +8606,7 @@ class PlaybackService : MediaLibraryService() {
             // Both, or a swipe-away mid-crossfade leaves the outgoing track
             // playing on its own out of a service that is on its way out.
             eachPlayer { it.stop() }
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
     }
