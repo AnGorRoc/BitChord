@@ -806,7 +806,18 @@ object YtMusicRepository {
      * nobody is watching — the library sync, an artist's back catalogue. For
      * anything a screen is waiting on, use [browseSongs] and [moreSongs].
      */
-    private suspend fun songsPaged(browseId: String): List<Song> {
+    private suspend fun songsPaged(browseId: String): List<Song> =
+        fetchSongsPaged(browseId) { it.videoId }
+
+    /**
+     * Paginate a browse ID until the API runs out of pages or we hit [MAX_PAGES].
+     * [keyOf] determines deduplication and filtering — pass { it.videoId } for the normal view,
+     * { it.setVideoId } for playlist-reorder entries. Dropping null keys safely ignores suggestions.
+     */
+    private suspend fun fetchSongsPaged(
+        browseId: String,
+        keyOf: (Song) -> String?,
+    ): List<Song> {
         val out = LinkedHashMap<String, Song>()
         var response = Innertube.browse(browseId)
         if (browseId.startsWith("MPREb")) {
@@ -819,7 +830,9 @@ object YtMusicRepository {
             // Library Songs auto-playlist included) is read from its own
             // shelf so a trailing "Suggested tracks" shelf never joins in.
             val shelf = InnertubeParser.parsePlaylistShelf(response)
-            (shelf?.songs ?: InnertubeParser.collectSongsDeep(response)).forEach { out[it.videoId] = it }
+            (shelf?.songs ?: InnertubeParser.collectSongsDeep(response)).forEach { song ->
+                keyOf(song)?.let { k -> out.putIfAbsent(k, song) }
+            }
             val token = shelf?.continuation ?: InnertubeParser.continuationToken(response)
             if (token == null || page++ >= MAX_PAGES) break
             response = runCatching { Innertube.browseContinuation(token) }.getOrNull() ?: break
@@ -994,22 +1007,7 @@ object YtMusicRepository {
      * name, rather than offering to reorder something it can't.
      */
     suspend fun playlistEntries(browseId: String): Result<List<Song>> = call("entries:$browseId") {
-        val out = LinkedHashMap<String, Song>()
-        var response = Innertube.browse(browseId)
-        var page = 1
-        while (true) {
-            val shelf = InnertubeParser.parsePlaylistShelf(response) ?: break
-            shelf.songs.forEach { song ->
-                val setVideoId = song.setVideoId ?: error("playlist entry without an id")
-                out.putIfAbsent(setVideoId, song)
-            }
-            val token = shelf.continuation ?: break
-            // Same cap as [songsPaged] — a playlist past it can't be listed
-            // whole, and a partial list can't be reordered safely.
-            if (page++ >= MAX_PAGES) error("playlist too long to reorder")
-            response = Innertube.browseContinuation(token)
-        }
-        out.values.toList()
+        fetchSongsPaged(browseId) { it.setVideoId }
     }
 
     /**
