@@ -268,6 +268,9 @@ import com.music.bitchord.ui.components.FloatingBarsTapGuard
 import com.music.bitchord.ui.components.BottomTab
 import com.music.bitchord.ui.components.FLOATING_BAR_MAX_WIDTH
 import com.music.bitchord.ui.components.FloatingBottomBar
+import com.music.bitchord.ui.components.SearchBottomPill
+import com.music.bitchord.ui.components.MorphingBottomBar
+import com.music.bitchord.ui.components.SearchSourceSwitcher
 import com.music.bitchord.ui.components.GlassNavBar
 import com.music.bitchord.ui.components.floatingtabbar.rememberFloatingTabBarScrollConnection
 import com.music.bitchord.ui.components.FrostedTopBar
@@ -561,6 +564,7 @@ private fun BitChordApp(
     // and the page is a sibling of the bar rather than a child.
     val navBarScroll = rememberFloatingTabBarScrollConnection()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var lastNonSearchTab by rememberSaveable { mutableIntStateOf(0) }
     // Explore loads the first time it's shown, not at launch beside Home.
     LaunchedEffect(selectedTab) {
         if (selectedTab == TAB_EXPLORE) viewModel.onExploreShown()
@@ -2867,7 +2871,13 @@ private fun BitChordApp(
     val canGoBack = navigator.entries.isNotEmpty() || detailStack.isNotEmpty() ||
         selectedMoodGenre != null || selectedTab != TAB_HOME
     val goBack: () -> Unit = {
-        if (!navigator.pop() && !viewModel.closeMoodGenre()) selectedTab = TAB_HOME
+        if (!navigator.pop() && !viewModel.closeMoodGenre()) {
+            if (selectedTab == TAB_SEARCH) {
+                selectedTab = lastNonSearchTab
+            } else {
+                selectedTab = TAB_HOME
+            }
+        }
     }
 
     Box(
@@ -3749,19 +3759,8 @@ private fun BitChordApp(
                                 // suggestions and filters, and a gap reads as a break.
                                 topPadding = topBarHeight() + 4.dp,
                                 showField = false,
-                                // The settings page's own two-state selector, so the
-                                // app has one look for "pick one of these".
-                                sourceSwitcher = {
-                                    SegmentedControl(
-                                        options = listOf(
-                                            stringResource(R.string.search_source_youtube),
-                                            stringResource(R.string.library),
-                                            stringResource(R.string.search_source_addons),
-                                        ),
-                                        selectedIndex = searchSource.ordinal,
-                                        onSelect = { index -> onSearchSourceChange(SearchSource.entries[index]) },
-                                    )
-                                },
+                                 // Source switcher is in top bar accessory.
+                                 sourceSwitcher = null,
                                 searchingLibrary = searchSource == SearchSource.LIBRARY,
                                 libraryResults = libraryResults,
                                 searchingAddons = searchSource == SearchSource.ADDONS,
@@ -3982,39 +3981,19 @@ private fun BitChordApp(
                     // offered on anything pushed over a tab.
                     onBack = when {
                         route != null || detail != null || selectedMoodGenre != null -> goBack
+                        selectedTab == TAB_SEARCH -> ({ selectedTab = lastNonSearchTab })
                         else -> null
                     },
                     modifier = Modifier.align(Alignment.TopCenter),
-                    // Only on the Search tab itself, not on anything pushed over it.
                     accessory = if (
                         selectedTab == TAB_SEARCH && route == null && detail == null && selectedMoodGenre == null
                     ) {
                         {
-                            // The search field lives up here in the bar, beside the
-                            // account photo, so it answers the nav bar's Search tap
-                            // itself: focus and keyboard, the way the page used to.
-                            val keyboard = LocalSoftwareKeyboardController.current
-                            LaunchedEffect(searchFocusRequested) {
-                                if (searchFocusRequested) {
-                                    searchFieldFocus.requestFocus()
-                                    keyboard?.show()
-                                    searchFocusRequested = false
-                                }
-                            }
-                            SearchField(
-                                query = query,
-                                onQueryChange = viewModel::onQueryChange,
-                                onSubmit = viewModel::submitSearch,
-                                focusRequester = searchFieldFocus,
-                                placeholder = org.jetbrains.compose.resources.stringResource(
-                                    if (searchSource == SearchSource.LIBRARY) {
-                                        SharedRes.string.search_library_hint
-                                    } else if (searchSource == SearchSource.ADDONS) {
-                                        SharedRes.string.search_addons_hint
-                                    } else {
-                                        SharedRes.string.search_hint
-                                    },
-                                ),
+                            SearchSourceSwitcher(
+                                searchSource = searchSource,
+                                onSearchSourceChange = { onSearchSourceChange(it) },
+                                hazeState = hazeState,
+                                modifier = Modifier.padding(horizontal = 4.dp),
                             )
                         }
                     } else null,
@@ -4393,13 +4372,17 @@ private fun BitChordApp(
                 // guard to read at layout — never in composition, see the guard.
                 val floatingBarsHeight = remember { mutableIntStateOf(0) }
                 FloatingBarsTapGuard(
-                    barsHeight = { floatingBarsHeight.intValue },
+                    barsHeight = { if (selectedTab == TAB_SEARCH) 0 else floatingBarsHeight.intValue },
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
 
                 // One tab handler, whichever bar is drawing it.
                 // A tab is a fresh start: everything pushed over the old one —
                 // routes and release pages alike — goes with it.
+                val dismissSearch: () -> Unit = {
+                    selectedTab = lastNonSearchTab
+                }
+
                 val onTabSelected: (Int) -> Unit = { index ->
                     if (selectedTab == index) {
                         if (route != null || detail != null || selectedMoodGenre != null) {
@@ -4411,6 +4394,9 @@ private fun BitChordApp(
                             }
                         }
                     } else {
+                        if (selectedTab != TAB_SEARCH) {
+                            lastNonSearchTab = selectedTab
+                        }
                         navigator.clear()
                         viewModel.closeMoodGenre()
                         selectedTab = index
@@ -4424,51 +4410,9 @@ private fun BitChordApp(
                     }
                 }
 
-                if (glassActive) Column(
+                Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .widthIn(max = FLOATING_BAR_MAX_WIDTH)
-                        .fillMaxWidth()
-                        .onSizeChanged { floatingBarsHeight.intValue = it.height },
-                ) {
-                    QueueActionNoticeHost(queueNotice)
-                    // Liquid glass replaces the two stacked bars with the single
-                    // component they are stacked to imitate: the now playing
-                    // controls dock into the tab bar rather than riding above it,
-                    // and the pair folds together on scroll. See [GlassNavBar].
-                    GlassNavBar(
-                        tabs = tabs,
-                        selectedIndex = selectedTab,
-                        onTabSelected = onTabSelected,
-                        scrollConnection = navBarScroll,
-                        song = player.song,
-                        isPlaying = player.isPlaying,
-                        isLoading = playPauseBusy,
-                        onPlayPause = {
-                            togglePlayPause()
-                        },
-                        onNext = { controller?.seekToNextMediaItem() },
-                        onPrevious = { controller?.seekToPrevious() },
-                        onExpand = if (reducePlayerMotion) {
-                            { showNowPlaying = true }
-                        } else {
-                            playerSheetMotion::open
-                        },
-                        controlsLocked = controlsLocked,
-                        onBlockedControl = showHostOnlyNotice,
-                        dock = activeDock,
-                        pull = playerSheetMotion.takeIf { !reducePlayerMotion },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                } else Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        // Capped and centred rather than run to the page's edges
-                        // — see [FLOATING_BAR_MAX_WIDTH]. It sits on the Column
-                        // rather than on each bar so the two are held to the same
-                        // width and keep the shared left and right edge they have
-                        // on a phone. Before fillMaxWidth, so the fill has
-                        // already been bounded by the time it is applied.
                         .widthIn(max = FLOATING_BAR_MAX_WIDTH)
                         .fillMaxWidth()
                         .onSizeChanged { floatingBarsHeight.intValue = it.height },
@@ -4499,11 +4443,17 @@ private fun BitChordApp(
                         )
                         Spacer(Modifier.height(8.dp))
                     }
-                    FloatingBottomBar(
+                    MorphingBottomBar(
                         tabs = tabs,
                         selectedIndex = selectedTab,
-                        hazeState = hazeState,
                         onTabSelected = onTabSelected,
+                        query = query,
+                        onQueryChange = viewModel::onQueryChange,
+                        onSubmit = viewModel::submitSearch,
+                        onDismissSearch = dismissSearch,
+                        searchFocusRequester = searchFieldFocus,
+                        hazeState = hazeState,
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }

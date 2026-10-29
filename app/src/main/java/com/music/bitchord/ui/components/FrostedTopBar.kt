@@ -324,13 +324,13 @@ fun FrostedTopBar(
             // The accessory takes everything from the leading gutter up to the
             // actions, which keep their own width at the trailing end.
             val edge = if (useFloatingChrome) BAR_GUTTER else 4.dp
+            val startEdge = if (onBack != null) 64.dp else edge
             Row(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .then(if (accessory != null) Modifier.fillMaxWidth().padding(start = edge) else Modifier)
-                    // The page's gutter (the navbar keeps Apple's wider one);
-                    // the pill's inset below is internal padding around the
-                    // icons, not extra margin.
+                    .then(if (accessory != null) Modifier.fillMaxWidth().padding(start = startEdge) else Modifier)
+                    // Same outer edge as the navbar; PILL_INSET below is
+                    // internal padding around the icons, not extra margin.
                     .padding(end = edge),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
