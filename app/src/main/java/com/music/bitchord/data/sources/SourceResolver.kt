@@ -590,8 +590,29 @@ object SourceResolver {
         // because each `/stream` is a debrid download and cancelling the loser
         // does not cancel the torrent it already started.
         var failedSources = 0
+        val asked = rankedAbove(youtube.configId, active).filterNot { candidate ->
+            val skip = candidate.configId == servedBy || candidate.configId in avoid || resting(candidate)
+            if (skip) {
+                TrackLog.d(
+                    TAG,
+                    "upgrade for '${target.title}': not asking ${candidate.displayName} " +
+                        when {
+                            candidate.configId == servedBy -> "(already serving the track)"
+                            candidate.configId in avoid -> "(avoided: its file was another recording)"
+                            else -> "(resting)"
+                        },
+                )
+            }
+            skip
+        }
+        TrackLog.d(
+            TAG,
+            "upgrade for '${target.title}': asking ${asked.map { it.displayName }} " +
+                "(YouTube ranked ${active.indexOfFirst { it.configId == youtube.configId } + 1} of ${active.size}, " +
+                "playing ${playing?.summary ?: "unmeasured"})",
+        )
         val found = bestInOrder(
-            rankedAbove(youtube.configId, active).filterNot { it.configId == servedBy || it.configId in avoid || resting(it) },
+            asked,
             target,
             request,
             strictLength = true,
@@ -881,7 +902,16 @@ object SourceResolver {
         // that arrives from a pass started before the Atmos stream landed.
         if (playing?.isDolbyAtmos == true && !candidate.isDolbyAtmos) return false
         if (candidate.isLossless == true || candidate.isDolbyAtmos) return true
-        val gain = (candidate.kbps ?: return false) - (playing?.kbps ?: return false)
+        val candidateKbps = candidate.kbps ?: return false.also {
+            TrackLog.d(TAG, "lossy candidate ${candidate.summary} has no bitrate; not swapping")
+        }
+        val playingKbps = playing?.kbps ?: return false.also {
+            TrackLog.d(TAG, "playing bitrate unknown; lossy ${candidate.summary} can't clear the gain bar")
+        }
+        val gain = candidateKbps - playingKbps
+        if (gain < UPGRADE_MIN_GAIN_KBPS) {
+            TrackLog.d(TAG, "gain ${gain} kbps (${playingKbps} -> ${candidateKbps}) is under $UPGRADE_MIN_GAIN_KBPS kbps")
+        }
         return gain >= UPGRADE_MIN_GAIN_KBPS
     }
 
@@ -1206,9 +1236,22 @@ object SourceResolver {
             // nothing else is worth cutting a listener's audio for — or filing
             // on their device under the name of the track they asked for.
             if (strictLength) {
+                val before = matches.size
                 matches = matches.filter { TrackMatcher.withinSeconds(it, target, UPGRADE_DRIFT_SEC) }
+                if (matches.isEmpty() && before > 0) {
+                    TrackLog.d(
+                        TAG,
+                        "${source.displayName}: $before match(es) for '${target.title}' but none within " +
+                            "${UPGRADE_DRIFT_SEC}s of ${target.durationSec}s",
+                    )
+                }
             }
-            if (matches.isEmpty()) continue
+            if (matches.isEmpty()) {
+                if (searchedAny && candidates.isEmpty()) {
+                    TrackLog.d(TAG, "${source.displayName}: no candidates for '${target.title}' by '${target.artist}'")
+                }
+                continue
+            }
             val stream = try {
                 streamBest(source, matches, target, request)
             } catch (e: SourceThrottled) {

@@ -682,6 +682,12 @@ object QualityUpgrade {
                     TrackLog.d(TAG, "second look for $mediaId was throttled; trying again shortly", about = mediaId)
                 } else {
                     asked += mediaId
+                    TrackLog.d(
+                        TAG,
+                        "second look for $mediaId settled (${if (found == null) "nothing better" else "found"}); " +
+                            "not asked again this playback",
+                        about = mediaId,
+                    )
                 }
             }
             // Otherwise the search was cancelled — the queue moved on while it
