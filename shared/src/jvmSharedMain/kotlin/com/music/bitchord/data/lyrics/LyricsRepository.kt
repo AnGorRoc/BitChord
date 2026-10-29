@@ -108,6 +108,25 @@ object LyricsRepository {
             .distinct()
             .filter { it in sources && !it.hidden }
 
+        if (sequence.isEmpty()) return@coroutineScope null
+
+        val targetSource = if (sequence.size == 1) sequence.first() else null
+        val cached = (targetSource?.let { LyricsCache.get(videoId, title, artist, it) }
+            ?: LyricsCache.get(videoId, title, artist, null))
+            ?.takeIf { it.source in sources && !it.source.hidden }
+
+        if (cached != null) {
+            val isWordSynced = cached.lines.any { it.isWordSynced }
+            val isTopPriority = cached.source == sequence.firstOrNull()
+            val satisfiesSync = !prioritizeSyllableSync || isWordSynced || isTopPriority
+            if (satisfiesSync) {
+                val cachedResult = Result(cached.source, cached.lines)
+                onSourceStarted?.invoke(cached.source)
+                onSourceResult?.invoke(cached.source, cachedResult)
+                return@coroutineScope cachedResult
+            }
+        }
+
         // Every source but [SimpMusicLyrics] is asked for a name, and
         // YouTube's is not the name anyone catalogued. Cleaned once, here,
         // rather than by whichever source thought to do it for itself.
@@ -144,6 +163,17 @@ object LyricsRepository {
                         hit,
                         documents::get,
                     )?.let { result(source, it) }
+                    if (found != null) {
+                        LyricsCache.put(
+                            videoId = videoId,
+                            title = title,
+                            artist = artist,
+                            source = source,
+                            lines = found.lines,
+                            isrc = recording,
+                            isPrimary = false,
+                        )
+                    }
                     onSourceResult?.invoke(source, found)
                     found
                 } catch (cancelled: CancellationException) {
@@ -157,7 +187,21 @@ object LyricsRepository {
         }
 
         try {
-            pick(racing.map { (source, job) -> source to suspend { job.await() } }, prioritizeSyllableSync)
+            val winner = pick(racing.map { (source, job) -> source to suspend { job.await() } }, prioritizeSyllableSync)
+            if (winner != null) {
+                LyricsCache.put(
+                    videoId = videoId,
+                    title = title,
+                    artist = artist,
+                    source = winner.source,
+                    lines = winner.lines,
+                    isrc = recording,
+                    isPrimary = true,
+                )
+                winner
+            } else {
+                cached?.let { Result(it.source, it.lines) }
+            }
         } finally {
             // Whoever lost the race is no longer worth waiting on, and
             // coroutineScope will not return while they are still running.

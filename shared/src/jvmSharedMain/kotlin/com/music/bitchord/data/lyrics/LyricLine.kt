@@ -1,5 +1,8 @@
 package com.music.bitchord.data.lyrics
 
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+
 /**
  * One word of a line, with the stretch of the song it is sung over.
  *
@@ -13,6 +16,7 @@ package com.music.bitchord.data.lyrics
  * Empty for a word nobody split, which is most of them — the word is then its
  * own single syllable.
  */
+@Serializable
 data class LyricWord(
     val startMs: Long,
     val endMs: Long,
@@ -76,6 +80,7 @@ data class LyricWord(
  * One separately timed piece of a [LyricWord]: the characters [startChar]
  * until [endChar] of the word's text, sung from [startMs] to [endMs].
  */
+@Serializable
 data class LyricSyllable(
     val startMs: Long,
     val endMs: Long,
@@ -119,6 +124,7 @@ data class LyricSyllable(
  * single-voice song ever uses — see `TtmlLyrics` for how the sides are worked
  * out from the agents, which is not simply "one agent per side".
  */
+@Serializable
 enum class LyricAlignment { Start, End }
 
 /**
@@ -142,6 +148,7 @@ enum class LyricAlignment { Start, End }
  * underneath the lead on its own clock. Never nested: a background line's own
  * [background] is always null.
  */
+@Serializable
 data class LyricLine(
     val timeMs: Long,
     val text: String,
@@ -150,6 +157,7 @@ data class LyricLine(
     val background: LyricLine? = null,
     val alignment: LyricAlignment = LyricAlignment.Start,
     /** Display-only translation: drive its sweep and bloom from the original vocal. */
+    @Transient
     val timingSource: LyricLine? = null,
 ) {
     val isGap: Boolean get() = text.isEmpty()
