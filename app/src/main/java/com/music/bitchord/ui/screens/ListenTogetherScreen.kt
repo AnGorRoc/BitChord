@@ -97,6 +97,11 @@ import com.music.bitchord.data.listentogether.ServerConnectionState
 import com.music.bitchord.data.listentogether.ServerUrlError
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.core.content.FileProvider
+import com.music.bitchord.BuildConfig
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 internal fun ServerUrlError.toMessageRes(): Int = when (this) {
     ServerUrlError.Whitespace -> R.string.listen_together_err_whitespace
@@ -158,6 +163,7 @@ fun ListenTogetherScreen(
     var nickname by remember { mutableStateOf(ListenTogether.nickname()) }
     var maxMembers by remember { mutableIntStateOf(5) }
     var pendingServerSwitchInvite by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var sharingApk by remember { mutableStateOf(false) }
     var sheet by remember { mutableStateOf<PartySheet?>(null) }
 
     // Hoisted so a sheet can be *animated* away rather than dropped out of the
@@ -582,6 +588,50 @@ fun ListenTogetherScreen(
                 enabled = !state.inParty && !busy,
                 onClick = onEditServer,
                 trailing = if (busy) ({ Spinner() }) else null,
+            )
+        }
+
+        SettingsGroup(
+            header = stringResource(R.string.listen_together_share_app_header),
+            footer = stringResource(R.string.listen_together_share_app_footer),
+        ) {
+            SettingsRow(
+                icon = Icons.Rounded.Share,
+                title = stringResource(R.string.listen_together_share_apk),
+                subtitle = if (sharingApk) {
+                    stringResource(R.string.listen_together_sharing_apk)
+                } else {
+                    stringResource(R.string.listen_together_share_apk_subtitle, BuildConfig.VERSION_NAME)
+                },
+                enabled = !sharingApk,
+                trailing = if (sharingApk) ({ Spinner() }) else null,
+                onClick = {
+                    if (sharingApk) return@SettingsRow
+                    sharingApk = true
+                    scope.launch {
+                        val apkUri = extractApkForSharing(context)
+                        sharingApk = false
+                        if (apkUri != null) {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/vnd.android.package-archive"
+                                putExtra(Intent.EXTRA_STREAM, apkUri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(
+                                Intent.createChooser(
+                                    shareIntent,
+                                    context.getString(R.string.listen_together_share_apk),
+                                ),
+                            )
+                        } else {
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.listen_together_share_apk_error),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    }
+                },
             )
         }
 
@@ -1136,4 +1186,19 @@ private fun elapsed(ms: Long): String {
     val minutes = total / 60
     val seconds = total % 60
     return "%d:%02d".format(minutes, seconds)
+}
+
+private suspend fun extractApkForSharing(context: android.content.Context): android.net.Uri? = withContext(Dispatchers.IO) {
+    runCatching {
+        val sourceApk = File(context.applicationInfo.sourceDir)
+        if (!sourceApk.exists()) return@withContext null
+        val sharedDir = File(context.cacheDir, "shared").apply { mkdirs() }
+        val targetApk = File(sharedDir, "BitChord-v${BuildConfig.VERSION_NAME}.apk")
+        sourceApk.inputStream().use { input ->
+            targetApk.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", targetApk)
+    }.getOrNull()
 }
