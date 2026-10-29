@@ -3186,9 +3186,12 @@ private fun BitChordApp(
                                     page.browseId,
                                 )
                                 val selected = songs.getOrNull(index)
-                                val pageSongKeys =
-                                    (page.songs as? UiState.Success)?.data.orEmpty().mapTo(HashSet()) { it.contextEntryKey() }
+                                val rawPageSongs = (page.songs as? UiState.Success)?.data.orEmpty()
+                                val pageSongKeys = rawPageSongs.mapTo(HashSet()) { it.contextEntryKey() }
+                                val pageSongSort = detailSongSorts[page.browseId] ?: SongSort.DEFAULT
+                                val isCustomOrder = pageSongSort != SongSort.DEFAULT || songs.size != rawPageSongs.size
                                 val useBounded =
+                                    !isCustomOrder &&
                                     (page.type == BrowseType.ALBUM || page.type == BrowseType.PLAYLIST) &&
                                         selected?.contextEntryKey()?.let(pageSongKeys::contains) == true &&
                                         !CastController.state.value.casting
