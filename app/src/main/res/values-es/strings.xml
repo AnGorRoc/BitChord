@@ -735,6 +735,12 @@
     <string name="listen_together_server_unknown">Toca para comprobar</string>
     <string name="listen_together_custom_server">Usar tu propio servidor</string>
     <string name="listen_together_custom_server_footer">Déjalo vacío para usar el servidor integrado. Si tienes tu propia copia, todos en la fiesta deben apuntar al mismo.</string>
+    <string name="listen_together_share_app_header">Compartir BitChord</string>
+    <string name="listen_together_share_app_footer">Envía el instalador de la app directamente por Quick Share, WhatsApp o cualquier otra app para que otros se unan fácilmente.</string>
+    <string name="listen_together_share_apk">Compartir archivo de la app (APK)</string>
+    <string name="listen_together_share_apk_subtitle">Versión %1$s · Instalador directo</string>
+    <string name="listen_together_sharing_apk">Preparando instalador…</string>
+    <string name="listen_together_share_apk_error">No se pudo extraer el APK para compartir</string>
     <string name="listen_together_using_default">Usando el servidor integrado</string>
     <string name="listen_together_remove_server">Quitar servidor</string>
     <string name="listen_together_switched_to_default">Se cambió al servidor predeterminado</string>
@@ -1424,4 +1430,7 @@
     <string name="save_queue_as_playlist">Guardar cola como playlist</string>
     <string name="save_radio_as_playlist">Guardar radio como playlist</string>
     <string name="playlist_created">Playlist creada: %1$s</string>
+    <string name="save_cover_art">Guardar portada</string>
+    <string name="cover_saved">Guardado %1$s</string>
+    <string name="cover_save_failed">No se pudo guardar la portada</string>
 </resources>

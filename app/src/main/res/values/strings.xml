@@ -946,6 +946,12 @@
     <string name="listen_together_server_unknown">Tap to check</string>
     <string name="listen_together_custom_server">Use your own server</string>
     <string name="listen_together_custom_server_footer">Leave this empty to use the default server. If you run your own copy, everyone in the party has to be pointed at the same one.</string>
+    <string name="listen_together_share_app_header">Share BitChord</string>
+    <string name="listen_together_share_app_footer">Send the app installer directly via Quick Share, WhatsApp, or any app so others can join without searching.</string>
+    <string name="listen_together_share_apk">Share app file (APK)</string>
+    <string name="listen_together_share_apk_subtitle">Version %1$s · Direct installer</string>
+    <string name="listen_together_sharing_apk">Preparing installer…</string>
+    <string name="listen_together_share_apk_error">Could not extract APK for sharing</string>
     <string name="listen_together_using_default">Using default server</string>
     <string name="listen_together_remove_server">Remove server</string>
     <string name="listen_together_switched_to_default">Switched to default server</string>
@@ -1307,4 +1313,7 @@
     <string name="save_queue_as_playlist">Save queue as playlist</string>
     <string name="save_radio_as_playlist">Save radio as playlist</string>
     <string name="playlist_created">Playlist created: %1$s</string>
+    <string name="save_cover_art">Save cover art</string>
+    <string name="cover_saved">Saved %1$s</string>
+    <string name="cover_save_failed">Couldn\'t save cover art</string>
 </resources>

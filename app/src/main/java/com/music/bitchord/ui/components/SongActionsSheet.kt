@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.HighQuality
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Radio
@@ -198,6 +199,7 @@ fun SongActionsSheet(
      */
     audioVersionMissing: Boolean = false,
     onShare: (() -> Unit)? = null,
+    onSaveArtwork: (() -> Unit)? = null,
     /**
      * Copies what the app logged while starting this track. Null everywhere
      * except the player, where "this track" means something.
@@ -251,6 +253,11 @@ fun SongActionsSheet(
         if (!isOffline) {
             onShare?.let {
                 ActionRow(Icons.Rounded.Share, stringResource(R.string.share), accent = palette.accent, onClick = it)
+            }
+        }
+        if (song.thumbnailUrl != null) {
+            onSaveArtwork?.let {
+                ActionRow(Icons.Rounded.Image, stringResource(R.string.save_cover_art), accent = palette.accent, onClick = it)
             }
         }
         ActionRow(
