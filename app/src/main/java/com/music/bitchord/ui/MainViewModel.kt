@@ -561,7 +561,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _lyricsChecked.value = true
     }
 
-    private val _account = MutableStateFlow<Account?>(null)
+    private fun activeSessionAccount(): Account? =
+        authStore.activeSession?.let { session ->
+            val profile = session.profiles.firstOrNull { it.profileId == (authStore.activeProfileId ?: session.activeProfileId) }
+                ?: session.profiles.firstOrNull()
+            Account(
+                name = profile?.name?.ifBlank { null } ?: session.name,
+                email = profile?.handle?.ifBlank { null } ?: session.email,
+                thumbnailUrl = profile?.avatar,
+            ).takeIf { it.name.isNotBlank() || !it.thumbnailUrl.isNullOrBlank() }
+        }
+
+    private val _account = MutableStateFlow<Account?>(activeSessionAccount())
     val account: StateFlow<Account?> = _account.asStateFlow()
 
     /**
@@ -3890,7 +3901,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun clearListenerState(restoreCached: Boolean = false) {
-        _account.value = null
+        _account.value = activeSessionAccount()
         likedSyncJob?.cancel()
         LikeState.clear()
         _playlistsLoading.value = false

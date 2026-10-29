@@ -2229,8 +2229,17 @@ internal fun AccountCard(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (account?.thumbnailUrl != null) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val request = remember(account.thumbnailUrl) {
+                coil3.request.ImageRequest.Builder(context)
+                    .data(account.thumbnailUrl)
+                    .memoryCachePolicy(coil3.request.CachePolicy.ENABLED)
+                    .diskCachePolicy(coil3.request.CachePolicy.ENABLED)
+                    .networkCachePolicy(coil3.request.CachePolicy.ENABLED)
+                    .build()
+            }
             AsyncImage(
-                model = account.thumbnailUrl,
+                model = request,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(52.dp).clip(CircleShape).thumbnailBorder(CircleShape),

@@ -789,8 +789,17 @@ fun TopBarAccountButton(
     ) {
         val photo = account?.thumbnailUrl
         if (photo != null) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val request = remember(photo) {
+                coil3.request.ImageRequest.Builder(context)
+                    .data(photo)
+                    .memoryCachePolicy(coil3.request.CachePolicy.ENABLED)
+                    .diskCachePolicy(coil3.request.CachePolicy.ENABLED)
+                    .networkCachePolicy(coil3.request.CachePolicy.ENABLED)
+                    .build()
+            }
             AsyncImage(
-                model = photo,
+                model = request,
                 contentDescription = stringResource(R.string.switch_account),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

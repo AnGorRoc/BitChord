@@ -196,8 +196,17 @@ private fun ChannelRow(channel: AccountChannel, selected: Boolean, onClick: () -
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (channel.thumbnailUrl != null) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val request = remember(channel.thumbnailUrl) {
+                coil3.request.ImageRequest.Builder(context)
+                    .data(channel.thumbnailUrl)
+                    .memoryCachePolicy(coil3.request.CachePolicy.ENABLED)
+                    .diskCachePolicy(coil3.request.CachePolicy.ENABLED)
+                    .networkCachePolicy(coil3.request.CachePolicy.ENABLED)
+                    .build()
+            }
             AsyncImage(
-                model = channel.thumbnailUrl,
+                model = request,
                 contentDescription = null,
                 modifier = Modifier
                     .size(30.dp)
