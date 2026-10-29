@@ -13,6 +13,8 @@ import com.music.bitchord.data.sources.addon.AddonClient
 import com.music.bitchord.data.sources.addon.AddonException
 import com.music.bitchord.data.sources.addon.DetectedFormat
 import com.music.bitchord.data.sources.addon.SourceFormats
+import com.music.bitchord.data.tidal.TidalApi
+import com.music.bitchord.data.tidal.TidalInstances
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.playback.audio.LosslessOutput
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,10 +72,14 @@ data class SourceConfig(
 
     /** What the sources screen and the player show. Never blank. */
     val displayName: String
-        get() = label.ifBlank {
-            baseUrl.takeIf { it.isNotBlank() }
-                ?.let { runCatching { Uri.parse(it).host }.getOrNull() }
-                ?: kind.label
+        get() {
+            if (kind == SourceKind.TIDAL) return SourceRegistry.TIDAL_DISPLAY_NAME
+            if (kind == SourceKind.HIRES) return SourceRegistry.HIRES_DISPLAY_NAME
+            return label.ifBlank {
+                baseUrl.takeIf { it.isNotBlank() }
+                    ?.let { runCatching { Uri.parse(it).host }.getOrNull() }
+                    ?: kind.label
+            }
         }
 
     /** Whether this has enough filled in to be worth contacting at all. */
@@ -409,6 +415,19 @@ object SourceRegistry {
      * its on/off state; a new source gets a fresh config.
      */
     suspend fun identify(url: String, existing: SourceConfig? = null): Result<SourceConfig> {
+        TidalApi.probeBestEffort(url)?.let { version ->
+            val base = TidalApi.normalize(url) ?: url.trim().trimEnd('/')
+            val host = runCatching { android.net.Uri.parse(base).host }.getOrNull()
+            return Result.success(
+                (existing ?: SourceConfig(kind = SourceKind.TIDAL)).copy(
+                    kind = SourceKind.TIDAL,
+                    baseUrl = base,
+                    label = existing?.label.orEmpty().ifBlank {
+                        host?.takeIf { it.isNotBlank() } ?: SourceKind.TIDAL.label
+                    },
+                ),
+            )
+        }
         val detected = SourceFormats.identify(url).getOrElse { return Result.failure(it) }
         return when (detected) {
             is DetectedFormat.Addon -> Result.success(
@@ -488,6 +507,8 @@ object SourceRegistry {
         SourceKind.CUSTOM_MODULE -> ModuleSource(config)
         SourceKind.MODULE -> ModuleSource(config)
         SourceKind.MONOCHROME -> MonochromeSource(config, unknownArtist = { unknownArtist() })
+        SourceKind.TIDAL -> TidalSource(config)
+        SourceKind.HIRES -> HiresDirectSource(config)
         SourceKind.JIOSAAVN -> JioSaavnSource(config)
         SourceKind.YOUTUBE -> YouTubeSource(config)
     }
@@ -533,7 +554,10 @@ object SourceRegistry {
             .build()
             .toString()
 
-    private val BUILT_IN_KINDS = listOf(SourceKind.MONOCHROME, SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
+    private val BUILT_IN_KINDS = listOf(SourceKind.MONOCHROME, SourceKind.JIOSAAVN, SourceKind.TIDAL, SourceKind.HIRES, SourceKind.YOUTUBE)
+
+    const val TIDAL_DISPLAY_NAME = "BitChord NEXT Addon"
+    const val HIRES_DISPLAY_NAME = "BitChord Hi-Res Lossless Addon" 
 
     private const val KEY_SOURCES = "sources"
     /** One-shot migration: existing users must explicitly opt in again. */

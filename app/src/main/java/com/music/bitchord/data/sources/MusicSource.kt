@@ -61,6 +61,7 @@ data class SourceStream(
      * nothing.
      */
     val exactDurationMs: Long? = null,
+    val backend: String? = null,
 )
 
 /**

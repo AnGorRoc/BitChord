@@ -146,6 +146,30 @@ enum class SourceKind(
      * [AudioQuality.permits][com.music.bitchord.data.settings.permits] — and
      * never listed in search; see [showsInSearch].
      */
+    /**
+     * Genuine lossless FLAC via community Tidal Hi-Fi instances with automatic failover.
+     */
+    TIDAL(
+        label = "Tidal Hi-Fi",
+        labels = listOf("FLAC", "Lossless", "Hi-Res"),
+        needsServer = true,
+        canServeLossless = true,
+        worthPrefetching = true,
+        rank = 1,
+    ),
+
+    /**
+     * Direct Hi-Res FLAC files, verified and measured.
+     */
+    HIRES(
+        label = "Hi-Res Lossless",
+        labels = listOf("FLAC", "Lossless", "Hi-Res"),
+        needsServer = false,
+        canServeLossless = true,
+        worthPrefetching = true,
+        rank = 1,
+    ),
+
     MONOCHROME(
         label = "Monochrome",
         // What the file's own header states, nothing more: "Hi-Res" would claim

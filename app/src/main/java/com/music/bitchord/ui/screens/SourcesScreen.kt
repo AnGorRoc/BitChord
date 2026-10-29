@@ -796,7 +796,9 @@ private fun SourceRow(
                 SourceKind.CUSTOM_MODULE -> Icons.Rounded.Extension
                 SourceKind.MODULE -> Icons.Rounded.Extension
                 SourceKind.MONOCHROME -> Icons.Rounded.HighQuality
-                SourceKind.JIOSAAVN -> Icons.Rounded.GraphicEq // or some other icon
+                SourceKind.TIDAL -> Icons.Rounded.HighQuality
+                SourceKind.HIRES -> Icons.Rounded.HighQuality
+                SourceKind.JIOSAAVN -> Icons.Rounded.GraphicEq
                 SourceKind.YOUTUBE -> Icons.Rounded.PlayCircle
             },
             contentDescription = null,
