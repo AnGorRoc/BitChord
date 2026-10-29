@@ -601,7 +601,7 @@ fun ListenTogetherScreen(
                 subtitle = if (sharingApk) {
                     stringResource(R.string.listen_together_sharing_apk)
                 } else {
-                    stringResource(R.string.listen_together_share_apk_subtitle, BuildConfig.VERSION_NAME)
+                    stringResource(R.string.listen_together_share_apk_subtitle)
                 },
                 enabled = !sharingApk,
                 trailing = if (sharingApk) ({ Spinner() }) else null,
