@@ -1018,7 +1018,7 @@ object AudioCache {
         }
         val kind = configId?.let { SourceRegistry.config(it)?.kind }
         return when (kind) {
-            SourceKind.MONOCHROME -> Origin.MONOCHROME
+            SourceKind.MONOCHROME, SourceKind.HIRES -> Origin.MONOCHROME
             SourceKind.JIOSAAVN -> Origin.JIOSAAVN
             else -> Origin.OTHER
         }

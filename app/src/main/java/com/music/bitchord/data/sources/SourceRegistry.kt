@@ -554,7 +554,7 @@ object SourceRegistry {
             .build()
             .toString()
 
-    private val BUILT_IN_KINDS = listOf(SourceKind.MONOCHROME, SourceKind.JIOSAAVN, SourceKind.TIDAL, SourceKind.HIRES, SourceKind.YOUTUBE)
+    private val BUILT_IN_KINDS = listOf(SourceKind.HIRES, SourceKind.TIDAL, SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
 
     const val TIDAL_DISPLAY_NAME = "BitChord NEXT Addon"
     const val HIRES_DISPLAY_NAME = "BitChord Hi-Res Lossless Addon" 

@@ -464,13 +464,14 @@ class MonochromeSourceTest {
         assertFalse(SourceConfig(kind = SourceKind.MONOCHROME).enabled)
         assertTrue(SourceKind.MONOCHROME in OPT_IN_KINDS)
 
-        val fresh = SourceRegistry.sourcesForInit(emptyList(), forceJioSaavnOff = false)
+        val fresh = SourceRegistry.sourcesForInit(listOf(SourceConfig(kind = SourceKind.MONOCHROME)), forceJioSaavnOff = false)
         assertFalse(fresh.single { it.kind == SourceKind.MONOCHROME }.enabled)
         assertTrue(fresh.single { it.kind == SourceKind.YOUTUBE }.enabled)
 
         val upgraded = SourceRegistry.sourcesForInit(
-            listOf(SourceConfig(kind = SourceKind.JIOSAAVN, enabled = false), SourceConfig(kind = SourceKind.YOUTUBE)),
+            listOf(SourceConfig(kind = SourceKind.MONOCHROME, enabled = true), SourceConfig(kind = SourceKind.JIOSAAVN, enabled = false), SourceConfig(kind = SourceKind.YOUTUBE)),
             forceJioSaavnOff = false,
+            forceMonochromeOff = true,
         )
         assertFalse(upgraded.single { it.kind == SourceKind.MONOCHROME }.enabled)
     }
