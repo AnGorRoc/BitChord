@@ -1790,6 +1790,24 @@ class SourcesTest {
         assertTrue(matches(song("Renai", "A", "3:30"), "レンアイ", "A", 210))
     }
 
+    @Test
+    fun `normalizes Turkish and Latin diacritics for song and artist matching`() {
+        // Turkish "ş", "ç", "ğ", "ı", "ö", "ü"
+        assertTrue(matches(song("Aşk", "Barış Manço", "3:30"), "Ask", "Baris Manco", 210))
+        assertTrue(matches(song("Şeker", "Gülüm", "3:30"), "Seker", "Gulum", 210))
+        assertTrue(matches(song("İstanbul", "Çağrı", "3:30"), "Istanbul", "Cagri", 210))
+
+        // European accented characters and ligatures
+        assertTrue(matches(song("Canción", "Niño", "3:30"), "Cancion", "Nino", 210))
+        assertTrue(matches(song("Déjà Vu", "Mötley Crüe", "3:30"), "Deja Vu", "Motley Crue", 210))
+        assertTrue(matches(song("Björk", "Łódź", "3:30"), "Bjork", "Lodz", 210))
+
+        // Preserves CJK and Devanagari characters
+        assertEquals("पानी", TrackMatcher.foldLatinDiacritics("पानी"))
+        assertEquals("が", TrackMatcher.foldLatinDiacritics("が"))
+        assertEquals("コイコガレ", TrackMatcher.foldLatinDiacritics("コイコガレ"))
+    }
+
     /** The album only ever supplies markers the request asked for, never extra ones. */
     @Test
     fun `album naming beyond the wanted take does not refuse the row`() {

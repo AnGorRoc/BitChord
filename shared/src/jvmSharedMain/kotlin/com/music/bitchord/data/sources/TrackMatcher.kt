@@ -472,7 +472,7 @@ object TrackMatcher {
 
         return TitleParts(
             words = words,
-            core = coreString,
+            core = foldLatinDiacritics(coreString),
             versions = versions,
             context = context,
         )
@@ -541,13 +541,42 @@ object TrackMatcher {
     private fun isArtistName(text: String, artist: String): Boolean {
         if (artist.isBlank()) return false
         val words =
-            text.split(WORD_SPLIT).map { it.replace(NON_ALNUM, "") }.filter { it.isNotEmpty() }
+            text.split(WORD_SPLIT).map { foldLatinDiacritics(it.replace(NON_ALNUM, "")) }.filter { it.isNotEmpty() }
         if (words.isEmpty()) return false
         val credited = normalize(artist).split(WORD_SPLIT)
-            .map { it.replace(NON_ALNUM, "") }
+            .map { foldLatinDiacritics(it.replace(NON_ALNUM, "")) }
             .filter { it.isNotEmpty() }
             .toSet()
         return words.all { it in credited }
+    }
+
+    /**
+     * Folds Latin diacritics and ligatures to ASCII equivalents (e.g. Turkish
+     * "ş" -> "s", "ç" -> "c", "ı" -> "i", "ğ" -> "g", accented vowels, "ñ" -> "n",
+     * "æ" -> "ae", "œ" -> "oe", "ß" -> "ss", "ø" -> "o", "ł" -> "l", "đ" -> "d").
+     *
+     * Only strips combining marks on decomposed Latin letters; preserves CJK
+     * voiced sound marks (dakuten/handakuten) and non-Latin combining marks
+     * (Devanagari, Arabic, etc.). Recomposes to NFKC to keep non-Latin characters intact.
+     */
+    fun foldLatinDiacritics(text: String): String {
+        val pre = text
+            .replace("ı", "i")
+            .replace("İ", "I")
+            .replace("ø", "o")
+            .replace("Ø", "O")
+            .replace("ł", "l")
+            .replace("Ł", "L")
+            .replace("đ", "d")
+            .replace("Đ", "D")
+            .replace("æ", "ae")
+            .replace("Æ", "AE")
+            .replace("œ", "oe")
+            .replace("Œ", "OE")
+            .replace("ß", "ss")
+        val nfd = Normalizer.normalize(pre, Normalizer.Form.NFD)
+        val stripped = LATIN_DIACRITICS.replace(nfd, "")
+        return Normalizer.normalize(stripped, Normalizer.Form.NFKC)
     }
 
     /**
@@ -556,6 +585,9 @@ object TrackMatcher {
      * fold to ASCII parens so the bracket pass handles `「title」` like
      * `(title)`. CJK letters themselves survive — stripping them is what kept
      * every non-Latin catalogue out of matching entirely.
+     *
+     * Latin diacritics (Turkish "ş", "ç", "ğ", "ı", accented vowels, "ñ", etc.)
+     * fold to base Latin letters for robust cross-catalogue matching.
      */
     internal fun normalize(text: String): String =
         Normalizer.normalize(text, Normalizer.Form.NFKC)
@@ -701,7 +733,7 @@ object TrackMatcher {
         .split(ARTIST_SEPARATORS)
         .map { name ->
             name.split(WORD_SPLIT)
-                .map { it.replace(NON_ALNUM, "") }
+                .map { foldLatinDiacritics(it.replace(NON_ALNUM, "")) }
                 .filter { it.length > 1 }
         }
         .filter { it.isNotEmpty() }
@@ -878,6 +910,7 @@ object TrackMatcher {
      * ASCII-only (`[^a-z0-9]`) is what emptied every CJK/Devanagari title to
      * `""` — and an empty core matches nothing and asks for nothing.
      */
+    private val LATIN_DIACRITICS = Regex("""[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff]""")
     private val NON_ALNUM = Regex("""[^\p{L}\p{N}]""")
     private val LATIN = Regex("[a-z0-9]")
     private const val LATIN_QUERY_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789 "
