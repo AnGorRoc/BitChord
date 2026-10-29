@@ -102,16 +102,13 @@ fun TopBarDownloadButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
         label = "downloadRingTint",
     )
 
-    TopBarAction(
-        visible = session.visible,
-        modifier = modifier,
+    IconButton(
+        onClick = {
+            haptics.play(Haptic.Select)
+            onClick()
+        },
+        modifier = modifier.size(TOP_CONTROL_SIZE),
     ) {
-        IconButton(
-            onClick = {
-                haptics.play(Haptic.Select)
-                onClick()
-            },
-        ) {
             Box(contentAlignment = Alignment.Center) {
                 if (session.busy) {
                     CircularProgressIndicator(
@@ -152,7 +149,6 @@ fun TopBarDownloadButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
                 )
             }
         }
-    }
 }
 
 /**

@@ -42,6 +42,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -405,62 +406,192 @@ private fun ArtworkPageActions(
     }
 }
 
+sealed interface TopBarAnchor {
+    data object None : TopBarAnchor
+    data class Profile(
+        val account: Account?,
+        val onClick: () -> Unit,
+        val onSwipeProfile: ((forward: Boolean) -> Boolean)? = null,
+    ) : TopBarAnchor
+    data class More(
+        val onClick: () -> Unit,
+    ) : TopBarAnchor
+}
+
+data class TopBarActionItem(
+    val key: String,
+    val content: @Composable () -> Unit,
+)
+
 /**
- * An action slot in the top bar pill that choreographs with the pill's border:
- * when appearing, the border widens first and then the icon appears;
- * when disappearing, the icon disappears first and then the border narrows.
+ * Orchestrated top bar actions layout:
+ * - The anchor (rightmost item, PFP or More) stays completely fixed in screen position.
+ * - When entering a playlist, the PFP morphs in place into the 3-dots More button.
+ * - Auxiliary action icons emerge sliding to the left from behind the anchor, and slide back into it when leaving.
+ * - When transitioning between pages (e.g. Library <-> Playlist), matching slots morph in place and extra icons emerge/exit cleanly.
  */
 @Composable
-fun TopBarAction(
-    visible: Boolean,
+fun TopBarActions(
+    anchor: TopBarAnchor,
+    auxiliary: List<TopBarActionItem>,
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
+) {
+    ActionsRow(modifier = modifier) {
+        // Up to 3 auxiliary slots to the left of the anchor:
+        // Slot 2 (outermost left), Slot 1 (middle), Slot 0 (adjacent to anchor)
+        val maxSlots = 3
+        for (slotIndex in (maxSlots - 1) downTo 0) {
+            val item = auxiliary.getOrNull(slotIndex)
+            TopBarAuxiliarySlot(
+                item = item,
+                slotIndex = slotIndex,
+            )
+        }
+
+        // Anchor slot (rightmost, always at the end)
+        TopBarAnchorSlot(anchor = anchor)
+    }
+}
+
+@Composable
+private fun TopBarAuxiliarySlot(
+    item: TopBarActionItem?,
+    slotIndex: Int,
+    modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(
-        visible = visible,
+        visible = item != null,
         modifier = modifier,
         enter = expandHorizontally(
             animationSpec = tween(
-                durationMillis = 280,
-                easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f),
+                durationMillis = 400,
+                easing = CubicBezierEasing(0.16f, 1.0f, 0.3f, 1.0f),
             ),
             expandFrom = Alignment.End,
             clip = false,
-        ) + fadeIn(
+        ) + slideInHorizontally(
             animationSpec = tween(
-                durationMillis = 160,
-                delayMillis = 120,
+                durationMillis = 400,
+                easing = CubicBezierEasing(0.16f, 1.0f, 0.3f, 1.0f),
+            ),
+        ) { fullWidth -> (fullWidth * 0.75f).toInt() } + fadeIn(
+            animationSpec = tween(
+                durationMillis = 260,
+                delayMillis = 90,
                 easing = LinearOutSlowInEasing,
             ),
         ) + scaleIn(
-            initialScale = 0.55f,
+            initialScale = 0.62f,
             animationSpec = spring(
-                dampingRatio = 0.68f,
+                dampingRatio = 0.72f,
                 stiffness = Spring.StiffnessMediumLow,
             ),
         ),
         exit = fadeOut(
             animationSpec = tween(
-                durationMillis = 120,
+                durationMillis = 180,
                 easing = FastOutLinearInEasing,
             ),
         ) + scaleOut(
-            targetScale = 0.55f,
+            targetScale = 0.62f,
             animationSpec = tween(
-                durationMillis = 120,
+                durationMillis = 180,
                 easing = FastOutLinearInEasing,
             ),
-        ) + shrinkHorizontally(
+        ) + slideOutHorizontally(
             animationSpec = tween(
-                durationMillis = 240,
-                delayMillis = 80,
+                durationMillis = 220,
+                easing = FastOutLinearInEasing,
+            ),
+        ) { fullWidth -> (fullWidth * 0.75f).toInt() } + shrinkHorizontally(
+            animationSpec = tween(
+                durationMillis = 300,
+                delayMillis = 50,
                 easing = CubicBezierEasing(0.3f, 0.0f, 0.2f, 1.0f),
             ),
             shrinkTowards = Alignment.End,
             clip = false,
         ),
     ) {
-        content()
+        AnimatedContent(
+            targetState = item,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(260, delayMillis = 40, easing = LinearOutSlowInEasing)) +
+                    scaleIn(initialScale = 0.65f, animationSpec = spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow))) togetherWith
+                (fadeOut(animationSpec = tween(170, easing = FastOutLinearInEasing)) +
+                    scaleOut(targetScale = 0.65f, animationSpec = tween(170, easing = FastOutLinearInEasing)))
+            },
+            contentKey = { it?.key },
+            label = "auxSlotMorph_$slotIndex",
+        ) { current ->
+            Box(
+                modifier = Modifier.size(TOP_CONTROL_SIZE),
+                contentAlignment = Alignment.Center,
+            ) {
+                current?.content?.invoke()
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopBarAnchorSlot(
+    anchor: TopBarAnchor,
+    modifier: Modifier = Modifier,
+) {
+    AnimatedVisibility(
+        visible = anchor !is TopBarAnchor.None,
+        modifier = modifier,
+        enter = fadeIn(animationSpec = tween(260)) + scaleIn(initialScale = 0.7f),
+        exit = fadeOut(animationSpec = tween(180)) + scaleOut(targetScale = 0.7f),
+    ) {
+        Box(
+            modifier = Modifier.size(TOP_CONTROL_SIZE),
+            contentAlignment = Alignment.Center,
+        ) {
+            AnimatedContent(
+                targetState = anchor,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(260, delayMillis = 50, easing = LinearOutSlowInEasing)) +
+                        scaleIn(initialScale = 0.7f, animationSpec = spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow))) togetherWith
+                    (fadeOut(animationSpec = tween(180, easing = FastOutLinearInEasing)) +
+                        scaleOut(targetScale = 0.7f, animationSpec = tween(180, easing = FastOutLinearInEasing)))
+                },
+                contentKey = {
+                    when (it) {
+                        is TopBarAnchor.Profile -> "profile"
+                        is TopBarAnchor.More -> "more"
+                        is TopBarAnchor.None -> "none"
+                    }
+                },
+                label = "topBarAnchorMorph",
+            ) { state ->
+                when (state) {
+                    is TopBarAnchor.Profile -> {
+                        TopBarAccountButton(
+                            account = state.account,
+                            onClick = state.onClick,
+                            onSwipeProfile = state.onSwipeProfile,
+                        )
+                    }
+                    is TopBarAnchor.More -> {
+                        IconButton(
+                            onClick = state.onClick,
+                            modifier = Modifier.size(TOP_CONTROL_SIZE),
+                        ) {
+                            Icon(
+                                Icons.Rounded.MoreHoriz,
+                                contentDescription = stringResource(R.string.more),
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                    is TopBarAnchor.None -> {
+                        Spacer(Modifier.size(0.dp))
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -574,11 +705,14 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
     val oneActionWidth = TOP_CONTROL_SIZE.roundToPx()
     val extraActionFraction = ((placeable.width - oneActionWidth).toFloat() / oneActionWidth)
         .coerceIn(0f, 1f)
-    val edgePadding = (ACTION_EDGE_INSET.roundToPx() * extraActionFraction).roundToInt()
-    val width = (placeable.width + edgePadding * 2).coerceIn(constraints.minWidth, constraints.maxWidth)
+    val leftPadding = (ACTION_EDGE_INSET.roundToPx() * 2 * extraActionFraction).roundToInt()
+    val width = (placeable.width + leftPadding).coerceIn(constraints.minWidth, constraints.maxWidth)
 
     layout(width, placeable.height) {
-        placeable.placeRelative(edgePadding, 0)
+        // Place placeable shifted by leftPadding so the left pill end cap gains Apple's inset,
+        // while the right edge (where the anchor sits) remains flush at distance 0,
+        // guaranteeing that the profile photo or anchor never shifts horizontally on screen.
+        placeable.placeRelative(leftPadding, 0)
     }
 }
 
@@ -636,6 +770,7 @@ fun TopBarAccountButton(
     IconButton(
         onClick = onClick,
         modifier = modifier
+            .size(TOP_CONTROL_SIZE)
             .graphicsLayer { translationY = translation.value }
             .pointerInput(onSwipeProfile) {
                 if (onSwipeProfile == null) return@pointerInput
@@ -762,7 +897,7 @@ private val PUCK_SIZE = 40.dp
  * The floating top controls' height — the back circle and the actions pill
  * alike — and each action's slot in the pill: Apple's 44pt.
  */
-private val TOP_CONTROL_SIZE = 44.dp
+internal val TOP_CONTROL_SIZE = 44.dp
 
 /**
  * Between two actions in the pill, and from each end to the action there,

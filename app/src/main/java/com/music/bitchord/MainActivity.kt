@@ -268,8 +268,11 @@ import com.music.bitchord.ui.components.ListenBrainzTokenAlert
 import com.music.bitchord.ui.components.MiniPlayer
 import com.music.bitchord.ui.components.QueueActionNotice
 import com.music.bitchord.ui.components.QueueActionNoticeHost
+import com.music.bitchord.ui.components.TOP_CONTROL_SIZE
 import com.music.bitchord.ui.components.TopBarAccountButton
-import com.music.bitchord.ui.components.TopBarAction
+import com.music.bitchord.ui.components.TopBarActionItem
+import com.music.bitchord.ui.components.TopBarActions
+import com.music.bitchord.ui.components.TopBarAnchor
 import com.music.bitchord.ui.screens.SegmentedControl
 import com.music.bitchord.ui.components.SearchField
 import com.music.bitchord.sharedui.resources.Res as SharedRes
@@ -3825,339 +3828,362 @@ private fun BitChordApp(
                         }
                     } else null,
                     actions = {
-                        // The Spotify page's "…", as a release page has one: what
-                        // can be done with the whole list. Gone while the list is
-                        // being picked from or imported — the bar on the page has
-                        // that in hand.
-                        TopBarAction(
-                            visible = route == AppRoute.Spotify && spotifyLibraryState.playlists.isNotEmpty() &&
-                                !spotifyLibraryState.selecting && !spotifySyncRunning,
-                        ) {
-                            Box {
-                                IconButton(onClick = { spotifyMenuOpen = true }) {
-                                    Icon(
-                                        Icons.Rounded.MoreHoriz,
-                                        contentDescription = stringResource(R.string.more),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
+                        val notInSettings = !(route != null && AppRoute.Settings in navigator)
+                        val releaseSongs = (detail?.songs as? UiState.Success)?.data.orEmpty()
+                        val isLocalPlaylist = detail?.browseId?.startsWith("local:playlist:") == true &&
+                            com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(detail?.browseId.orEmpty()) != null
+
+                        // 1. Rightmost anchor slot: Profile (avatar) or More (three dots)
+                        val anchorState = when {
+                            !notInSettings -> TopBarAnchor.None
+                            isReleaseDetail && detail != null && (releaseSongs.isNotEmpty() || detail?.type == BrowseType.PLAYLIST || isLocalPlaylist) -> {
+                                TopBarAnchor.More(
+                                    onClick = {
+                                        detail?.let { d ->
+                                            browseActions = BrowseTarget(
+                                                browseId = d.browseId,
+                                                title = d.title,
+                                                subtitle = d.subtitle,
+                                                thumbnailUrl = d.thumbnailUrl,
+                                                type = d.type,
+                                                songs = releaseSongs.sortedForDetail(songSort).map { song ->
+                                                    if (d.type == BrowseType.ALBUM) {
+                                                        song.copy(albumName = song.albumName ?: d.title)
+                                                    } else {
+                                                        song
+                                                    }
+                                                },
+                                                fromCard = false,
+                                                downloadId = downloadIdFor(d.browseId),
+                                            )
+                                        }
+                                    },
+                                )
+                            }
+                            else -> {
+                                TopBarAnchor.Profile(
+                                    account = account,
+                                    onClick = {
+                                        if (signedIn) {
+                                            viewModel.loadChannels()
+                                            showAccountSelector = true
+                                        } else navigator.push(AppRoute.Settings)
+                                    },
+                                    onSwipeProfile = { forward -> viewModel.stepProfile(forward) },
+                                )
+                            }
+                        }
+
+                        // 2. Auxiliary slots to the left of the anchor
+                        // Index 0: adjacent to anchor; Index 1: outer left; Index 2: outermost
+                        val downloadSession by DownloadSession.state.collectAsStateWithLifecycle()
+                        val auxiliaryItems = buildList {
+                            if (notInSettings) {
+                                when {
+                                    // Playlist / Folder Detail
+                                    (isReleaseDetail || isLocalDetail) && detail != null -> {
+                                        // Index 0 (adjacent to More/Anchor): Sort button
+                                        add(
+                                            TopBarActionItem(key = "sort") {
+                                                IconButton(
+                                                    onClick = { if (isLocalDetail) folderMenuOpen = true else songSortMenuOpen = true },
+                                                    modifier = Modifier.size(TOP_CONTROL_SIZE),
+                                                ) {
+                                                    Icon(
+                                                        Icons.Rounded.Sort,
+                                                        contentDescription = stringResource(
+                                                            if (isLocalDetail) R.string.sort_music else R.string.sort_songs,
+                                                        ),
+                                                        tint = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                        // Index 1 (to the left of Sort): Search
+                                        if (releaseSongs.isNotEmpty()) {
+                                            add(
+                                                TopBarActionItem(key = "search") {
+                                                    IconButton(
+                                                        onClick = { detailSearching = !detailSearching },
+                                                        modifier = Modifier.size(TOP_CONTROL_SIZE),
+                                                    ) {
+                                                        Icon(
+                                                            if (detailSearching) Icons.Rounded.Close else BitChordIcons.Search,
+                                                            contentDescription = stringResource(
+                                                                if (detailSearching) R.string.close_search else R.string.search_this_list,
+                                                            ),
+                                                            tint = MaterialTheme.colorScheme.onSurface,
+                                                        )
+                                                    }
+                                                },
+                                            )
+                                        }
+                                    }
+
+                                    // Artist Detail
+                                    detail != null && !isLocalDetail && detail?.type == BrowseType.ARTIST &&
+                                        detailActiveShelf == null && detail?.browseId?.startsWith("UC") == true -> {
+                                        add(
+                                            TopBarActionItem(key = "share") {
+                                                detail?.let { d ->
+                                                    IconButton(
+                                                        onClick = {
+                                                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                                                type = "text/plain"
+                                                                putExtra(
+                                                                    Intent.EXTRA_TEXT,
+                                                                    "https://music.youtube.com/channel/${d.browseId}",
+                                                                )
+                                                            }
+                                                            context.startActivity(Intent.createChooser(sendIntent, d.title))
+                                                        },
+                                                        modifier = Modifier.size(TOP_CONTROL_SIZE),
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Rounded.IosShare,
+                                                            contentDescription = stringResource(R.string.share),
+                                                            tint = MaterialTheme.colorScheme.onSurface,
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                        )
+                                    }
+
+                                    // Library tab root
+                                    route == null && detail == null && selectedTab == TAB_LIBRARY -> {
+                                        // Index 0 (adjacent to PFP): History
+                                        add(
+                                            TopBarActionItem(key = "history") {
+                                                IconButton(
+                                                    onClick = {
+                                                        navigator.push(AppRoute.History)
+                                                        viewModel.loadHistory()
+                                                    },
+                                                    modifier = Modifier.size(TOP_CONTROL_SIZE),
+                                                ) {
+                                                    Icon(
+                                                        Icons.Rounded.History,
+                                                        contentDescription = stringResource(R.string.listening_history),
+                                                        tint = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                        // Index 1 (to the left of History): Grid/List toggle
+                                        add(
+                                            TopBarActionItem(key = "view_type") {
+                                                val listStyle = libraryViewType == LibraryViewType.LIST
+                                                IconButton(
+                                                    onClick = {
+                                                        AppSettings.setLibraryViewType(
+                                                            if (listStyle) LibraryViewType.GRID else LibraryViewType.LIST,
+                                                        )
+                                                    },
+                                                    modifier = Modifier.size(TOP_CONTROL_SIZE),
+                                                ) {
+                                                    Icon(
+                                                        if (listStyle) BitChordIcons.GridView else BitChordIcons.ListView,
+                                                        contentDescription = stringResource(
+                                                            if (listStyle) R.string.switch_to_grid_view else R.string.switch_to_list_view,
+                                                        ),
+                                                        tint = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                    }
+
+                                    // Library ShowAll
+                                    route is AppRoute.LibraryShowAll -> {
+                                        // Index 0: Sort
+                                        add(
+                                            TopBarActionItem(key = "sort") {
+                                                Box {
+                                                    IconButton(
+                                                        onClick = { librarySortMenuOpen = true },
+                                                        modifier = Modifier.size(TOP_CONTROL_SIZE),
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Rounded.Sort,
+                                                            contentDescription = stringResource(R.string.sort_library),
+                                                            tint = MaterialTheme.colorScheme.onSurface,
+                                                        )
+                                                    }
+                                                    DropdownMenu(
+                                                        expanded = librarySortMenuOpen,
+                                                        onDismissRequest = { librarySortMenuOpen = false },
+                                                    ) {
+                                                        LibrarySort.entries.forEach { option ->
+                                                            DropdownMenuItem(
+                                                                text = { Text(option.localizedLabel()) },
+                                                                trailingIcon = if (option == librarySort) {
+                                                                    { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                                                } else null,
+                                                                onClick = {
+                                                                    AppSettings.setLibrarySort(option)
+                                                                    librarySortMenuOpen = false
+                                                                },
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                        )
+                                        // Index 1: Grid/List toggle
+                                        add(
+                                            TopBarActionItem(key = "view_type") {
+                                                val listStyle = libraryViewType == LibraryViewType.LIST
+                                                IconButton(
+                                                    onClick = {
+                                                        AppSettings.setLibraryViewType(
+                                                            if (listStyle) LibraryViewType.GRID else LibraryViewType.LIST,
+                                                        )
+                                                    },
+                                                    modifier = Modifier.size(TOP_CONTROL_SIZE),
+                                                ) {
+                                                    Icon(
+                                                        if (listStyle) BitChordIcons.GridView else BitChordIcons.ListView,
+                                                        contentDescription = stringResource(
+                                                            if (listStyle) R.string.switch_to_grid_view else R.string.switch_to_list_view,
+                                                        ),
+                                                        tint = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                    }
+
+                                    // Home tab with update notice
+                                    route == null && detail == null && selectedTab == TAB_HOME && updateNotice != null -> {
+                                        add(
+                                            TopBarActionItem(key = "update") {
+                                                IconButton(
+                                                    onClick = { showUpdateDialog = true },
+                                                    modifier = Modifier.size(TOP_CONTROL_SIZE),
+                                                ) {
+                                                    Icon(
+                                                        Icons.Rounded.Upgrade,
+                                                        contentDescription = stringResource(R.string.update_available, updateNotice?.version.orEmpty()),
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                    }
+
+                                    // Spotify Sync Menu
+                                    route == AppRoute.Spotify && spotifyLibraryState.playlists.isNotEmpty() &&
+                                        !spotifyLibraryState.selecting && !spotifySyncRunning -> {
+                                        add(
+                                            TopBarActionItem(key = "spotify") {
+                                                Box {
+                                                    IconButton(
+                                                        onClick = { spotifyMenuOpen = true },
+                                                        modifier = Modifier.size(TOP_CONTROL_SIZE),
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Rounded.MoreHoriz,
+                                                            contentDescription = stringResource(R.string.more),
+                                                            tint = MaterialTheme.colorScheme.onSurface,
+                                                        )
+                                                    }
+                                                    DropdownMenu(
+                                                        expanded = spotifyMenuOpen,
+                                                        onDismissRequest = { spotifyMenuOpen = false },
+                                                    ) {
+                                                        DropdownMenuItem(
+                                                            text = { Text(stringResource(R.string.spotify_sync_menu)) },
+                                                            leadingIcon = { Icon(Icons.Rounded.Download, contentDescription = null) },
+                                                            onClick = {
+                                                                spotifyMenuOpen = false
+                                                                spotifyLibraryState.startSelecting()
+                                                            },
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                        )
+                                    }
+
+                                    // Listen Together
+                                    route == AppRoute.ListenTogether -> {
+                                        add(
+                                            TopBarActionItem(key = "ping") {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.padding(horizontal = 8.dp),
+                                                ) {
+                                                    when (val state = partyServerStatus) {
+                                                        is ServerConnectionState.CustomFallback -> {
+                                                            Icon(
+                                                                Icons.Rounded.CloudOff,
+                                                                contentDescription = stringResource(R.string.listen_together_top_bar_fallback, stringResource(R.string.listen_together_ping, state.latencyMs)),
+                                                                tint = MaterialTheme.colorScheme.error,
+                                                                modifier = Modifier.size(14.dp),
+                                                            )
+                                                            Spacer(Modifier.width(4.dp))
+                                                            Text(
+                                                                text = stringResource(R.string.listen_together_ping, state.latencyMs),
+                                                                style = MaterialTheme.typography.labelMedium,
+                                                                color = MaterialTheme.colorScheme.error,
+                                                                maxLines = 1,
+                                                            )
+                                                        }
+                                                        is ServerConnectionState.CustomOnline -> {
+                                                            Text(
+                                                                text = stringResource(R.string.listen_together_ping, state.latencyMs),
+                                                                style = MaterialTheme.typography.labelMedium,
+                                                                color = MaterialTheme.colorScheme.onSurface,
+                                                                maxLines = 1,
+                                                            )
+                                                        }
+                                                        is ServerConnectionState.DefaultOnline -> {
+                                                            Text(
+                                                                text = stringResource(R.string.listen_together_ping, state.latencyMs),
+                                                                style = MaterialTheme.typography.labelMedium,
+                                                                color = MaterialTheme.colorScheme.onSurface,
+                                                                maxLines = 1,
+                                                            )
+                                                        }
+                                                        ServerConnectionState.Checking -> {
+                                                            Text(
+                                                                text = stringResource(R.string.listen_together_server_checking),
+                                                                style = MaterialTheme.typography.labelMedium,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                maxLines = 1,
+                                                            )
+                                                        }
+                                                        ServerConnectionState.Offline -> {
+                                                            Text(
+                                                                text = stringResource(R.string.listen_together_server_offline_dash),
+                                                                style = MaterialTheme.typography.labelMedium,
+                                                                color = MaterialTheme.colorScheme.error,
+                                                                maxLines = 1,
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
-                                DropdownMenu(
-                                    expanded = spotifyMenuOpen,
-                                    onDismissRequest = { spotifyMenuOpen = false },
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.spotify_sync_menu)) },
-                                        leadingIcon = { Icon(Icons.Rounded.Download, contentDescription = null) },
-                                        onClick = {
-                                            spotifyMenuOpen = false
-                                            spotifyLibraryState.startSelecting()
+
+                                // Download indicator (outermost auxiliary slot when downloading)
+                                if (downloadSession.visible) {
+                                    add(
+                                        TopBarActionItem(key = "download") {
+                                            TopBarDownloadButton(onClick = { showDownloadManager = true })
                                         },
                                     )
                                 }
                             }
                         }
-                        // This is intentionally scoped to Listen together: the
-                        // round-trip time is meaningful while coordinating a
-                        // party, but would be noise in the rest of the app.
-                        TopBarAction(visible = route == AppRoute.ListenTogether) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 8.dp),
-                            ) {
-                                when (val state = partyServerStatus) {
-                                    is ServerConnectionState.CustomFallback -> {
-                                        Icon(
-                                            Icons.Rounded.CloudOff,
-                                            contentDescription = stringResource(R.string.listen_together_top_bar_fallback, stringResource(R.string.listen_together_ping, state.latencyMs)),
-                                            tint = MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.size(14.dp),
-                                        )
-                                        Spacer(Modifier.width(4.dp))
-                                        Text(
-                                            text = stringResource(R.string.listen_together_ping, state.latencyMs),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.error,
-                                            maxLines = 1,
-                                        )
-                                    }
-                                    is ServerConnectionState.CustomOnline -> {
-                                        Text(
-                                            text = stringResource(R.string.listen_together_ping, state.latencyMs),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            maxLines = 1,
-                                        )
-                                    }
-                                    is ServerConnectionState.DefaultOnline -> {
-                                        Text(
-                                            text = stringResource(R.string.listen_together_ping, state.latencyMs),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            maxLines = 1,
-                                        )
-                                    }
-                                    ServerConnectionState.Checking -> {
-                                        Text(
-                                            text = stringResource(R.string.listen_together_server_checking),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                        )
-                                    }
-                                    ServerConnectionState.Offline -> {
-                                        Text(
-                                            text = stringResource(R.string.listen_together_server_offline_dash),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.error,
-                                            maxLines = 1,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        // Only worth surfacing where there's room for it and it won't
-                        // be mistaken for a per-page action — Home, at rest.
-                        TopBarAction(
-                            visible = route == null && detail == null && selectedTab == TAB_HOME && updateNotice != null,
-                        ) {
-                            updateNotice?.let { update ->
-                                IconButton(onClick = { showUpdateDialog = true }) {
-                                    Icon(
-                                        // An arrow rising out of a bar, not the
-                                        // little phone-with-an-arrow: at 24dp the
-                                        // handset outline is mush, and the glyph
-                                        // has to read as "newer version" rather
-                                        // than as "something about your device".
-                                        Icons.Rounded.Upgrade,
-                                        contentDescription = stringResource(R.string.update_available, update.version),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                            }
-                        }
-                        // None on Settings or the pages opened from it: those are
-                        // about the account, and the photo would only reopen them.
-                        val notInSettings = !(route != null && AppRoute.Settings in navigator)
 
-                        // Left of the account photo, and only on Library itself:
-                        // a history is a record of what was played, which reads
-                        // as that tab's business rather than every tab's.
-                        TopBarAction(
-                            visible = notInSettings && ((route == null && detail == null && selectedTab == TAB_LIBRARY) ||
-                                route is AppRoute.LibraryShowAll),
-                        ) {
-                            // Cards or rows — one choice for the Library's
-                            // collections, here and on their "Show all" pages.
-                            val listStyle = libraryViewType == LibraryViewType.LIST
-                            IconButton(
-                                onClick = {
-                                    AppSettings.setLibraryViewType(
-                                        if (listStyle) LibraryViewType.GRID else LibraryViewType.LIST,
-                                    )
-                                },
-                            ) {
-                                Icon(
-                                    if (listStyle) BitChordIcons.GridView else BitChordIcons.ListView,
-                                    contentDescription = stringResource(
-                                        if (listStyle) R.string.switch_to_grid_view else R.string.switch_to_list_view,
-                                    ),
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                        }
-
-                        TopBarAction(
-                            visible = notInSettings && (route == null && detail == null && selectedTab == TAB_LIBRARY),
-                        ) {
-                            IconButton(
-                                onClick = {
-                                    navigator.push(AppRoute.History)
-                                    viewModel.loadHistory()
-                                },
-                            ) {
-                                Icon(
-                                    Icons.Rounded.History,
-                                    contentDescription = stringResource(R.string.listening_history),
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                        }
-
-                        // Left of the account photo, and only on a Library
-                        // "Show all" grid — the same control the Downloads
-                        // folder offers (see `LocalSearchField`), adapted to
-                        // the one thing a playlist or album card carries: a
-                        // title.
-                        TopBarAction(
-                            visible = notInSettings && (route is AppRoute.LibraryShowAll),
-                        ) {
-                            Box {
-                                IconButton(onClick = { librarySortMenuOpen = true }) {
-                                    Icon(
-                                        Icons.Rounded.Sort,
-                                        contentDescription = stringResource(R.string.sort_library),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                                DropdownMenu(
-                                    expanded = librarySortMenuOpen,
-                                    onDismissRequest = { librarySortMenuOpen = false },
-                                ) {
-                                    LibrarySort.entries.forEach { option ->
-                                        DropdownMenuItem(
-                                            text = { Text(option.localizedLabel()) },
-                                            trailingIcon = if (option == librarySort) {
-                                                { Icon(Icons.Rounded.Check, contentDescription = null) }
-                                            } else null,
-                                            onClick = {
-                                                AppSettings.setLibrarySort(option)
-                                                librarySortMenuOpen = false
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Sort, only on an album or playlist page or a device
-                        // folder — an artist page has no single track list to
-                        // reorder. A folder's opens its own menu: its sort
-                        // orders, and list or grid for its tabs.
-                        //
-                        // Search and the overflow flank it, as the share and
-                        // "…" pair do on Apple Music's album page: the header
-                        // below is left with just the sleeve, the title and
-                        // Shuffle / Play / Add.
-                        val releaseSongs = (detail?.songs as? UiState.Success)?.data.orEmpty()
-                        TopBarAction(
-                            visible = notInSettings && (isReleaseDetail || isLocalDetail) && detail != null && releaseSongs.isNotEmpty(),
-                        ) {
-                            IconButton(onClick = { detailSearching = !detailSearching }) {
-                                Icon(
-                                    if (detailSearching) Icons.Rounded.Close else BitChordIcons.Search,
-                                    contentDescription = stringResource(
-                                        if (detailSearching) R.string.close_search else R.string.search_this_list,
-                                    ),
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                        }
-
-                        // The menu itself is [FrostedSortMenu], composed
-                        // with the app's other frosted overlays further
-                        // down — in the main hierarchy, where the haze
-                        // can see the content it blurs.
-                        TopBarAction(
-                            visible = notInSettings && (isReleaseDetail || isLocalDetail) && detail != null,
-                        ) {
-                            IconButton(
-                                onClick = { if (isLocalDetail) folderMenuOpen = true else songSortMenuOpen = true },
-                            ) {
-                                Icon(
-                                    Icons.Rounded.Sort,
-                                    contentDescription = stringResource(
-                                        if (isLocalDetail) R.string.sort_music else R.string.sort_songs,
-                                    ),
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                        }
-
-                        val isLocalPlaylist = detail?.browseId?.startsWith("local:playlist:") == true &&
-                            com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(detail?.browseId.orEmpty()) != null
-                        TopBarAction(
-                            visible = notInSettings && isReleaseDetail && detail != null && (releaseSongs.isNotEmpty() || detail?.type == BrowseType.PLAYLIST || isLocalPlaylist),
-                        ) {
-                            detail?.let { d ->
-                                // The page's own tracks, in the order the page
-                                // shows them, so the sheet has them already and
-                                // Play, Shuffle and Open are the buttons beside
-                                // the one that opened it rather than rows on it.
-                                // Download lives in the sheet too — and the
-                                // tracks arrive stamped with the album they came
-                                // off, which is what the download record groups
-                                // them under.
-                                IconButton(
-                                    onClick = {
-                                        browseActions = BrowseTarget(
-                                            browseId = d.browseId,
-                                            title = d.title,
-                                            subtitle = d.subtitle,
-                                            thumbnailUrl = d.thumbnailUrl,
-                                            type = d.type,
-                                            songs = releaseSongs.sortedForDetail(songSort).map { song ->
-                                                if (d.type == BrowseType.ALBUM) {
-                                                    song.copy(albumName = song.albumName ?: d.title)
-                                                } else {
-                                                    song
-                                                }
-                                            },
-                                            fromCard = false,
-                                            downloadId = downloadIdFor(d.browseId),
-                                        )
-                                    },
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.MoreHoriz,
-                                        contentDescription = stringResource(R.string.more),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                            }
-                        }
-
-                        // Left of the account photo, on an artist page: iOS's
-                        // share glyph, sending the artist's channel link — the
-                        // one YouTube Music itself shares for an artist.
-                        TopBarAction(
-                            visible = notInSettings && detail != null && !isLocalDetail && detail?.type == BrowseType.ARTIST &&
-                                detailActiveShelf == null && detail?.browseId?.startsWith("UC") == true,
-                        ) {
-                            detail?.let { d ->
-                                IconButton(
-                                    onClick = {
-                                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "text/plain"
-                                            putExtra(
-                                                Intent.EXTRA_TEXT,
-                                                "https://music.youtube.com/channel/${d.browseId}",
-                                            )
-                                        }
-                                        context.startActivity(Intent.createChooser(sendIntent, d.title))
-                                    },
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.IosShare,
-                                        contentDescription = stringResource(R.string.share),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                            }
-                        }
-
-                        // Left of the account photo, and only there while
-                        // there is a batch to report on — see
-                        // [TopBarDownloadButton], which decides that for
-                        // itself rather than being told.
-                        TopBarDownloadButton(onClick = { showDownloadManager = true })
-
-                        // Not on a release page, whose pill already carries
-                        // three of its own controls — Apple Music leaves the
-                        // profile off its album pages too.
-                        TopBarAction(
-                            visible = notInSettings && !isReleaseDetail,
-                        ) {
-                            TopBarAccountButton(
-                                account = account,
-                                onClick = {
-                                    if (signedIn) {
-                                        viewModel.loadChannels()
-                                        showAccountSelector = true
-                                    } else navigator.push(AppRoute.Settings)
-                                },
-                                onSwipeProfile = { forward -> viewModel.stepProfile(forward) },
-                            )
-                        }
+                        TopBarActions(
+                            anchor = anchorState,
+                            auxiliary = auxiliaryItems,
+                        )
                     },
                 )
 
@@ -4660,7 +4686,7 @@ private fun BitChordApp(
                     },
                 // The sheet stays up for a rating: it shows the new state
                 // in place, and people often thumb a song and then queue it.
-                onToggleLike = { toggleLikeOf(song) },
+                onToggleLike = if (fromPlayer) null else { { toggleLikeOf(song) } },
                 onToggleDislike = {
                     val previousStatus = viewModel.toggleDislike(song.videoId)
                     if (

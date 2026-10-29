@@ -148,7 +148,7 @@ fun SongActionsSheet(
      * re-runs it; the conflict dialog keeps that idempotent.
      */
     onUploadToWebDav: (() -> Unit)? = null,
-    onToggleLike: () -> Unit,
+    onToggleLike: (() -> Unit)? = null,
     onToggleDislike: () -> Unit,
     onAddToPlaylist: () -> Unit,
     onSaveQueueAsPlaylist: (() -> Unit)? = null,
@@ -247,16 +247,127 @@ fun SongActionsSheet(
     val isOffline = song.localUri != null
 
     val rows: @Composable ColumnScope.() -> Unit = {
-        // Leads the list whenever it's available: which recording is playing
-        // is the one question that has to be answered before any of the rows
-        // below mean anything — there is no point rating, queueing or
-        // downloading the wrong version of a song.
-        //
-        // The two are never both present — one is offered for a track playing
-        // a substituted copy, the other for a track held on YouTube's own —
-        // and between them they are the whole of the choice, which is why they
-        // sit in the same place under the same divider.
-        if (onRollbackToOriginal != null || onUpgradeQuality != null || onToggleAudioVersion != null) {
+        // --- Grupo 1: Compartir y Reproducción inmediata ---
+        if (!isOffline) {
+            onShare?.let {
+                ActionRow(Icons.Rounded.Share, stringResource(R.string.share), accent = palette.accent, onClick = it)
+            }
+        }
+        ActionRow(
+            icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+            label = stringResource(R.string.play_next),
+            accent = palette.accent,
+            onClick = onPlayNext,
+        )
+        ActionRow(
+            icon = Icons.AutoMirrored.Rounded.QueueMusic,
+            label = stringResource(R.string.add_to_queue),
+            accent = palette.accent,
+            onClick = onAddToQueue,
+        )
+        ActionRow(
+            icon = Icons.Rounded.Radio,
+            label = stringResource(R.string.start_radio),
+            accent = palette.accent,
+            onClick = onStartRadio,
+        )
+        GroupSeparator(palette)
+
+        // --- Grupo 2: Tu biblioteca y descargas ---
+        ActionRow(
+            icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+            label = stringResource(R.string.add_to_playlist),
+            accent = palette.accent,
+            onClick = onAddToPlaylist,
+        )
+        DownloadRow(song, palette, isOffline, onDownload)
+        onSaveQueueAsPlaylist?.let {
+            val label = if (song.radioName != null) {
+                stringResource(R.string.save_radio_as_playlist)
+            } else {
+                stringResource(R.string.save_queue_as_playlist)
+            }
+            ActionRow(
+                icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                label = label,
+                accent = palette.accent,
+                onClick = it,
+            )
+        }
+        if (!isOffline && signedIn) {
+            ActionRow(
+                icon = if (disliked) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt,
+                label = if (disliked) stringResource(R.string.undo_dislike) else stringResource(R.string.dislike),
+                tint = if (disliked) palette.accent else null,
+                accent = palette.accent,
+                onClick = onToggleDislike,
+            )
+        }
+        onToggleLike?.let { toggleLike ->
+            ActionRow(
+                icon = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                label = if (liked) stringResource(R.string.remove_from_liked) else stringResource(R.string.like),
+                tint = if (liked) palette.accent else null,
+                accent = palette.accent,
+                onClick = toggleLike,
+            )
+        }
+        onRemoveFromPlaylist?.let {
+            ActionRow(
+                icon = Icons.Rounded.PlaylistRemove,
+                label = stringResource(R.string.remove_from_playlist),
+                accent = palette.accent,
+                onClick = it,
+            )
+        }
+        GroupSeparator(palette)
+
+        // --- Grupo 3: Navegación y Descubrimiento ---
+        val hasNavigation = song.albumId != null || song.artistId != null || resolvingLinks
+        if (hasNavigation) {
+            when (val id = song.albumId) {
+                null -> if (resolvingLinks) {
+                    LoadingActionRow(Icons.Rounded.Album, stringResource(R.string.open_album), palette)
+                }
+                else -> ActionRow(
+                    Icons.Rounded.Album,
+                    stringResource(R.string.open_album),
+                    accent = palette.accent,
+                ) { onOpenAlbum(id) }
+            }
+            when (val id = song.artistId) {
+                null -> if (resolvingLinks) {
+                    LoadingActionRow(Icons.Rounded.Person, stringResource(R.string.open_artist), palette)
+                }
+                else -> ActionRow(
+                    Icons.Rounded.Person,
+                    stringResource(R.string.open_artist),
+                    accent = palette.accent,
+                ) { onOpenArtist(id) }
+            }
+            GroupSeparator(palette)
+        }
+
+        // --- Grupo 4: Experiencia de audio, video y reproductor ---
+        val hasPlayerOptions = onToggleAudioVersion != null || onRollbackToOriginal != null ||
+            onUpgradeQuality != null || showSleepTimer || onLyricsOffset != null
+        if (hasPlayerOptions) {
+            onToggleAudioVersion?.let {
+                ActionRow(
+                    icon = if (isAudioVersion) Icons.Rounded.Videocam else BitChordIcons.MusicNote,
+                    label = stringResource(
+                        when {
+                            audioVersionMissing && isAudioVersion -> R.string.no_video_version
+                            audioVersionMissing -> R.string.no_audio_version
+                            isAudioVersion -> R.string.convert_to_video
+                            else -> R.string.convert_to_audio
+                        },
+                    ),
+                    accent = palette.accent,
+                    enabled = !audioVersionMissing,
+                    onClick = it,
+                )
+            }
             (onRollbackToOriginal ?: onUpgradeQuality)?.let {
                 ActionRow(
                     icon = if (onRollbackToOriginal != null) {
@@ -276,94 +387,18 @@ fun SongActionsSheet(
                     onClick = it,
                 )
             }
-            // Which recording, not which quality — a different question from
-            // the row above, so it sits right under it rather than merged
-            // into it, but still ahead of the divider both share.
-            onToggleAudioVersion?.let {
+            if (showSleepTimer) {
                 ActionRow(
-                    icon = if (isAudioVersion) Icons.Rounded.Videocam else BitChordIcons.MusicNote,
-                    label = stringResource(
-                        when {
-                            audioVersionMissing && isAudioVersion -> R.string.no_video_version
-                            audioVersionMissing -> R.string.no_audio_version
-                            isAudioVersion -> R.string.convert_to_video
-                            else -> R.string.convert_to_audio
-                        },
-                    ),
+                    icon = Icons.Rounded.Bedtime,
+                    label = stringResource(R.string.sleep_timer),
+                    value = sleepTimerStatus(),
                     accent = palette.accent,
-                    enabled = !audioVersionMissing,
-                    onClick = it,
-                )
+                ) { pickingSleepTimer = true }
             }
-            GroupSeparator(palette)
-        }
-
-        if (isOffline) {
-            // The offline player's own pair: a heart that files the track
-            // under this device's Liked playlist, and the device's playlists.
-            // [likeStatus] is that playlist's answer here, not YouTube's, and
-            // neither needs an account. No dislike — there is no
-            // recommendation feed on the device for one to steer.
-            ActionRow(
-                icon = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                label = if (liked) stringResource(R.string.remove_from_liked) else stringResource(R.string.like),
-                tint = if (liked) palette.accent else null,
-                accent = palette.accent,
-                onClick = onToggleLike,
-            )
-            ActionRow(
-                icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                label = stringResource(R.string.add_to_playlist),
-                accent = palette.accent,
-                onClick = onAddToPlaylist,
-            )
-            onRemoveFromPlaylist?.let {
+            onLyricsOffset?.let {
                 ActionRow(
-                    icon = Icons.Rounded.PlaylistRemove,
-                    label = stringResource(R.string.remove_from_playlist),
-                    accent = palette.accent,
-                    onClick = it,
-                )
-            }
-            GroupSeparator(palette)
-        } else if (signedIn) {
-            ActionRow(
-                icon = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                label = if (liked) stringResource(R.string.remove_from_liked) else stringResource(R.string.like),
-                tint = if (liked) palette.accent else null,
-                accent = palette.accent,
-                onClick = onToggleLike,
-            )
-            ActionRow(
-                icon = if (disliked) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt,
-                label = if (disliked) stringResource(R.string.undo_dislike) else stringResource(R.string.dislike),
-                tint = if (disliked) palette.accent else null,
-                accent = palette.accent,
-                onClick = onToggleDislike,
-            )
-            ActionRow(
-                icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                label = stringResource(R.string.add_to_playlist),
-                accent = palette.accent,
-                onClick = onAddToPlaylist,
-            )
-            onSaveQueueAsPlaylist?.let {
-                val label = if (song.radioName != null) {
-                    stringResource(R.string.save_radio_as_playlist)
-                } else {
-                    stringResource(R.string.save_queue_as_playlist)
-                }
-                ActionRow(
-                    icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                    label = label,
-                    accent = palette.accent,
-                    onClick = it,
-                )
-            }
-            onRemoveFromPlaylist?.let {
-                ActionRow(
-                    icon = Icons.Rounded.PlaylistRemove,
-                    label = stringResource(R.string.remove_from_playlist),
+                    icon = Icons.Rounded.Tune,
+                    label = stringResource(R.string.lyrics_offset),
                     accent = palette.accent,
                     onClick = it,
                 )
@@ -371,15 +406,11 @@ fun SongActionsSheet(
             GroupSeparator(palette)
         }
 
-        onRemoveFromHistory?.let {
-            ActionRow(
-                icon = Icons.Rounded.History,
-                label = stringResource(R.string.remove_from_history),
-                accent = palette.accent,
-                onClick = it,
-            )
+        // --- Grupo 5: Información y Gestión avanzada ---
+        ActionRow(Icons.Rounded.Info, stringResource(R.string.song_info), accent = palette.accent) {
+            showingSongInfo = true
         }
-        DownloadRow(song, palette, isOffline, onDownload)
+        WebDavUploadRow(song, palette, isOffline, onUploadToWebDav)
         onRemoveFromCache?.let {
             ActionRow(
                 icon = Icons.Rounded.DeleteSweep,
@@ -388,72 +419,13 @@ fun SongActionsSheet(
                 onClick = it,
             )
         }
-        WebDavUploadRow(song, palette, isOffline, onUploadToWebDav)
-        ActionRow(
-            icon = Icons.Rounded.Radio,
-            label = stringResource(R.string.start_radio),
-            accent = palette.accent,
-            onClick = onStartRadio,
-        )
-        ActionRow(
-            icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
-            label = stringResource(R.string.play_next),
-            accent = palette.accent,
-            onClick = onPlayNext,
-        )
-        ActionRow(
-            icon = Icons.AutoMirrored.Rounded.QueueMusic,
-            label = stringResource(R.string.add_to_queue),
-            accent = palette.accent,
-            onClick = onAddToQueue,
-        )
-        when (val id = song.albumId) {
-            null -> if (resolvingLinks) {
-                LoadingActionRow(Icons.Rounded.Album, stringResource(R.string.open_album), palette)
-            }
-            else -> ActionRow(
-                Icons.Rounded.Album,
-                stringResource(R.string.open_album),
-                accent = palette.accent,
-            ) { onOpenAlbum(id) }
-        }
-        when (val id = song.artistId) {
-            null -> if (resolvingLinks) {
-                LoadingActionRow(Icons.Rounded.Person, stringResource(R.string.open_artist), palette)
-            }
-            else -> ActionRow(
-                Icons.Rounded.Person,
-                stringResource(R.string.open_artist),
-                accent = palette.accent,
-            ) { onOpenArtist(id) }
-        }
-        ActionRow(Icons.Rounded.Info, stringResource(R.string.song_info), accent = palette.accent) {
-            showingSongInfo = true
-        }
-        if (showSleepTimer) {
+        onRemoveFromHistory?.let {
             ActionRow(
-                icon = Icons.Rounded.Bedtime,
-                label = stringResource(R.string.sleep_timer),
-                value = sleepTimerStatus(),
-                accent = palette.accent,
-            ) { pickingSleepTimer = true }
-        }
-        // Deliberately outside the online-only block below. Local files and
-        // completed downloads use the same player lyric clock (including
-        // embedded synced lyrics), so they need this control just as much as
-        // streamed songs do.
-        onLyricsOffset?.let {
-            ActionRow(
-                icon = Icons.Rounded.Tune,
-                label = stringResource(R.string.lyrics_offset),
+                icon = Icons.Rounded.History,
+                label = stringResource(R.string.remove_from_history),
                 accent = palette.accent,
                 onClick = it,
             )
-        }
-        if (!isOffline) {
-            onShare?.let {
-                ActionRow(Icons.Rounded.Share, stringResource(R.string.share), accent = palette.accent, onClick = it)
-            }
         }
         // Last, and only from the player: it is about the track playing right
         // now rather than about the song as a thing in a library, and it is
