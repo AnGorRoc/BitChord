@@ -246,9 +246,13 @@ class DownloadScheduler(
                 fill(id, uri, AudioCache.claimedKeyOf(id), guardSegments = if (view.playWhenReady) PLAYING_GUARD_SEGMENTS else 0)
             }
             is DownloadPlan.Task.Prepare -> {
-                val song = view.upcoming.getOrNull(task.index)?.first ?: return
+                val (song, itemUri) = view.upcoming.getOrNull(task.index) ?: return
                 AudioCache.prepareUpcoming(AudioCache.Upcoming(song.videoId, TrackMatcher.targetOf(song)))
                 prepared += song.videoId
+                // An opening that did not land in full would be asked for again
+                // at once, every tick, and starve the upgrade look: rest first.
+                val uri = itemUri?.takeIf { it.scheme == "bitchord" }
+                if (uri != null && !AudioCache.headReady(uri)) backOff(headKey(song.videoId))
             }
             DownloadPlan.Task.WarmUrls -> {
                 for ((song, _) in view.upcoming) {
@@ -303,6 +307,8 @@ class DownloadScheduler(
     private fun due(key: String, now: Long) = (retryAt[key] ?: 0L) <= now
 
     private fun upgradeKey(id: String) = "$id#upgrade"
+
+    private fun headKey(id: String) = "$id#head"
 
     /**
      * Drops what was remembered about tracks that are no longer playing or
@@ -385,7 +391,8 @@ class DownloadScheduler(
             mediaId = id,
             durationMs = (TrackMatcher.secondsOf(song.durationText) ?: 0) * 1000L,
             prepared = settled,
-            headCached = full || AudioCache.headReady(uri!!),
+            // Resting after an opening that fell short counts as done for now.
+            headCached = full || AudioCache.headReady(uri!!) || !due(headKey(id), now),
             fullyCached = full,
             fillDue = allowed && !full && due(id, now),
             warmed = id in warmed || uri == null,
