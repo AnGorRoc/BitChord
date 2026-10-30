@@ -1370,23 +1370,24 @@
     <string name="flow_adventurous">Adventurous</string>
 
     
-    <string name="sing_method_original_note">The plain centre cut, from the first version. Fastest and cleanest on an old recording; takes the kick and snare with the vocal on anything modern.</string>
-    <string name="sing_method_band_note">Cuts only 150 Hz to 10 kHz and lets drum hits through. Leaves a faint thinning from the crossover phase.</string>
+    <string name="sing_method_original_note" translatable="false">The plain centre cut, from the first version. Fastest and cleanest on an old recording; takes the kick and snare with the vocal on anything modern.</string>
+    <string name="sing_method_band_note" translatable="false">Cuts only 150 Hz to 10 kHz and lets drum hits through. Leaves a faint thinning from the crossover phase.</string>
     <!-- ReplayGain -->
-    <string name="replaygain">ReplayGain</string>
-    <string name="replaygain_description">Adjust track loudness using ReplayGain tags</string>
-    <string name="replaygain_scan_description">Analyze local tracks with no ReplayGain tags. Results stay in app storage; audio files are not changed.</string>
-    <string name="replaygain_scan_action">Analyze local tracks</string>
-    <string name="replaygain_scan_cancel">Cancel scan</string>
-    <string name="replaygain_scan_progress">Scanned %1$d of %2$d · %3$d analyzed · %4$d already tagged · %5$d skipped</string>
-    <string name="replaygain_scan_complete">Finished · %1$d analyzed · %2$d already tagged · %3$d skipped</string>
-    <string name="replaygain_scan_cancelled">Scan cancelled</string>
-    <string name="replaygain_scan_no_tracks">No accessible local tracks were found.</string>
-    <string name="replaygain_scan_failed">The scan could not start. Check access to local audio files.</string>
-    <string name="replaygain_preamp">Preamp</string>
-    <string name="replaygain_prevent_clipping">Prevent clipping</string>
-    <string name="track_gain">Track gain</string>
-    <string name="album_gain">Album gain</string>
-    <string name="tidal_servers_status">Lossless providers &amp; latency</string>
-    <string name="server_unreachable">Unreachable</string>
+    <string name="replaygain" translatable="false">ReplayGain</string>
+    <string name="replaygain_description" translatable="false">Adjust track loudness using ReplayGain tags</string>
+    <string name="replaygain_scan_description" translatable="false">Analyze local tracks with no ReplayGain tags. Results stay in app storage; audio files are not changed.</string>
+    <string name="replaygain_scan_action" translatable="false">Analyze local tracks</string>
+    <string name="replaygain_scan_cancel" translatable="false">Cancel scan</string>
+    <string name="replaygain_scan_progress" translatable="false">Scanned %1$d of %2$d · %3$d analyzed · %4$d already tagged · %5$d skipped</string>
+    <string name="replaygain_scan_complete" translatable="false">Finished · %1$d analyzed · %2$d already tagged · %3$d skipped</string>
+    <string name="replaygain_scan_cancelled" translatable="false">Scan cancelled</string>
+    <string name="replaygain_scan_no_tracks" translatable="false">No accessible local tracks were found.</string>
+    <string name="replaygain_scan_failed" translatable="false">The scan could not start. Check access to local audio files.</string>
+    <string name="replaygain_preamp" translatable="false">Preamp</string>
+    <string name="replaygain_prevent_clipping" translatable="false">Prevent clipping</string>
+    <string name="track_gain" translatable="false">Track gain</string>
+    <string name="album_gain" translatable="false">Album gain</string>
+    <string name="tidal_servers_status" translatable="false">Lossless providers &amp; latency</string>
+    <string name="server_unreachable" translatable="false">Unreachable</string>
+    <string name="server_active" translatable="false">Active</string>
 </resources>

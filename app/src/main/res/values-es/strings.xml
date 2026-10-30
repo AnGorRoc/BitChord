@@ -1490,4 +1490,5 @@
     <string name="replaygain_scan_failed">No se pudo iniciar el análisis. Verifica el acceso al almacenamiento.</string>
     <string name="tidal_servers_status">Proveedores Lossless y latencia</string>
     <string name="server_unreachable">No disponible</string>
+    <string name="server_active">Activo</string>
 </resources>

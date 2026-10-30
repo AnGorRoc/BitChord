@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import com.music.bitchord.playback.audio.LosslessOutput
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -248,12 +249,29 @@ fun SourcesScreen(
             val fixed = configs.filterNot { it.kind.isUserAdded }
                 .sortedBy { it.kind.rank }
 
+            var expandedTidal by remember { mutableStateOf(false) }
+            val tidalRatings by TidalInstances.ratings.collectAsStateWithLifecycle()
+            val scope = rememberCoroutineScope()
+            var refreshingRatings by remember { mutableStateOf(false) }
+
             val row: @Composable (Int, SourceConfig, (@Composable () -> Unit)?) -> Unit =
                 { position, config, handle ->
+                    val customHealth = if (config.kind == SourceKind.TIDAL) {
+                        val active = tidalRatings.firstOrNull { it.isHealthy }
+                        if (active != null) {
+                            SourceHealth.Ok("${active.label} (${active.pingMs} ms)")
+                        } else if (tidalRatings.isNotEmpty()) {
+                            SourceHealth.Unreachable("Sin respuesta")
+                        } else {
+                            health[config.id]
+                        }
+                    } else {
+                        health[config.id]
+                    }
                     SourceRow(
                         position = position,
                         config = config,
-                        health = health[config.id],
+                        health = customHealth,
                         // Switched on, but not reached on this connection. Said
                         // on the row rather than by moving the switch, so the
                         // switch keeps meaning "I want this source" and the
@@ -289,14 +307,6 @@ fun SourcesScreen(
                 onReorder = { SourceRegistry.reorderAddons(it.map(SourceConfig::id)) },
                 row = row,
             )
-
-            // No leading divider when addons came first: each of those wrappers
-            // ends with one, which is what makes them all the same height for
-            // the drag to measure against.
-            var expandedTidal by remember { mutableStateOf(false) }
-            val tidalRatings by TidalInstances.ratings.collectAsStateWithLifecycle()
-            val scope = rememberCoroutineScope()
-            var refreshingRatings by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
                 if (tidalRatings.isEmpty()) {
@@ -392,6 +402,7 @@ fun SourcesScreen(
                                     )
                                 } else {
                                     tidalRatings.forEachIndexed { rIndex, item ->
+                                        val isActive = rIndex == 0 && item.isHealthy
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -404,12 +415,33 @@ fun SourcesScreen(
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 modifier = Modifier.width(20.dp),
                                             )
-                                            Text(
-                                                text = item.label,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = if (item.isHealthy) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.error,
+                                            Row(
                                                 modifier = Modifier.weight(1f),
-                                            )
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                Text(
+                                                    text = item.label,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = if (item.isHealthy) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.error,
+                                                )
+                                                if (isActive) {
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .background(
+                                                                MaterialTheme.colorScheme.primaryContainer,
+                                                                shape = RoundedCornerShape(4.dp),
+                                                            )
+                                                            .padding(horizontal = 4.dp, vertical = 1.dp),
+                                                    ) {
+                                                        Text(
+                                                            text = stringResource(R.string.server_active),
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                        )
+                                                    }
+                                                }
+                                            }
                                             if (item.isHealthy) {
                                                 Text(
                                                     text = "${item.pingMs} ms",

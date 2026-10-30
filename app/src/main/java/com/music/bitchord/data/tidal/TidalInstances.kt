@@ -48,17 +48,10 @@ object TidalInstances {
 
     /**
      * Bundled fallback. tracks.monochrome.st is live-verified (real search
-     * rows + `fLaC` stream bytes + artwork, checked 2026-10-07); the rest are
-     * candidates from Monochrome's instance list, unverified from any given
-     * network — the on-device probe decides, not this list.
+     * rows + `fLaC` stream bytes + artwork).
      */
     val BUNDLED = listOf(
-        Entry("https://wolf.qqdl.site", "Lucida (Wolf)", verified = true),
-        Entry("https://maus.qqdl.site", "Lucida (Maus)", verified = true),
-        Entry("https://katze.qqdl.site", "Lucida (Katze)", verified = true),
-        Entry("https://hund.qqdl.site", "Lucida (Hund)", verified = true),
         Entry("https://tracks.monochrome.st", "Monochrome Tracks", verified = true),
-        Entry("https://vogel.qqdl.site", "Lucida (Vogel)"),
     )
 
     private const val FILE = "bitchord_tidal"
@@ -105,8 +98,9 @@ object TidalInstances {
     fun public(): List<Entry> {
         if (!this::prefs.isInitialized) return BUNDLED
         val raw = prefs.getString(KEY_PUBLIC_JSON, null) ?: return BUNDLED
-        return runCatching { json.decodeFromString(RemoteList.serializer(), raw).instances }
-            .getOrNull()?.takeIf { it.isNotEmpty() } ?: BUNDLED
+        val list = runCatching { json.decodeFromString(RemoteList.serializer(), raw).instances }
+            .getOrNull()?.filterNot { it.url.contains("qqdl.site") }
+        return if (list.isNullOrEmpty()) BUNDLED else list
     }
 
     /** Refreshes the public pool from [REMOTE_URL]; keeps the old list on any failure. */
