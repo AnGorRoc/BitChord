@@ -11,7 +11,6 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.ForwardingAudioSink
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.playback.AudioOutputStatus
-import com.music.bitchord.playback.audio.usb.DirectAudioOutput
 import com.music.bitchord.playback.loopmix.LoopMixPort
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -64,7 +63,6 @@ class PrecisionAudioSink(
     private val delegate: AudioSink,
     val dspChain: DspChain,
     private val enableFloatOutput: Boolean,
-    val directAudioOutput: DirectAudioOutput? = null,
     private val preferredOutputEncodingProvider: ((Format) -> PcmEncoding?)? = null,
     /**
      * Whether this sink is the one the listener can currently hear.

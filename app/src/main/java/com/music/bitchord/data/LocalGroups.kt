@@ -151,14 +151,7 @@ object LocalGroups {
                 // and there is no row to draw for "no album" — those are the
                 // Songs tab's and nothing else's.
                 if (name == null || name.lowercase(Locale.ROOT) in claimed) return@mapNotNull null
-                LocalGroup(
-                    browseId = albumPageId(folderId, name),
-                    title = name,
-                    subtitle = group.firstOrNull()?.artist.orEmpty(),
-                    thumbnailUrl = group.firstNotNullOfOrNull { it.thumbnailUrl },
-                    type = BrowseType.ALBUM,
-                    songs = group.sortedForAlbum(),
-                )
+                album(folderId, name, group)
             }
         return (asked + derived).sortedWith(
             compareByDescending<LocalGroup> { it.downloadId != null }
@@ -172,16 +165,7 @@ object LocalGroups {
      */
     fun artistsOf(folderId: String, songs: List<Song>): List<LocalGroup> =
         songs.groupBy { it.artist }
-            .map { (name, group) ->
-                LocalGroup(
-                    browseId = artistPageId(folderId, name),
-                    title = name,
-                    subtitle = "",
-                    thumbnailUrl = null,
-                    type = BrowseType.OTHER,
-                    songs = group.sortedByTitle(),
-                )
-            }
+            .map { (name, group) -> artist(folderId, name, group) }
             .sortedBy { it.title.lowercase(Locale.ROOT) }
 
     /**
@@ -197,16 +181,52 @@ object LocalGroups {
         songs.groupBy { it.directory() }
             .mapNotNull { (path, group) ->
                 if (path == null) return@mapNotNull null
-                LocalGroup(
-                    browseId = directoryPageId(folderId, path),
-                    title = path.substringAfterLast('/').ifBlank { path },
-                    subtitle = path.substringBeforeLast('/', "").readablePath(),
-                    thumbnailUrl = group.firstNotNullOfOrNull { it.thumbnailUrl },
-                    type = BrowseType.PLAYLIST,
-                    songs = group.sortedByTitle(),
-                )
+                folder(folderId, path, group)
             }
             .sortedWith(compareBy<LocalGroup> { it.title.lowercase(Locale.ROOT) }.thenBy { it.subtitle })
+
+    /**
+     * The grouping [browseId] names, rebuilt from [songs] — its own rows, as
+     * [songsOf] picks them — or null if it isn't a grouping.
+     *
+     * For a page opened by its id alone, such as from the player's "Playing
+     * from", so it gets the same cover and credit as when its tab row opens it.
+     */
+    fun groupOf(browseId: String, songs: List<Song>): LocalGroup? {
+        val group = parse(browseId) ?: return null
+        return when (group.kind) {
+            ALBUM -> album(group.folderId, group.name, songs)
+            FOLDER -> folder(group.folderId, group.name, songs)
+            else -> artist(group.folderId, group.name, songs)
+        }
+    }
+
+    private fun album(folderId: String, name: String, songs: List<Song>) = LocalGroup(
+        browseId = albumPageId(folderId, name),
+        title = name,
+        subtitle = songs.firstOrNull()?.artist.orEmpty(),
+        thumbnailUrl = songs.firstNotNullOfOrNull { it.thumbnailUrl },
+        type = BrowseType.ALBUM,
+        songs = songs.sortedForAlbum(),
+    )
+
+    private fun artist(folderId: String, name: String, songs: List<Song>) = LocalGroup(
+        browseId = artistPageId(folderId, name),
+        title = name,
+        subtitle = "",
+        thumbnailUrl = null,
+        type = BrowseType.OTHER,
+        songs = songs.sortedByTitle(),
+    )
+
+    private fun folder(folderId: String, path: String, songs: List<Song>) = LocalGroup(
+        browseId = directoryPageId(folderId, path),
+        title = path.substringAfterLast('/').ifBlank { path },
+        subtitle = path.substringBeforeLast('/', "").readablePath(),
+        thumbnailUrl = songs.firstNotNullOfOrNull { it.thumbnailUrl },
+        type = BrowseType.PLAYLIST,
+        songs = songs.sortedByTitle(),
+    )
 
     /** The directory a device file sits in, or null when its path isn't known. */
     private fun Song.directory(): String? =

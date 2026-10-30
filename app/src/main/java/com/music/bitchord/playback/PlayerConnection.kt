@@ -642,12 +642,7 @@ private fun Song.matchQuery(): String = buildString {
  */
 private fun Song.pickedMixQuery(configId: String): String {
     if (SourceRegistry.config(configId)?.kind != SourceKind.ADDON) return ""
-    val mix = when (sourceQuality) {
-        null -> SourceResolver.MIX_ANY
-        "DOLBY" -> SourceResolver.MIX_ATMOS
-        else -> SourceResolver.MIX_STEREO
-    }
-    return "&${SourceResolver.MIX_PARAM}=$mix"
+    return "&${SourceResolver.MIX_PARAM}=${SourceResolver.mixOf(sourceQuality)}"
 }
 
 /**

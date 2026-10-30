@@ -1,7 +1,7 @@
 package com.music.bitchord.ui.player
 
-import android.view.MotionEvent
 import android.view.Window
+import android.view.WindowManager
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
@@ -13,7 +13,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.WindowInfo
 import com.music.bitchord.ui.components.MiniPlayerPull
 import kotlinx.coroutines.CoroutineScope
@@ -87,7 +86,6 @@ class PlayerSheetMotion(
     private var window: Window? = null
     private var windowAnimations = 0
     private var windowRestore: Job? = null
-    private var detachWindowTouchHandler: (() -> Unit)? = null
 
     // When the current pull started and how far the finger has taken it — for
     // a flick whose own release speed came through as nothing: a short, fast
@@ -122,7 +120,7 @@ class PlayerSheetMotion(
      * pressed twice, say — restarted the slide from a standstill where it
      * stood, a visible stall halfway home.
      */
-    var closing by mutableStateOf(false)
+    var closing = false
         private set
 
     private fun travel(): Float =
@@ -173,25 +171,31 @@ class PlayerSheetMotion(
 
     /** A tap on the mini player. */
     fun open() {
-        val reopening = shown() && closing
-        if (shown() && !reopening) return
-        val from = if (reopening) position().takeUnless { it.isNaN() } ?: travel() else travel()
+        if (shown()) {
+            // Tapped while still on its way down: back up from where it is.
+            if (closing && holding) {
+                settle?.cancel()
+                reopening()
+                val from = held
+                settle = scope.launch {
+                    slide(from = from, to = 0f)
+                    held = Float.NaN
+                }
+            }
+            return
+        }
         settle?.cancel()
         closing = false
-        held = from
+        val travel = travel()
+        held = travel
         // Raised already open: [held] is what slides it up.
         setShown(true)
         settle = scope.launch {
             // The sheet's window takes a frame or two to exist. Started before
             // then, the first stretch of the slide would happen to nothing.
-            if (!reopening) {
-                withTimeoutOrNull(LAYOUT_WAIT_MS) { snapshotFlow { laidOut }.first { it } }
-            }
-            slide(from = from, to = 0f)
+            withTimeoutOrNull(LAYOUT_WAIT_MS) { snapshotFlow { laidOut }.first { it } }
+            slide(from = travel, to = 0f)
             held = Float.NaN
-            // close() disabled the window's exit animation. No new window is
-            // attached on a reversal, so restore it here for other dismissals.
-            if (reopening) window?.setWindowAnimations(windowAnimations)
         }
     }
 
@@ -207,35 +211,7 @@ class PlayerSheetMotion(
      * it always has.
      */
     fun attachWindow(window: Window?) {
-        if (window == null) return
-        detachWindowTouchHandler?.invoke()
-        detachWindowTouchHandler = null
-        this.window = window
-        // The modal still owns touches while closing. Intercept a press on
-        // the mini player here, without changing either window's layout.
-        val callback = window.callback
-        if (callback != null) {
-            val touchHandler = object : Window.Callback by callback {
-                private var reopeningTouch = false
-
-                override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-                    if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-                        reopeningTouch = closing && dock.containsMiniPlayer(Offset(event.rawX, event.rawY))
-                        // Waiting for up could let the close dispose the window.
-                        if (reopeningTouch) open()
-                    }
-                    if (!reopeningTouch) return callback.dispatchTouchEvent(event)
-                    if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
-                        reopeningTouch = false
-                    }
-                    return true
-                }
-            }
-            window.callback = touchHandler
-            detachWindowTouchHandler = {
-                if (window.callback === touchHandler) window.callback = callback
-            }
-        }
+        this.window = window ?: return
         windowAnimations = window.attributes.windowAnimations
         window.setWindowAnimations(0)
         windowRestore?.cancel()
@@ -255,11 +231,34 @@ class PlayerSheetMotion(
         window?.setWindowAnimations(0)
     }
 
+    /**
+     * The sheet's window covers the whole app until it is dismissed, and a close
+     * is slow enough to watch: left touchable, it swallowed every tap and scroll
+     * meant for the page the player was sliding off of. So from the moment a
+     * close starts it lets touches fall through to the app beneath.
+     */
+    private fun passTouchesThrough(pass: Boolean) {
+        val window = window ?: return
+        if (pass) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+        }
+    }
+
+    /** A close caught before it finished: the player is staying up after all. */
+    private fun reopening() {
+        closing = false
+        passTouchesThrough(false)
+        window?.setWindowAnimations(windowAnimations)
+    }
+
     /** From the sheet: whatever asked for it to hide, this is how it goes. */
     fun close() {
         if (!shown() || closing) return
         closing = true
         quietWindow()
+        passTouchesThrough(true)
         settle?.cancel()
         val from = position().takeUnless { it.isNaN() } ?: run {
             dismissQuietly()
@@ -274,10 +273,6 @@ class PlayerSheetMotion(
     }
 
     override fun drag(delta: Float) {
-        if (closing) {
-            pullStartAt = held
-            pullStartNanos = System.nanoTime()
-        }
         if (!holding) {
             // Only upwards starts one, and only from a closed player: a
             // downward drag on the bar has nothing to pull.
@@ -290,7 +285,6 @@ class PlayerSheetMotion(
             setShown(true)
         }
         settle?.cancel()
-        closing = false
         held = (held + delta).coerceIn(0f, travel())
     }
 
@@ -306,9 +300,13 @@ class PlayerSheetMotion(
         // A flick decides on its own, either way; otherwise it is where the
         // finger left it.
         val open = if (flick) speed < 0f else held < travel / 2f
-        closing = !open
         if (!open) {
+            closing = true
             quietWindow()
+            passTouchesThrough(true)
+        } else if (closing) {
+            // Caught by the mini player on its way down and pulled back up.
+            reopening()
         }
         val from = held
         settle = scope.launch {
@@ -330,8 +328,6 @@ class PlayerSheetMotion(
         held = Float.NaN
         laidOut = false
         sheet = null
-        detachWindowTouchHandler?.invoke()
-        detachWindowTouchHandler = null
         window = null
     }
 

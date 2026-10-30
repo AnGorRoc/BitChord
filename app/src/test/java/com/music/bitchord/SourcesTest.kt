@@ -1197,6 +1197,100 @@ class SourcesTest {
 
     private fun raceTarget() = TrackMatcher.Target(RACE_TITLE, RACE_ARTIST, durationSec = 120)
 
+    /** A source holding several rows, each streaming its own format. */
+    private class RowSource(
+        private val rows: List<Pair<Song, StreamFormat>>,
+    ) : MusicSource {
+        override val displayName = "Soundlink"
+        override val configId = displayName
+        override val kind = SourceKind.ADDON
+
+        override suspend fun health() = SourceHealth.Ok()
+
+        override suspend fun search(
+            query: String,
+            limit: Int,
+            waitForAll: Boolean,
+            request: StreamRequest?,
+        ): List<Song> = rows.map { it.first }
+
+        override suspend fun stream(trackId: String, request: StreamRequest): SourceStream? =
+            rows.firstOrNull { it.first.videoId == trackId }
+                ?.let { (_, format) -> SourceStream(url = "https://soundlink/$trackId", format = format) }
+    }
+
+    /**
+     * The reported case, 'Take on Me' starting on YouTube's 3:45 and looking
+     * for a better copy: the addon holds the 16-bit album cut at 3:45 and a
+     * 24-bit/192 kHz remaster at 3:48, listed in that order, neither row
+     * saying which is hi-res.
+     */
+    private fun takeOnMeRows() = RowSource(
+        listOf(
+            song("Take on Me", "a-ha", "3:45").copy(videoId = "album-cut", sourceQuality = "LOSSLESS") to
+                StreamFormat("flac", sampleRateHz = 44_100, bitDepth = 16),
+            song("Take on Me", "a-ha", "3:48").copy(videoId = "remaster", sourceQuality = "LOSSLESS") to
+                StreamFormat("flac", sampleRateHz = 192_000, bitDepth = 24),
+        ),
+    )
+
+    private val takeOnMe = TrackMatcher.Target("Take on Me", "a-ha", durationSec = 225)
+
+    /** Three seconds out, inside a tolerance of five: the remaster is eligible, and it wins. */
+    @Test
+    fun `upgrade takes the hi-res copy inside the listener's length tolerance`() = runBlocking {
+        val (_, stream) = SourceResolver.bestAcross(
+            listOf(takeOnMeRows()),
+            takeOnMe,
+            StreamRequest.Lossless,
+            waitForAll = true,
+            strictLength = true,
+            requireSharedArtist = true,
+            driftSec = 5,
+        )!!
+        assertEquals(24, stream.format.bitDepth)
+        assertEquals(192_000, stream.format.sampleRateHz)
+    }
+
+    /** The old fixed bar of two seconds, which is what left it on 16-bit. */
+    @Test
+    fun `upgrade under a two second bar never sees the remaster`() = runBlocking {
+        val (_, stream) = SourceResolver.bestAcross(
+            listOf(takeOnMeRows()),
+            takeOnMe,
+            StreamRequest.Lossless,
+            waitForAll = true,
+            strictLength = true,
+            requireSharedArtist = true,
+            driftSec = 2,
+        )!!
+        assertEquals(16, stream.format.bitDepth)
+    }
+
+    /** Depth, then rate, between two lossless copies — bitrate says nothing there. */
+    @Test
+    fun `ranks hi-res lossless above CD quality`() {
+        val hiRes = StreamFormat("flac", sampleRateHz = 192_000, bitDepth = 24)
+        val cd = StreamFormat("flac", sampleRateHz = 44_100, bitDepth = 16)
+        assertTrue(SourceResolver.isBetter(hiRes, cd))
+        assertFalse(SourceResolver.isBetter(cd, hiRes))
+        assertTrue(
+            SourceResolver.isBetter(
+                StreamFormat("flac", sampleRateHz = 192_000, bitDepth = 24),
+                StreamFormat("flac", sampleRateHz = 96_000, bitDepth = 24),
+            ),
+        )
+    }
+
+    /** A row that says it is hi-res is opened ahead of one that only says lossless. */
+    @Test
+    fun `prefers the hi-res row among lossless ones`() {
+        val target = TrackMatcher.Target("Take on Me", "a-ha", durationSec = 225)
+        val cd = song("Take on Me", "a-ha", "3:45").copy(sourceQuality = "LOSSLESS")
+        val hiRes = song("Take on Me", "a-ha", "3:45").copy(sourceQuality = "LOSSLESS", sourceHiRes = true)
+        assertEquals(listOf(hiRes, cd), SourceResolver.preferred(listOf(cd, hiRes), target, wantsLossless = true))
+    }
+
     @Test
     fun `JioSaavn substitution refuses conflicting albums without a target album`() = runBlocking {
         val source = FakeSource(
@@ -1379,6 +1473,62 @@ class SourcesTest {
             raceTarget(),
             StreamRequest.Lossless,
         ) { _, candidate -> SourceResolver.worthSwapping(candidate.format, playing) }!!
+        assertEquals("JioSaavn", source.displayName)
+    }
+
+    /**
+     * A tie goes to the source ranked first, however late it answers. Arrival
+     * order used to decide it, which handed every 320-against-320 download to
+     * JioSaavn's four tenths of a second over the addon the user put first.
+     */
+    @Test
+    fun `a tie goes to the higher-ranked source rather than the quicker one`() = runBlocking {
+        val addon = FakeSource("Ricky's Addon", answerAfterMs = 150, format = StreamFormat("aac", kbps = 320))
+        val jioSaavn = FakeSource("JioSaavn", answerAfterMs = 5, format = StreamFormat("mp4", kbps = 320))
+        val (source, _) = SourceResolver.bestAcross(
+            listOf(addon, jioSaavn),
+            raceTarget(),
+            StreamRequest.Best,
+            waitForAll = true,
+        )!!
+        assertEquals("Ricky's Addon", source.displayName)
+    }
+
+    /**
+     * Running out of time decides on what has answered rather than losing it.
+     * Bounded from outside, a slow addon used to take JioSaavn's answer down
+     * with it, and the download went to YouTube's Opus.
+     */
+    @Test
+    fun `a race that runs out of time keeps the answers already in hand`() = runBlocking {
+        val slow = FakeSource("Ricky's Addon", answerAfterMs = 5_000, format = StreamFormat("flac"))
+        val quick = FakeSource("JioSaavn", answerAfterMs = 5, format = StreamFormat("mp4", kbps = 320))
+        val elapsed = measureTimeMillis {
+            val (source, _) = SourceResolver.bestAcross(
+                listOf(slow, quick),
+                raceTarget(),
+                StreamRequest.Lossless,
+                waitForAll = true,
+                timeoutMs = 300,
+            )!!
+            assertEquals("JioSaavn", source.displayName)
+        }
+        assertTrue("took ${elapsed}ms, so it waited out the slow source", elapsed < 2_000)
+        assertTrue("the slow source was left running", slow.cancelled)
+    }
+
+    /** A candidate the caller can't keep never wins, so it can't push out one it can. */
+    @Test
+    fun `a refined-away candidate leaves the race to the next one`() = runBlocking {
+        val unkeepable = FakeSource("Ricky's Addon", answerAfterMs = 5, format = StreamFormat("flac"))
+        val keepable = FakeSource("JioSaavn", answerAfterMs = 50, format = StreamFormat("mp4", kbps = 320))
+        val (source, _) = SourceResolver.bestAcross(
+            listOf(unkeepable, keepable),
+            raceTarget(),
+            StreamRequest.Lossless,
+            waitForAll = true,
+            refine = { candidate, stream -> stream.takeIf { candidate !== unkeepable } },
+        )!!
         assertEquals("JioSaavn", source.displayName)
     }
 

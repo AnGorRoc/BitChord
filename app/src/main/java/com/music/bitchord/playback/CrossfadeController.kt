@@ -14,6 +14,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.MixBlend
 import com.music.bitchord.data.settings.MixDeck
 import com.music.bitchord.data.settings.MixTransitionView
+import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
 import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.TrackAnalysisState
 import com.music.bitchord.data.settings.TransitionWindow
@@ -692,6 +693,7 @@ class CrossfadeController(
                 // harmless and shouldn't cost the listener the blend.
                 Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED -> bail()
                 Player.MEDIA_ITEM_TRANSITION_REASON_SEEK -> bail()
+                Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> ranOutBeforeHandoff()
             }
         }
 
@@ -717,6 +719,34 @@ class CrossfadeController(
             releaseHold()
             if (phase == Phase.ARMING) bail()
             held.play()
+        }
+    }
+
+    /**
+     * The session player ran off the end of its track, unheld, before the
+     * handoff took it off that track — so it is now playing the song this
+     * transition was bringing in, from its first note, on the outgoing side.
+     *
+     * Still arming, that copy is simply the next track arriving the plain
+     * way, but on a sink the arming ride had left low-passed for the blend,
+     * and [driveArming] would go on to wait for the *new* song to reach the
+     * old one's mix-out point and blend it into itself. So the transition is
+     * dropped and the queue moves on as it would have. Mid-blend, the incoming
+     * player already has the song at its cue: that is the handoff, late, and
+     * the copy on the outgoing side is silenced as [ranOn] does.
+     */
+    private fun ranOutBeforeHandoff() {
+        if (handedOff) return
+        when (phase) {
+            Phase.ARMING, Phase.LOOP_ARMING, Phase.LOOP_RUNNING -> bail()
+            Phase.FADING -> {
+                val out = outgoing ?: return bail()
+                val into = incoming ?: return bail()
+                Log.d(TAG, "outgoing ran on into the next track before the handoff")
+                out.volume = 0f
+                handOff(out, into)
+            }
+            else -> Unit
         }
     }
 
@@ -933,6 +963,12 @@ class CrossfadeController(
             // otherwise sit on screen for as long as the party lasts.
             AppSettings.smartTransitionWindow.value = null
             AppSettings.smartMixInProgress.value = false
+            return
+        }
+        // Bit-perfect output carries one stream to the DAC, unchanged. A blend
+        // needs two, with gain on both, so the queue plays gapless instead.
+        if (BitPerfectOutput.status.value.active) {
+            AppSettings.smartTransitionWindow.value = null
             return
         }
         // Nothing to transition *into*, so any analysis state left over from the
@@ -2780,14 +2816,11 @@ class CrossfadeController(
             // and owns the queue from here, and the outgoing one is spare.
             incoming?.let {
                 it.volume = 1f
-                // Undoes whatever [begin] stacked on for a beatmatched handoff.
-                // Unconditional and idempotent, so this is correct whether or
-                // not a stretch was ever actually applied. Advanced Automix
-                // walks it back over a few bars instead of in one jump, which
-                // is the tempo lurch a DJ never lets anyone hear.
-                // Repeated beat-by-beat ease steps caused a notch on every beat.
-                // One short protected reset is less audible and cannot pump.
-                setPlaybackSpeedClickless(it, AppSettings.playbackSpeed.value)
+                // Undoes whatever [begin] stacked on for a beatmatched handoff,
+                // walked back a beat at a time over a few bars rather than in
+                // one jump — the tempo lurch a DJ never lets anyone hear. An
+                // unstretched track goes straight to the listener's speed.
+                beginEase(it, incomingPlaybackRate, incomingAnalysis)
             }
             outgoing?.let(::retire)
         } else {
@@ -3476,6 +3509,9 @@ class CrossfadeController(
      * the tempo moving — so the length follows the stretch: a 10% speed-up
      * comes off over 14 beats, a 3% one over 4. One speed change per beat, not
      * per tick: each is a real change to the audio path.
+     *
+     * Plain speed changes, like [rampOutgoing]'s, not [setPlaybackSpeedClickless]:
+     * its gain notch on every beat was the audible part, heard as a pump.
      */
     private fun beginEase(player: ExoPlayer, rate: Double, analysis: TrackAnalysis) {
         val stretch = rate - 1.0
@@ -3496,7 +3532,7 @@ class CrossfadeController(
         easeNextAtMs = player.currentPosition + easeStepMs
         easing = player
         // Drops any phase-lock nudge still in flight back onto the plain stretch.
-        setPlaybackSpeedClickless(player, (AppSettings.playbackSpeed.value * rate).toFloat())
+        player.setPlaybackSpeed((AppSettings.playbackSpeed.value * rate).toFloat())
     }
 
     /**
@@ -3520,10 +3556,11 @@ class CrossfadeController(
         if (position < easeNextAtMs) return
         easeRate -= easeStep
         if (abs(easeRate - 1.0) < EASE_DONE) {
-            endEase()
+            // The last step, the same size as the others.
+            endEase(clickless = false)
             return
         }
-        setPlaybackSpeedClickless(player, (AppSettings.playbackSpeed.value * easeRate).toFloat())
+        player.setPlaybackSpeed((AppSettings.playbackSpeed.value * easeRate).toFloat())
         easeNextAtMs += easeStepMs
     }
 

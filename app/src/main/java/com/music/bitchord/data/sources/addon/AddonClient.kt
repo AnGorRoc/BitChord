@@ -266,7 +266,7 @@ class AddonClient(rawBaseUrl: String) {
      * nothing on the IO thread it already runs on.
      */
     private fun atmosHint(): String? {
-        val wanted = DeviceCodecs.playsDolbyAtmos && AppSettings.dolbyAtmos.value
+        val wanted = DeviceCodecs.atmosWanted
         return if (wanted) ATMOS_AUTO else null
     }
 

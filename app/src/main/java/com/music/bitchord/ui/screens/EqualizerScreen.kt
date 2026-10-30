@@ -5,6 +5,7 @@ import kotlinx.coroutines.launch
 import com.music.bitchord.playback.ReplayGainScanner
 import com.music.bitchord.ui.screens.equalizer.components.ReplayGainControls
 
+import com.music.bitchord.ui.icons.SfIcons
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -25,7 +26,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.automirrored.rounded.ShowChart
@@ -36,9 +36,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -95,6 +93,8 @@ import kotlin.math.roundToInt
 fun EqualizerScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
+    /** Opens the list of preset curves as a page — see [EqualizerPresetPage]. */
+    onOpenPresets: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -115,7 +115,6 @@ fun EqualizerScreen(
     val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
 
     val haptics = rememberHaptics()
-    var pickingPreset by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -123,24 +122,21 @@ fun EqualizerScreen(
             .verticalScroll(rememberScrollState())
             .padding(contentPadding),
     ) {
+        SettingsPageTitle(stringResource(R.string.equalizer))
         SettingsGroup(
             footer = stringResource(R.string.equalizer_footer),
-            topSpacing = 8.dp,
+            topSpacing = 0.dp,
         ) {
             SettingsRow(
-                icon = Icons.Rounded.Tune,
+                icon = SfIcons.Tune,
                 title = stringResource(R.string.equalizer),
                 trailing = {
-                    Switch(
+                    IosSwitch(
                         checked = enabled,
                         onCheckedChange = {
                             haptics.play(if (it) Haptic.ToggleOn else Haptic.ToggleOff)
                             AppSettings.setEqualizerEnabled(it)
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
                     )
                 },
                 onClick = {
@@ -207,10 +203,10 @@ fun EqualizerScreen(
                 EqualizerMode.MANUAL -> {
                     SettingsGroup {
                         SettingsRow(
-                            icon = Icons.Rounded.GraphicEq,
+                            icon = SfIcons.GraphicEq,
                             title = stringResource(R.string.equalizer_preset),
                             value = preset.localizedLabel(),
-                            onClick = { pickingPreset = true },
+                            onClick = onOpenPresets,
                             enabled = enabled,
                         )
                     }
@@ -261,7 +257,7 @@ fun EqualizerScreen(
             if (!outputStatus.dspAvailable) {
                 SettingsGroup(footer = stringResource(R.string.equalizer_bitstream_footer)) {
                     SettingsRow(
-                        icon = Icons.Rounded.Warning,
+                        icon = SfIcons.Warning,
                         title = stringResource(R.string.equalizer_bitstream_title),
                         subtitle = stringResource(R.string.equalizer_bitstream_subtitle),
                     )
@@ -289,7 +285,7 @@ fun EqualizerScreen(
 
         SettingsGroup(footer = stringResource(R.string.system_equalizer_footer)) {
             SettingsRow(
-                icon = Icons.Rounded.GraphicEq,
+                icon = SfIcons.GraphicEq,
                 title = stringResource(R.string.system_equalizer),
                 subtitle = stringResource(R.string.system_equalizer_subtitle),
                 onClick = { openEqualizer(context, sessionId) },
@@ -297,21 +293,6 @@ fun EqualizerScreen(
         }
 
         Spacer(Modifier.height(32.dp))
-    }
-
-    if (pickingPreset) {
-        ModalBottomSheet(
-            onDismissRequest = { pickingPreset = false },
-            containerColor = MaterialTheme.colorScheme.background,
-        ) {
-            PresetSheet(
-                selected = preset,
-                onSelect = {
-                    AppSettings.setEqualizerPreset(it)
-                    pickingPreset = false
-                },
-            )
-        }
     }
 }
 
@@ -468,7 +449,7 @@ private fun ToneReadout(x: Int, y: Int) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = Icons.Rounded.Waves,
+            imageVector = SfIcons.Waves,
             contentDescription = stringResource(R.string.equalizer_tilt),
             tint = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.size(20.dp),
@@ -481,7 +462,7 @@ private fun ToneReadout(x: Int, y: Int) {
         )
         Spacer(Modifier.width(22.dp))
         Icon(
-            imageVector = Icons.AutoMirrored.Rounded.ShowChart,
+            imageVector = SfIcons.ShowChart,
             contentDescription = stringResource(R.string.equalizer_contour),
             tint = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.size(20.dp),
@@ -527,7 +508,7 @@ private fun ChoiceRow(
         )
         if (selected) {
             Icon(
-                imageVector = Icons.Rounded.Check,
+                imageVector = SfIcons.Check,
                 contentDescription = stringResource(R.string.selected),
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(22.dp),
@@ -841,64 +822,37 @@ private fun BalanceControl(
 
 // ---- Presets ---------------------------------------------------------------
 
+/**
+ * The preset curves as a page of their own, opened from the Preset row. A pick
+ * applies at once and [onChosen] then leaves the page.
+ */
 @Composable
-private fun PresetSheet(selected: EqualizerPreset, onSelect: (EqualizerPreset) -> Unit) {
-    val haptics = rememberHaptics()
-    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-        Text(
-            text = stringResource(R.string.equalizer_preset),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp),
-        )
-        HorizontalDivider(
-            thickness = 0.5.dp,
-            color = MaterialTheme.colorScheme.outline,
-        )
-        // Sixteen curves is taller than the sheet on most phones, and laid
-        // out straight the ones past the fold were simply unreachable. The
-        // title and its rule stay put while the list underneath scrolls;
-        // `fill = false` keeps a short list from stretching the sheet to the
-        // full height it is allowed.
-        Column(
-            modifier = Modifier
-                .weight(1f, fill = false)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            EqualizerPreset.entries.forEach { preset ->
-                // Custom is a state the bands can be in, not a curve anyone can
-                // choose, so it is only ever shown when it is the one in force.
-                if (preset == EqualizerPreset.CUSTOM && selected != EqualizerPreset.CUSTOM) {
-                    return@forEach
-                }
-                val chosen = preset == selected
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = preset != EqualizerPreset.CUSTOM) {
-                            haptics.play(Haptic.Select)
-                            onSelect(preset)
-                        }
-                        .padding(horizontal = 22.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = preset.localizedLabel(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (chosen) {
-                        Icon(
-                            Icons.Rounded.Check,
-                            contentDescription = stringResource(R.string.selected),
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp),
-                        )
-                    }
-                }
+fun EqualizerPresetPage(
+    onChosen: () -> Unit,
+    contentPadding: PaddingValues,
+    modifier: Modifier = Modifier,
+) {
+    val selected by AppSettings.equalizerPreset.collectAsStateWithLifecycle()
+    Column(
+        modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(contentPadding),
+    ) {
+        SettingsPageTitle(stringResource(R.string.equalizer_preset))
+        ChoiceGroup(
+            // Custom is a state the bands can be in, not a curve anyone can
+            // choose, so it is only ever listed when it is the one in force.
+            options = EqualizerPreset.entries.filter { it != EqualizerPreset.CUSTOM || selected == EqualizerPreset.CUSTOM },
+            selected = selected,
+            label = { it.localizedLabel() },
+            footer = null,
+            enabled = { it != EqualizerPreset.CUSTOM },
+        ) { preset ->
+            AppSettings.setEqualizerPreset(preset)
+            onChosen()
         }
-        }
+        Spacer(Modifier.height(32.dp))
     }
 }
 

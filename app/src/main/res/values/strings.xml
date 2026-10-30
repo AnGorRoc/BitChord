@@ -29,6 +29,12 @@
     <string name="search_source_youtube" translatable="false">YouTube</string>
     <string name="search_source_addons">Addons</string>
     <string name="search_addons_none">No addons are enabled. Add one in Settings → Sources.</string>
+    <string name="addon_blocked_title">Can\'t play this song</string>
+    <string name="addon_blocked_quality">Audio quality on %1$s is set to %2$s. Songs from %3$s only play at Lossless — change it in Settings → Audio quality to play this one.</string>
+    <string name="addon_blocked_watch">Music is playing through your watch, which limits audio below Lossless. Songs from %1$s play again once your phone takes the music back.</string>
+    <string name="download_addon_left_out_title">Downloading without %1$s</string>
+    <string name="download_addon_not_allowed">%1$s doesn\'t allow downloads, so your songs are being saved from your other sources instead.</string>
+    <string name="download_addon_needs_lossless_output">%1$s only serves music while wired, USB or LDAC-class headphones are connected. Downloads skip it until one is, so your songs are being saved from your other sources instead.</string>
     <string name="audio_files_on_device">Audio files on device</string>
     <string name="on_device">On Device</string>
     <string name="playlists">Playlists</string>
@@ -282,6 +288,8 @@
     <string name="eq_preset_custom">Custom</string>
     <string name="show_nerd_stats">Show stats for nerds</string>
     <string name="show_nerd_stats_subtitle">Codec, bitrate and sample rate on the player</string>
+    <string name="show_listen_together_button">Show Listen Together button</string>
+    <string name="show_listen_together_button_subtitle">Off, the player shows only the audio output button between lyrics and the queue</string>
     <string name="app_icon">App icon</string>
     <string name="app_icon_default">Default</string>
     <string name="app_icon_monochrome" translatable="false">Monochrome</string>
@@ -297,7 +305,22 @@
     <string name="app_icon_pixel_glass_dark" translatable="false">Pixel Glass Dark</string>
     <string name="app_icon_pixel_glass_clear" translatable="false">Pixel Glass Clear</string>
     <string name="app_icon_pixel_glass_clear_dark" translatable="false">Pixel Glass Clear Dark</string>
+    <string name="app_icon_neon_silver" translatable="false">Neon Silver</string>
+    <string name="app_icon_neon_cyan" translatable="false">Neon Cyan</string>
+    <string name="app_icon_neon_violet" translatable="false">Neon Violet</string>
+    <string name="app_icon_samsung_neon_silver" translatable="false">Samsung Neon Silver</string>
+    <string name="app_icon_samsung_neon_cyan" translatable="false">Samsung Neon Cyan</string>
+    <string name="app_icon_samsung_neon_violet" translatable="false">Samsung Neon Violet</string>
+    <string name="app_icon_pixel_neon_silver" translatable="false">Pixel Neon Silver</string>
+    <string name="app_icon_pixel_neon_cyan" translatable="false">Pixel Neon Cyan</string>
+    <string name="app_icon_pixel_neon_violet" translatable="false">Pixel Neon Violet</string>
     <string name="theme">Theme</string>
+    <string name="font">Font</string>
+    <string name="font_default">Default</string>
+    <string name="font_legacy">Legacy</string>
+    <string name="font_default_subtitle">SF Pro Display · Apple Music weights</string>
+    <string name="font_legacy_subtitle">SF Pro Display · Original heavy weights</string>
+    <string name="font_footer">Legacy brings back the heavier, tighter type the app used before it was matched to Apple Music.</string>
     <string name="reduce_animation">Reduce animation</string>
     <string name="reduce_animation_subtitle">Freezes the main player\'s gradient instead of drifting</string>
     <string name="reduce_dynamic_blur">Reduce dynamic blur</string>
@@ -655,7 +678,7 @@
     <string name="source_matching">Source matching</string>
     <string name="upgrade_length_slack">Track length tolerance</string>
     <string name="upgrade_length_slack_subtitle">Maximum duration difference allowed for a replacement stream</string>
-    <string name="upgrade_length_slack_footer">A larger tolerance accepts more source matches; a smaller tolerance is stricter. The default is 3 seconds.</string>
+    <string name="upgrade_length_slack_footer">A larger tolerance accepts more source matches; a smaller tolerance is stricter. The default is 5 seconds.</string>
     <string name="seconds_short">%1$d s</string>
     <string name="spdc_token">sp_dc token</string>
     <string name="spotify_canvas_setup">Set up Spotify</string>
@@ -971,10 +994,44 @@
 
     <string name="export_compatible_downloads">Export compatible downloads</string>
     <string name="auto_download_playlists">Auto-download new playlist songs</string>
+    <string name="sync_downloaded_playlists">Keep playlists updated</string>
+    <string name="sync_downloaded_playlists_subtitle">Checks twice a day and downloads songs newly added to your downloaded playlists</string>
+    <string name="playlist_sync_ask_title">New songs in %1$s: %2$d</string>
+    <string name="playlist_sync_ask_text">Tap to download</string>
+    <string name="playlist_sync_done_title">Added to %1$s: %2$d</string>
+    <string name="playlist_updates_channel">Playlist updates</string>
 
     <string name="output_precision">Output precision</string>
 
     <string name="prefer_usb_dac">Prefer USB DAC</string>
+
+    <string name="bit_perfect_output">Bit-perfect output</string>
+    <string name="bit_perfect_bypassed_footer">Bit-perfect output is ready, so the faded settings are bypassed and Dolby Atmos versions aren\'t requested. They work again when the DAC is disconnected or the mode is off.</string>
+    <string name="bit_perfect_sheet_warning">Sends the track to the DAC unchanged. The equalizer, loudness normalization, crossfade, Automix, playback speed and BitChord\'s volume are bypassed.</string>
+    <string name="bit_perfect_mode_off_subtitle">Audio goes through Android\'s mixer and BitChord\'s effects.</string>
+    <string name="bit_perfect_mode_usb_android">USB DAC</string>
+    <string name="bit_perfect_mode_usb_android_subtitle">Android 14 opens the DAC at each track\'s own rate and bit depth, without mixing or resampling.</string>
+    <string name="bit_perfect_requires_android_14">Requires Android 14 or later</string>
+    <string name="bit_perfect_mode_dap_exclusive">Built-in DAC (AAudio exclusive)</string>
+    <string name="bit_perfect_mode_dap_exclusive_subtitle">For music players with their own DAC. Opens the headphone or line output exclusively at each track\'s own rate. Not every device grants exclusive mode.</string>
+    <string name="bit_perfect_requires_android_8_1">Requires Android 8.1 or later</string>
+    <string name="bit_perfect_mode_usb_direct">USB DAC (direct driver)</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord drives the DAC itself, on any Android version, and sets its volume on the DAC. Asks for USB permission. Can be much louder than normal output.</string>
+    <string name="dac_volume">DAC volume</string>
+    <string name="dac_volume_subtitle">Set on the DAC itself; the music is not scaled</string>
+    <string name="usb_allow_fixed_volume">Allow DACs without volume control</string>
+    <string name="usb_allow_fixed_volume_subtitle">Otherwise such a DAC plays through normal output</string>
+    <string name="usb_allow_fixed_volume_confirm_title">Play at full scale?</string>
+    <string name="usb_allow_fixed_volume_confirm_message">BitChord can\'t set this kind of DAC\'s volume, so it plays at full scale and only the DAC\'s own knob, if it has one, controls loudness. This can be dangerously loud with sensitive headphones.</string>
+    <string name="convert_for_limited_dac">Convert for lower-spec DACs</string>
+    <string name="convert_for_limited_dac_subtitle">Converts tracks above your DAC\'s limit to its highest format. Tracks may take longer to start and won\'t be bit-perfect to the original.</string>
+    <string name="bit_perfect_confirm_title">Turn on bit-perfect output?</string>
+    <string name="bit_perfect_confirm_message">The DAC gets the music at full scale, and the phone\'s volume buttons may stop working. Turn the DAC or amplifier down before you play.</string>
+    <string name="bit_perfect_status_active">%1$s · %2$s kHz · %3$d-bit</string>
+    <string name="bit_perfect_status_dac_limited">%1$s · %2$s kHz · %3$d-bit · DAC max, converted from this track\'s format</string>
+    <string name="bit_perfect_status_inexact">%1$s · not exact: this source isn\'t lossless PCM</string>
+    <string name="bit_perfect_status_waiting">Waiting for a lossless track on a supported output</string>
+    <string name="bit_perfect_status_unavailable">Not available for this track (%1$s)</string>
 
     <string name="loudness_normalization">Loudness normalization</string>
 
@@ -1079,6 +1136,7 @@
     <string name="source_needs_lossless_output">Needs a lossless output · use a lossless supported device</string>
     <string name="source_needs_lossless_bt_codec">Needs a lossless output · Bluetooth is on %1$s; use a lossless supported device</string>
     <string name="source_needs_lossless_bt_unknown">Needs a lossless output · can’t tell which Bluetooth codec is in use</string>
+    <string name="source_downloads_on">Downloads allowed</string>
     <string name="source_downloads_off">Streaming only</string>
     <string name="lossless_output_permission">Check Bluetooth codec</string>
     <string name="lossless_output_permission_denied">Nearby devices permission is off</string>

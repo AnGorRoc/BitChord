@@ -638,7 +638,7 @@
     <string name="source_matching">소스 매칭</string>
     <string name="upgrade_length_slack">음악 길이 허용오차</string>
     <string name="upgrade_length_slack_subtitle">대체 스트림에서 허용할 최대 길이 차이</string>
-    <string name="upgrade_length_slack_footer">허용오차가 클수록 더 많은 소스를 찾습니다. 허용오차가 작을수록 더 엄격합니다. 기본값은 3초입니다.</string>
+    <string name="upgrade_length_slack_footer">허용오차가 클수록 더 많은 소스를 찾습니다. 허용오차가 작을수록 더 엄격합니다. 기본값은 5초입니다.</string>
     <string name="seconds_short">%1$d초</string>
     <string name="spdc_token">sp_dc 토큰</string>
     <string name="spotify_canvas_setup">Spotify Canvas 설정</string>
@@ -943,6 +943,12 @@
 
 
     <string name="export_compatible_downloads">호환되는 다운로드 내보내기</string>
+    <string name="sync_downloaded_playlists">재생목록 최신 상태로 유지</string>
+    <string name="sync_downloaded_playlists_subtitle">하루 두 번 확인하여 다운로드한 재생목록에 새로 추가된 노래를 다운로드합니다</string>
+    <string name="playlist_sync_ask_title">%1$s의 새 노래: %2$d</string>
+    <string name="playlist_sync_ask_text">탭하여 다운로드</string>
+    <string name="playlist_sync_done_title">%1$s에 추가됨: %2$d</string>
+    <string name="playlist_updates_channel">재생목록 업데이트</string>
 
     <string name="output_precision">출력 정확도</string>
 
@@ -1051,6 +1057,7 @@
     <string name="source_needs_lossless_output">무손실 출력 필요 · 무손실 지원 기기를 사용하세요</string>
     <string name="source_needs_lossless_bt_codec">무손실 출력 필요 · %1$s 코덱 블루투스가 켜졌습니다. 무손실 지원 기기를 사용하세요</string>
     <string name="source_needs_lossless_bt_unknown">무손실 출력 필요 · 어떤 블루투스 코덱을 사용 중인지 알 수 없습니다</string>
+    <string name="source_downloads_on">다운로드 허용</string>
     <string name="source_downloads_off">스트리밍만</string>
     <string name="lossless_output_permission">블루투스 코덱 확인</string>
     <string name="lossless_output_permission_denied">근처 기기 권한 꺼짐</string>
@@ -1231,4 +1238,45 @@
     <string name="tidal_provider_placeholder">제공자 주소</string>
     <string name="tidal_provider_rejected">사용할 수 없는 제공자 주소입니다</string>
     <string name="tidal_provider_remove">삭제</string>
+    <string name="addon_blocked_title">이 노래를 재생할 수 없음</string>
+    <string name="addon_blocked_quality">%1$s의 오디오 품질이 %2$s(으)로 설정되어 있습니다. %3$s의 노래는 무손실로만 재생됩니다. 이 노래를 재생하려면 설정 → 오디오 품질에서 변경하세요.</string>
+    <string name="addon_blocked_watch">음악이 워치를 통해 재생 중이며, 워치는 오디오를 무손실 미만으로 제한합니다. 휴대전화가 음악 재생을 다시 맡으면 %1$s의 노래가 다시 재생됩니다.</string>
+    <string name="download_addon_left_out_title">%1$s 없이 다운로드 중</string>
+    <string name="download_addon_not_allowed">%1$s에서 다운로드를 허용하지 않아 다른 소스에서 노래를 저장합니다.</string>
+    <string name="download_addon_needs_lossless_output">%1$s은(는) 유선, USB 또는 LDAC급 헤드폰이 연결된 경우에만 음악을 제공합니다. 연결될 때까지 다운로드에서 제외되므로 다른 소스에서 노래를 저장합니다.</string>
+    <string name="show_listen_together_button">함께 듣기 버튼 표시</string>
+    <string name="show_listen_together_button_subtitle">끄면 플레이어의 가사와 대기열 사이에 오디오 출력 버튼만 표시됩니다</string>
+    <string name="font">글꼴</string>
+    <string name="font_default">기본</string>
+    <string name="font_legacy">이전</string>
+    <string name="font_default_subtitle">SF Pro Display · Apple Music 굵기</string>
+    <string name="font_legacy_subtitle">SF Pro Display · 기존의 굵은 굵기</string>
+    <string name="font_footer">이전 글꼴은 앱이 Apple Music에 맞춰지기 전에 쓰던 더 굵고 촘촘한 글꼴을 되돌립니다.</string>
+    <string name="bit_perfect_output">비트 퍼펙트 출력</string>
+    <string name="bit_perfect_bypassed_footer">비트 퍼펙트 출력이 준비되어 흐리게 표시된 설정은 우회되고 Dolby Atmos 버전은 요청되지 않습니다. DAC를 분리하거나 모드를 끄면 다시 작동합니다.</string>
+    <string name="bit_perfect_sheet_warning">트랙을 변경 없이 DAC로 보냅니다. 이퀄라이저, 체감 음량 평준화, 크로스페이드, 자동 믹스, 재생 속도, BitChord 음량은 우회됩니다.</string>
+    <string name="bit_perfect_mode_off_subtitle">오디오가 Android 믹서와 BitChord 효과를 거칩니다.</string>
+    <string name="bit_perfect_mode_usb_android">USB DAC</string>
+    <string name="bit_perfect_mode_usb_android_subtitle">Android 14가 믹싱이나 리샘플링 없이 각 트랙의 샘플레이트와 비트 심도로 DAC를 엽니다.</string>
+    <string name="bit_perfect_requires_android_14">Android 14 이상 필요</string>
+    <string name="bit_perfect_mode_dap_exclusive">내장 DAC(AAudio 독점)</string>
+    <string name="bit_perfect_mode_dap_exclusive_subtitle">자체 DAC가 있는 음악 플레이어용입니다. 헤드폰 또는 라인 출력을 각 트랙의 샘플레이트로 독점해서 엽니다. 모든 기기가 독점 모드를 허용하는 것은 아닙니다.</string>
+    <string name="bit_perfect_requires_android_8_1">Android 8.1 이상 필요</string>
+    <string name="bit_perfect_mode_usb_direct">USB DAC(직접 드라이버)</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">어떤 Android 버전에서든 BitChord가 DAC를 직접 구동하고 음량을 DAC에서 설정합니다. USB 권한을 요청합니다. 일반 출력보다 훨씬 크게 들릴 수 있습니다.</string>
+    <string name="dac_volume">DAC 음량</string>
+    <string name="dac_volume_subtitle">DAC 자체에서 설정되며 음악 데이터는 조정되지 않습니다</string>
+    <string name="usb_allow_fixed_volume">음량 조절이 없는 DAC 허용</string>
+    <string name="usb_allow_fixed_volume_subtitle">허용하지 않으면 이런 DAC는 일반 출력으로 재생됩니다</string>
+    <string name="usb_allow_fixed_volume_confirm_title">최대 레벨로 재생할까요?</string>
+    <string name="usb_allow_fixed_volume_confirm_message">BitChord에서 이 유형의 DAC 음량을 설정할 수 없어 최대 레벨로 재생되며, DAC 자체의 노브가 있는 경우에만 음량을 조절할 수 있습니다. 민감한 헤드폰에서는 위험할 정도로 크게 들릴 수 있습니다.</string>
+    <string name="convert_for_limited_dac">저사양 DAC에 맞게 변환</string>
+    <string name="convert_for_limited_dac_subtitle">DAC 한도를 넘는 트랙을 DAC의 최고 포맷으로 변환합니다. 트랙 시작이 더 오래 걸릴 수 있으며 원본 대비 비트 퍼펙트가 아닙니다.</string>
+    <string name="bit_perfect_confirm_title">비트 퍼펙트 출력을 켤까요?</string>
+    <string name="bit_perfect_confirm_message">DAC에 음악이 최대 레벨로 전달되며 휴대전화의 음량 버튼이 작동하지 않을 수 있습니다. 재생하기 전에 DAC나 앰프의 음량을 낮추세요.</string>
+    <string name="bit_perfect_status_active">%1$s · %2$s kHz · %3$d비트</string>
+    <string name="bit_perfect_status_dac_limited">%1$s · %2$s kHz · %3$d비트 · DAC 최대치, 이 트랙의 포맷에서 변환됨</string>
+    <string name="bit_perfect_status_inexact">%1$s · 정확하지 않음: 이 소스는 무손실 PCM이 아닙니다</string>
+    <string name="bit_perfect_status_waiting">지원되는 출력에서 무손실 트랙을 기다리는 중</string>
+    <string name="bit_perfect_status_unavailable">이 트랙에서 사용할 수 없음(%1$s)</string>
 </resources>

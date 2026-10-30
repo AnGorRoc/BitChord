@@ -29,20 +29,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.MoreHoriz
+import com.music.bitchord.ui.icons.SfIcons
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -84,6 +81,7 @@ import kotlinx.coroutines.launch
 import com.music.bitchord.R
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.theme.stableStatusBarInsets
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -134,10 +132,14 @@ private fun leadingInset(hasBack: Boolean): Dp = if (hasBack) BackInset else Wor
  * are all different numbers, and a fixed guess is wrong on all but one of them:
  * too tight and content is clipped under the bar, too loose and every page
  * opens on a band of empty space.
+ *
+ * The inset is read whether the status bar is showing or not: the player can
+ * hide it while it is open, and every page under the player would otherwise
+ * slide up into the space it left behind.
  */
 @Composable
 fun topBarHeight(): Dp =
-    WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + TopBarContentHeight
+    stableStatusBarInsets().asPaddingValues().calculateTopPadding() + TopBarContentHeight
 
 /**
  * Where page content should start: clear of the bar, plus [TopBarContentGap].
@@ -161,7 +163,10 @@ fun topBarContentPadding(): Dp = topBarHeight() + TopBarContentGap
 @Composable
 fun FrostedTopBar(
     title: String,
-    scrolled: Boolean,
+    // A lambda, not a value: this flips as a feed leaves its very top, and
+    // reading it in the caller would recompose the whole app on that frame of
+    // the scroll.
+    scrolled: () -> Boolean,
     modifier: Modifier = Modifier,
     /** Leaves the whole bar transparent so the page's own top gradient is the backdrop. */
     transparentBackdrop: Boolean = false,
@@ -187,7 +192,7 @@ fun FrostedTopBar(
     val useFloatingChrome = artworkPageChrome ||
         (LocalLiquidGlassEnabled.current && isGlassSupported())
     val titleAlpha by animateFloatAsState(
-        targetValue = if (scrolled || trailingTitle != null) 1f else 0f,
+        targetValue = if (scrolled() || trailingTitle != null) 1f else 0f,
         animationSpec = tween(220),
         label = "topBarTitleAlpha",
     )
@@ -216,7 +221,7 @@ fun FrostedTopBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
+                .windowInsetsPadding(stableStatusBarInsets())
                 .height(TopBarContentHeight),
         ) {
             /* Temporarily hidden: keep the scrolling center-title implementation
@@ -307,7 +312,7 @@ fun FrostedTopBar(
                         modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp),
                     ) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            SfIcons.ArrowBack,
                             contentDescription = stringResource(R.string.back),
                             tint = MaterialTheme.colorScheme.onSurface,
                         )
@@ -375,7 +380,7 @@ private fun ArtworkPageBackButton(
             .then(artworkPageSurface(shape = shape, hazeState = hazeState)),
     ) {
         Icon(
-            Icons.AutoMirrored.Rounded.ArrowBack,
+            SfIcons.ArrowBack,
             contentDescription = stringResource(R.string.back),
             tint = contentColor,
         )
@@ -577,10 +582,10 @@ private fun TopBarAnchorSlot(
                     is TopBarAnchor.More -> {
                         IconButton(
                             onClick = state.onClick,
-                            modifier = Modifier.size(TOP_CONTROL_SIZE),
+                            modifier = Modifier.size(TOP_CONTROL_SIZE).menuAnchor(),
                         ) {
                             Icon(
-                                Icons.Rounded.MoreHoriz,
+                                SfIcons.MoreHoriz,
                                 contentDescription = stringResource(R.string.more),
                                 tint = MaterialTheme.colorScheme.onSurface,
                             )

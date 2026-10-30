@@ -47,14 +47,14 @@ fun Modifier.thumbnailBorder(shape: Shape): Modifier = composed {
 }
 
 /**
- * A song title with the catalogue-standard explicit badge after it, where Apple
- * Music sets it.
+ * A song title with the catalogue-standard explicit badge before it, so the
+ * mark sits in the same place on every row however long the title runs.
  *
- * Apple draws the badge in the secondary line's colour — the artist's — rather
- * than the title's; [badgeColor] is that colour. With
+ * The badge is drawn in the secondary line's colour — the artist's — rather
+ * than the title's, as Apple Music draws it; [badgeColor] is that colour. With
  * [fadeOverflow] a title too long for its line fades out at its end, as Apple's
  * players let it, rather than ending in an ellipsis, as its lists do. Either
- * way the badge keeps its place after whatever of the title is shown.
+ * way the badge keeps its place ahead of whatever of the title is shown.
  */
 @Composable
 fun ExplicitSongTitle(
@@ -66,6 +66,10 @@ fun ExplicitSongTitle(
     fadeOverflow: Boolean = false,
 ) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (song.isExplicit == true) {
+            ExplicitBadge(badgeColor)
+            Spacer(Modifier.width(6.dp))
+        }
         if (fadeOverflow) {
             FadingLine(text = song.title, style = style, color = color, modifier = Modifier.weight(1f, fill = false))
         } else {
@@ -77,10 +81,6 @@ fun ExplicitSongTitle(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),
             )
-        }
-        if (song.isExplicit == true) {
-            Spacer(Modifier.width(6.dp))
-            ExplicitBadge(badgeColor)
         }
     }
 }

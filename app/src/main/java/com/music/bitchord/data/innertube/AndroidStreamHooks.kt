@@ -23,8 +23,10 @@ object AndroidStreamHooks {
     /** Before anything logs or resolves. */
     fun installEarly() {
         MonotonicClock.nowMs = SystemClock::elapsedRealtime
-        TrackLog.echo = { level, tag, message, error ->
-            if (BuildConfig.DEBUG || BuildConfig.FLAVOR == "dev" || level == 'W' || level == 'E' || Log.isLoggable(tag, Log.DEBUG)) {
+        // logcat on debug and dev builds only; a release build keeps the lines for Copy
+        // Log and writes them nowhere else.
+        if (BuildConfig.DEBUG || BuildConfig.FLAVOR == "dev") {
+            TrackLog.echo = { level, tag, message, error ->
                 when (level) {
                     'D' -> Log.d(tag, message, error)
                     'I' -> Log.i(tag, message, error)

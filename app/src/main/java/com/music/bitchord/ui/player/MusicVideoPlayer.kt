@@ -29,9 +29,11 @@ import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import com.metrolist.innertubex.extraction.StreamResolveException
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.innertube.InnerTubeXResolver
@@ -48,6 +50,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -116,8 +119,33 @@ object MusicVideoEngine {
     /** Resolved streams by video: the stream, the height it was asked at, and when. */
     private val streams = LinkedHashMap<String, Triple<InnerTubeXResolver.VideoStream, Int, Long>>()
 
-    /** Tracks with no picture to show, so a track change back to one doesn't ask again. */
+    /**
+     * Tracks with no picture to show, so a track change back to one doesn't ask
+     * again — until the session changes, which can open an age gate.
+     */
     private val noPicture = HashSet<String>()
+
+    /** Videos the age gate stopped, asked as age-restricted from the start. */
+    private val ageGated = HashSet<String>()
+
+    /** Clients whose picture googlevideo refused mid-playback, by video. */
+    private val refused = HashMap<String, MutableSet<String>>()
+
+    /** The client that minted the loaded picture, for [refused]. */
+    private var loadedProfile: String? = null
+
+    init {
+        // Signing in is what opens an age gate, so every "no picture" verdict
+        // and every URL minted for the old session is owed a fresh ask.
+        scope.launch {
+            InnerTubeXResolver.sessionGeneration.drop(1).collect {
+                noPicture.clear()
+                streams.clear()
+                refused.clear()
+                refresh()
+            }
+        }
+    }
 
     private val _shownVideoId = MutableStateFlow<String?>(null)
 
@@ -196,6 +224,18 @@ object MusicVideoEngine {
             val id = loadedId ?: return
             TrackLog.w(TAG, "video: playback failed at ${loadedCap}p (${error.errorCodeName})", about = id)
             streams.remove(id)
+            // googlevideo turned this client's URL away: the next client in
+            // InnerTubeX's catalog gets a turn, as the audio's probe does.
+            val profile = loadedProfile
+            if (profile != null && isRefusal(error)) {
+                val skip = refused.getOrPut(id) { HashSet() }
+                if (skip.add(profile) && skip.size <= MAX_REFUSED_CLIENTS) {
+                    TrackLog.w(TAG, "video: $profile refused; asking the next client", about = id)
+                    InnerTubeXResolver.onVideoRefused()
+                    load(id)
+                    return
+                }
+            }
             // Above 1080p YouTube serves VP9 and AV1, which not every phone
             // decodes: one more try on the H.264 ladder before giving up.
             if (loadedCap > AUTO_HEIGHT && stepDown.add(id)) {
@@ -323,6 +363,35 @@ object MusicVideoEngine {
         return if (videoId in stepDown) minOf(held, AUTO_HEIGHT) else held
     }
 
+    /** A refusal from googlevideo itself, as opposed to a decoder or network failure. */
+    private fun isRefusal(error: PlaybackException): Boolean =
+        generateSequence<Throwable>(error) { it.cause }
+            .filterIsInstance<HttpDataSource.InvalidResponseCodeException>()
+            .any { it.responseCode in REFUSAL_CODES }
+
+    /**
+     * [videoId]'s picture, asked plainly and then — when that found nothing —
+     * as age-restricted, which InnerTubeX needs told: see
+     * [InnerTubeXResolver.extractVideo]. A video that needed it is asked that
+     * way from the start next time.
+     */
+    private suspend fun resolve(videoId: String, cap: Int): InnerTubeXResolver.VideoStream? {
+        val skip = refused[videoId].orEmpty().toSet()
+        if (videoId !in ageGated) {
+            val plain = try {
+                withContext(Dispatchers.IO) { InnerTubeXResolver.extractVideo(videoId, cap, skip) }
+            } catch (e: StreamResolveException) {
+                if (e.reason !in ESCALATED_REASONS) throw e
+                null
+            }
+            if (plain != null) return plain
+            TrackLog.d(TAG, "video: nothing asked plainly; asking as age-restricted", about = videoId)
+        }
+        return withContext(Dispatchers.IO) {
+            InnerTubeXResolver.extractVideo(videoId, cap, skip, ageRestricted = true)
+        }?.also { ageGated += videoId }
+    }
+
     private fun load(videoId: String) {
         unload()
         loadedId = videoId
@@ -330,11 +399,19 @@ object MusicVideoEngine {
         loadedCap = cap
         loadJob = scope.launch {
             val stream = try {
-                cachedStream(videoId, cap) ?: withContext(Dispatchers.IO) {
-                    InnerTubeXResolver.extractVideo(videoId, cap)
-                }?.also { streams[videoId] = Triple(it, cap, System.currentTimeMillis()) }
+                cachedStream(videoId, cap)
+                    ?: resolve(videoId, cap)?.also { streams[videoId] = Triple(it, cap, System.currentTimeMillis()) }
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: StreamResolveException) {
+                TrackLog.w(TAG, "video: no picture (${e.reason}): ${e.message}", about = videoId)
+                if (loadedId != videoId) return@launch
+                loadedId = null
+                // Settled until something changes it: the age gate by a sign-in
+                // (which clears [noPicture]), the rest not at all. A network
+                // failure is asked again on the next surface or track change.
+                if (e.reason != StreamResolveException.Reason.NETWORK) noPicture += videoId
+                return@launch
             } catch (e: Exception) {
                 // Not remembered as pictureless: the next surface or track
                 // change asks again.
@@ -356,6 +433,7 @@ object MusicVideoEngine {
                 .createMediaSource(MediaItem.fromUri(stream.url))
             if (stream.aspect > 0f) _aspect.value = stream.aspect
             _quality.value = _quality.value.copy(heights = stream.heights, activeHeight = stream.height)
+            loadedProfile = stream.profileId
             val start = controller?.currentPosition?.coerceAtLeast(0L) ?: 0L
             exo.setMediaSource(source, start + seekLeadMs)
             exo.playWhenReady = controller?.isPlaying == true
@@ -381,6 +459,7 @@ object MusicVideoEngine {
         syncJob?.cancel()
         syncJob = null
         loadedId = null
+        loadedProfile = null
         _shownVideoId.value = null
         _frameOn.value = null
         _quality.value = _quality.value.copy(heights = emptyList(), activeHeight = null)
@@ -447,6 +526,22 @@ object MusicVideoEngine {
     private const val AUTO_HEIGHT = 1080
     private const val METERED_HEIGHT = 480
     private const val KEY_QUALITY = "quality"
+
+    /** The same as the audio's: googlevideo's ways of refusing a URL. */
+    private val REFUSAL_CODES = setOf(403, 404, 410)
+
+    /** How many refused clients a picture is worth before it's given up — the audio's three. */
+    private const val MAX_REFUSED_CLIENTS = 3
+
+    /**
+     * What the plain ask fails with when the age gate is why: InnerTubeX names
+     * the gate only when no client answered at all, and otherwise reports the
+     * clients that answered without a picture as no playable stream.
+     */
+    private val ESCALATED_REASONS = setOf(
+        StreamResolveException.Reason.AGE_RESTRICTED,
+        StreamResolveException.Reason.NO_PLAYABLE_STREAM,
+    )
 }
 
 /**

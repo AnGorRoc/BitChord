@@ -35,6 +35,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -45,6 +46,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.foundation.gestures.ScrollableState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.ui.AppUi
@@ -62,6 +64,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.BlendMode
 import com.music.bitchord.ui.components.libraryGrid
+import com.music.bitchord.ui.components.MOTION_FRAME_GAP_MS
 import com.music.bitchord.ui.components.LIBRARY_GRID_SPACING
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -306,7 +309,7 @@ private fun TopPickCard(
             }
             TopPickKind.ARTIST_AND_SIMILAR -> {
                 val palette = collagePalette(pick.artistName.orEmpty())
-                ArtistCollageArt(pick.images, palette, Modifier.fillMaxSize(), motion = pick.artistMotion())
+                ArtistCollageArt(pick.images, palette, Modifier.fillMaxSize())
                 eyebrowColor = palette.eyebrow
                 branded = true
             }
@@ -498,8 +501,8 @@ private fun TopPick.artistMotion(): CardMotionSource? {
  *
  * Held back with the pictures ([LocalArtworkImages]) so a cold start's feed
  * doesn't wait on it, paused through a scroll ([LocalArtworkScrolling]), and
- * let go of entirely ([LocalArtworkMotion]) while Home isn't being looked at.
- * Only the card holding the row's [ClipSlot] plays; the others keep their
+ * paused and then let go of ([LocalArtworkMotion]) while Home isn't being looked
+ * at. Only the card holding the row's [ClipSlot] plays; the others keep their
  * stills.
  */
 @Composable
@@ -521,23 +524,58 @@ private fun CardMotion(
         onDispose { reportFound?.invoke(false) }
     }
     val canvas = clip ?: return
-    // Leaving composition releases the clip's player and its decoder, which a
-    // pause keeps hold of — worth it while the player is up, which wants one of
-    // its own. The still under it comes back as it goes.
-    if (!LocalArtworkMotion.current || slot?.mayPlay == false) return
-    // Only paused for a scroll: one that's over in a second isn't worth
+    val motion = LocalArtworkMotion.current
+    val mayPlay = slot?.mayPlay != false
+    val scrolling = LocalArtworkScrolling.current
+    // Whether the clip's player exists at all. Building one blocks the main
+    // thread and tearing one down takes its surface with it, so neither may
+    // land on a frame anything is moving on: not mid-fling as the row scrolls
+    // back into view, not on the first frame of Now Playing rising, and not on
+    // the frame it lands back on the mini player. The still under it comes back
+    // as it goes.
+    var mounted by remember { mutableStateOf(false) }
+    LaunchedEffect(motion, mayPlay, scrolling) {
+        when {
+            // The row has handed the slot on, and it does that only at rest.
+            !mayPlay -> mounted = false
+            motion -> if (!mounted) {
+                delay(CLIP_START_DELAY_MS)
+                snapshotFlow { scrolling() }.first { !it }
+                mounted = true
+            }
+            else -> {
+                delay(CLIP_RELEASE_DELAY_MS)
+                mounted = false
+            }
+        }
+    }
+    if (!mounted) return
+    // Only paused for a scroll or for Now Playing passing over: neither is worth
     // fetching, decoding and fading the clip back in for. Read here, so it is
     // this card alone that recomposes as a scroll starts and ends.
-    val scrolling = LocalArtworkScrolling.current
     CanvasArtworkPlayer(
         canvas = canvas,
         isPlaying = true,
         modifier = modifier,
         bottomFade = bottomFade,
         onCoverChanged = onCover,
-        pausedForTransition = scrolling(),
+        pausedForTransition = !motion || scrolling(),
     )
 }
+
+/**
+ * How long a card waits, once nothing stands in its clip's way, to build its
+ * player: long enough for a player closing or a page settling to be finished.
+ */
+private const val CLIP_START_DELAY_MS = 400L
+
+/**
+ * How long a clip stays paused and mounted once the page stops being looked at
+ * before its player and decoder are let go: past the whole of Now Playing's
+ * slide, so the release lands under an opaque player, and so a quick look at
+ * the player and back keeps the clip.
+ */
+private const val CLIP_RELEASE_DELAY_MS = 1_000L
 
 /** The cover size the backdrop is cut from: it ends up 48px wide, so a small copy is plenty. */
 private const val BACKDROP_SOURCE_PX = 160
@@ -638,10 +676,25 @@ private fun loopPhase(periodMs: Int): State<Float> {
                 }
                 last = now
             }
+            // A nine-second breath doesn't need every vsync, and each frame of
+            // it redraws the page under the glass — see MOTION_FRAME_GAP_MS.
+            delay(MOTION_FRAME_GAP_MS)
         }
     }
     return phase
 }
+
+/**
+ * Keeps a card's drawn artwork as a finished picture between its own frames.
+ *
+ * With its loop held still for a scroll or for Now Playing passing over, a card
+ * still has to be put back on screen on every frame of that movement, and once
+ * more for each blur sampling the page. Drawn outright, that was every one of
+ * the card's stacked gradient paths each time, for a picture that hadn't
+ * changed. As a layer it is one texture, and a frame of the loop itself redraws
+ * this canvas without re-recording the card around it.
+ */
+private val RetainedArt = Modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
 
 private fun wave(phase: Float, offset: Float): Float = sin(2f * PI.toFloat() * (phase + offset))
 
@@ -697,7 +750,7 @@ private fun PersonalStationArt(modifier: Modifier) {
             )
         }
     }
-    Canvas(modifier) {
+    Canvas(modifier.then(RetainedArt)) {
         val w = size.width
         val h = size.height
         val cached = brushes.get(size)
@@ -761,7 +814,7 @@ private fun DiscoveryStationArt(modifier: Modifier) {
             )
         }
     }
-    Canvas(modifier) {
+    Canvas(modifier.then(RetainedArt)) {
         val w = size.width
         val h = size.height
         val cached = brushes.get(size)
@@ -927,10 +980,19 @@ private class Frame(val left: Float, val top: Float, val side: Float) {
  * above the caption.
  */
 @Composable
-private fun MoodArt(mood: TopPickMood, style: MoodStyle, modifier: Modifier, square: Boolean = false) {
-    val phase by loopPhase(style.periodMs)
+private fun MoodArt(
+    mood: TopPickMood,
+    style: MoodStyle,
+    modifier: Modifier,
+    square: Boolean = false,
+    /** Drawn at rest — see [stillPhase] — and never asks for a frame. */
+    still: Boolean = false,
+) {
+    // Read only in the draw below, so a frame of the loop redraws this canvas
+    // and recomposes nothing.
+    val loop = if (still) null else loopPhase(style.periodMs)
     val cache = remember(mood) { EmblemCache() }
-    Canvas(modifier) {
+    Canvas(if (still) modifier else modifier.then(RetainedArt)) {
         drawRect(style.background)
         val w = size.width
         val h = size.height
@@ -944,8 +1006,21 @@ private fun MoodArt(mood: TopPickMood, style: MoodStyle, modifier: Modifier, squ
             Frame(left = (w - side) / 2f, top = h * 0.37f - side / 2f, side = side)
         }
         val stroke = cache.stroke((if (square) 2.dp else 2.5.dp).toPx())
-        drawEmblem(mood, f, phase, style.stroke, stroke, cache)
+        drawEmblem(mood, f, loop?.value ?: mood.stillPhase(), style.stroke, stroke, cache)
     }
+}
+
+/**
+ * Where in its loop a mood's emblem is drawn when it holds still: its start,
+ * where nearly every one is whole and at rest, but for the two that are only
+ * part-way drawn there.
+ */
+private fun TopPickMood.stillPhase(): Float = when (this) {
+    // The pulse partway along the trace, rather than not yet set out.
+    TopPickMood.FITNESS -> 0.55f
+    // A line half typed, with the cursor showing.
+    TopPickMood.WORK -> 0.6f
+    else -> 0f
 }
 
 private val TAU = 2f * PI.toFloat()
@@ -1479,15 +1554,13 @@ internal fun FindYourMoodShelf(onClick: (TopPickMood, String) -> Unit, onShowAll
     val rowState = rememberLazyListState()
     Column(Modifier.padding(bottom = 26.dp)) {
         SectionHeader(stringResource(Res.string.find_your_mood), onShowAll = onShowAll)
-        PausedWhileScrolling(rowState) {
-            ShelfRow(
-                contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                state = rowState,
-            ) {
-                items(TopPickMood.entries.filter { it.isCoreMood }, key = { it.name }) { mood ->
-                    MoodTile(mood, onClick, Modifier.width(SHELF_CARD_WIDTH))
-                }
+        ShelfRow(
+            contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            state = rowState,
+        ) {
+            items(TopPickMood.entries.filter { it.isCoreMood }, key = { it.name }) { mood ->
+                MoodTile(mood, onClick, Modifier.width(SHELF_CARD_WIDTH))
             }
         }
     }
@@ -1503,22 +1576,19 @@ fun MoodGridPage(
     onClick: (TopPickMood, String) -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
-    artworkMotion: Boolean = true,
-) = CompositionLocalProvider(LocalArtworkMotion provides artworkMotion) {
-    PausedWhileScrolling(gridState) {
-        BoxWithConstraints(modifier.fillMaxSize()) {
-            val grid = libraryGrid(maxWidth - PAGE_GUTTER * 2)
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(grid.columns),
-                state = gridState,
-                contentPadding = contentPadding,
-                horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-                modifier = Modifier.padding(horizontal = PAGE_GUTTER),
-            ) {
-                gridItems(TopPickMood.entries, key = { it.name }) { mood ->
-                    MoodTile(mood, onClick, Modifier.fillMaxWidth())
-                }
+) {
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val grid = libraryGrid(maxWidth - PAGE_GUTTER * 2)
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(grid.columns),
+            state = gridState,
+            contentPadding = contentPadding,
+            horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.padding(horizontal = PAGE_GUTTER),
+        ) {
+            gridItems(TopPickMood.entries, key = { it.name }) { mood ->
+                MoodTile(mood, onClick, Modifier.fillMaxWidth())
             }
         }
     }
@@ -1536,7 +1606,11 @@ private fun MoodTile(mood: TopPickMood, onClick: (TopPickMood, String) -> Unit, 
                 .clip(RoundedCornerShape(12.dp))
                 .thumbnailBorder(RoundedCornerShape(12.dp)),
         ) {
-            MoodArt(mood, mood.style(), Modifier.fillMaxSize(), square = true)
+            // Still. A shelf of tiles each breathing on its own loop kept the
+            // page under the glass bars redrawing — and the bars' blur with
+            // it — for as long as the shelf was in view; the motion is Top
+            // Picks' own, one card at a time.
+            MoodArt(mood, mood.style(), Modifier.fillMaxSize(), square = true, still = true)
             Icon(
                 painter = painterResource(Res.drawable.ic_logo),
                 contentDescription = null,
@@ -1577,15 +1651,17 @@ private fun collagePalette(name: String): CollagePalette = CollagePalettes[abs(n
 
 /**
  * The artist in a large circle, with up to two related artists in smaller
- * ones beneath it, on a colour that brightens toward the caption. The large
- * circle plays the artist's [motion] clip when Apple has one.
+ * ones beneath it, on a colour that brightens toward the caption.
+ *
+ * Still, unlike the single-artist photo card: an artist's clip is shot for a
+ * full portrait frame, and cut down to a circle among other faces it reads as
+ * a small moving tile rather than the artist.
  */
 @Composable
 private fun ArtistCollageArt(
     images: List<String>,
     palette: CollagePalette,
     modifier: Modifier,
-    motion: CardMotionSource? = null,
 ) {
     BoxWithConstraints(
         modifier.background(Brush.verticalGradient(listOf(palette.top, palette.bottom))),
@@ -1599,7 +1675,7 @@ private fun ArtistCollageArt(
             2 -> listOf(Triple(0.40f, 0.28f, 0.60f), Triple(0.72f, 0.52f, 0.36f))
             else -> listOf(Triple(0.37f, 0.257f, 0.594f), Triple(0.76f, 0.48f, 0.333f), Triple(0.457f, 0.608f, 0.29f))
         }
-        slots.zip(images).forEachIndexed { index, (slot, url) ->
+        slots.zip(images).forEach { (slot, url) ->
             val (cx, cy, d) = slot
             val diameter = w * d
             val circle = Modifier
@@ -1612,7 +1688,6 @@ private fun ArtistCollageArt(
                 contentScale = ContentScale.Crop,
                 modifier = circle.background(Color.Black.copy(alpha = 0.18f)),
             )
-            if (index == 0) CardMotion(motion, circle)
         }
     }
 }

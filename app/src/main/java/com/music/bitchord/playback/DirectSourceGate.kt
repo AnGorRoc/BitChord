@@ -1,10 +1,12 @@
 package com.music.bitchord.playback
 
+import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.SourceStream
+import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -33,9 +35,11 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * With it on, three things change:
  *
- *  1. **One resolve, one stream.** [lookup] asks the addons and the caller
- *     waits for the answer. YouTube is only the fallback when no addon has the
- *     track, and nothing swaps afterwards.
+ *  1. **One resolve, one stream, when an addon answers.** [lookup] asks the
+ *     addons and the caller waits for the answer, which then plays to the end.
+ *     YouTube is only the fallback when no addon answered in time, and then
+ *     the track is left to [QualityUpgrade] exactly as it is with this off —
+ *     see [startedOnYouTube].
  *  2. **Nothing is fetched early.** A track that is neither playing nor next
  *     within [WINDOW_MS] of its transition is held at the resolver — see
  *     [awaitOpen]. That covers ExoPlayer's own gapless preparation of the next
@@ -61,8 +65,12 @@ object DirectSourceGate {
      * How long playback waits for the addons before falling back to YouTube.
      *
      * Shorter than [WINDOW_MS] on purpose: a lookup started when the window
-     * opens is answered or given up with ten seconds still to go, which is
+     * opens is answered or given up on with ten seconds still to go, which is
      * time for the YouTube fallback to resolve and buffer before the blend.
+     *
+     * A limit on the wait, not on the lookup, which runs on until the addon
+     * client answers or gives up: a cold FLAC can take an addon longer than
+     * this to produce.
      */
     const val LOOKUP_TIMEOUT_MS = 15_000L
 
@@ -220,27 +228,58 @@ object DirectSourceGate {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    private val lookups = ConcurrentHashMap<String, Deferred<SourceStream?>>()
+    private class Lookup(val work: Deferred<SourceStream?>, val startedAtMs: Long)
+
+    private val lookups = ConcurrentHashMap<String, Lookup>()
 
     /**
      * The addon stream for [videoId], shared between whoever asks for it at
      * once. Read-ahead opening the window and the player's own resolve arrive
      * together, and should cost one search, not two.
      *
-     * Bounded by [LOOKUP_TIMEOUT_MS]. Null means no addon has it in time, and
-     * the caller falls back to YouTube.
+     * The wait is bounded by [LOOKUP_TIMEOUT_MS] from when the lookup started,
+     * however late the caller joined it. Null means no addon had it in time,
+     * and the caller falls back to YouTube and says so with [startedOnYouTube].
      */
     suspend fun lookup(videoId: String, target: TrackMatcher.Target): SourceStream? {
-        val fresh = scope.async(TrackLog.about(videoId), start = CoroutineStart.LAZY) {
-            withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { SourceResolver.directStream(target) }
-        }
+        val fresh = Lookup(
+            work = scope.async(TrackLog.about(videoId), start = CoroutineStart.LAZY) {
+                SourceResolver.directStream(target)
+            },
+            startedAtMs = android.os.SystemClock.elapsedRealtime(),
+        )
         val running = lookups.putIfAbsent(videoId, fresh)
         if (running != null) {
-            fresh.cancel()
-            return running.await()
+            fresh.work.cancel()
+        } else {
+            fresh.work.invokeOnCompletion { lookups.remove(videoId, fresh) }
+            fresh.work.start()
         }
-        fresh.invokeOnCompletion { lookups.remove(videoId, fresh) }
-        fresh.start()
-        return fresh.await()
+        val lookup = running ?: fresh
+        val waited = android.os.SystemClock.elapsedRealtime() - lookup.startedAtMs
+        return withTimeoutOrNull(LOOKUP_TIMEOUT_MS - waited) { lookup.work.await() }
+    }
+
+    /** The lookup for [videoId] if it is still going, past the point anyone waits for it. */
+    fun stillLooking(videoId: String): Deferred<SourceStream?>? = lookups[videoId]?.work
+
+    /**
+     * [videoId] is about to play from YouTube because the addons did not
+     * answer in time, so it gets the second look it would get with Direct
+     * Source Stream off. A lookup still running is handed over and swaps in
+     * when it lands; one that came back empty leaves the second look to search
+     * for itself.
+     *
+     * Called only once the YouTube URL is in hand, because that walk is what
+     * sets the bitrate a candidate has to beat.
+     */
+    fun startedOnYouTube(videoId: String, target: TrackMatcher.Target) {
+        val pending = QualityUpgrade.settledForLess(
+            mediaId = videoId,
+            target = target,
+            inFlight = stillLooking(videoId),
+            playing = NerdStats.pickedBitrateKbps(videoId)?.let { StreamFormat(kbps = it) },
+        )
+        if (!pending) NerdStats.onLosslessRaceEnd(videoId)
     }
 }
