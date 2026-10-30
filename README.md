@@ -30,6 +30,9 @@
 > [!IMPORTANT]
 > BitChord is not affiliated with, endorsed by, or connected to YouTube or Google in any way. Use it at your own discretion.
 
+> [!NOTE]
+> Este repositorio es un **fork** de [kushagrasinghx/BitChord](https://github.com/kushagrasinghx/BitChord) mantenido por [AnGorRoc](https://github.com/AnGorRoc/BitChord). Añade Hi-Res Lossless, descargas y caché Lossless, enlaces externos, sincronización con Spotify y más. La lista completa está en [FORK.md](FORK.md).
+
 ---
 
 <div align="center">
