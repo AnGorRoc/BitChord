@@ -509,39 +509,5 @@ object NerdStats {
         syncDrifts.clear()
     }
 
-    private val refusals = ConcurrentHashMap<String, Pair<String, Long>>()
-    private val backends = ConcurrentHashMap<String, String>()
-    const val REFUSAL_TTL_MS = 15 * 60 * 1000L
-
-    fun noteRefusal(host: String?, message: String?) {
-        if (host.isNullOrBlank() || message.isNullOrBlank()) return
-        if (refusals.size >= MAX_REMEMBERED) refusals.clear()
-        refusals[host.lowercase()] = message.take(160) to System.currentTimeMillis()
-    }
-
-    fun refusalFor(host: String?): String? {
-        if (host.isNullOrBlank()) return null
-        val (message, at) = refusals[host.lowercase()] ?: return null
-        if (System.currentTimeMillis() - at > REFUSAL_TTL_MS) {
-            refusals.remove(host.lowercase())
-            return null
-        }
-        return message
-    }
-
-    fun clearRefusals() {
-        refusals.clear()
-    }
-
-    fun clearRefusalsForTests() {
-        clearRefusals()
-    }
-
-    fun backendFor(mediaId: String?): String? {
-        val key = mediaId ?: return null
-        return backends[key]
-            ?: SourceTrackKeys.parse(key)?.second?.let { backends[it] }
-    }
-
     private const val MAX_REMEMBERED = 64
 }

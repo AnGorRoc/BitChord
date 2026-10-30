@@ -1,6 +1,5 @@
 package com.music.bitchord.data.tidal
 
-import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.TrackLog
 import java.io.IOException
@@ -46,13 +45,6 @@ object TidalApi {
         ignoreUnknownKeys = true
         explicitNulls = false
         coerceInputValues = true
-    }
-
-    private val quickClient by lazy {
-        Http.client.newBuilder()
-            .callTimeout(10, TimeUnit.SECONDS)
-            .connectTimeout(6, TimeUnit.SECONDS)
-            .build()
     }
 
     /** Health probes only: a dead volunteer must fail in seconds, not timeouts. */
@@ -158,9 +150,6 @@ object TidalApi {
         val mimeType: String?,
     )
 
-    /** Refused: reachable, but not a hifi-api instance (or not v2). */
-    class Incompatible(message: String) : IOException(message)
-
     /** The instance root, normalised — scheme + host, no trailing slash. */
     fun normalize(raw: String): String? {
         val trimmed = raw.trim().trimEnd('/')
@@ -192,16 +181,6 @@ object TidalApi {
     suspend fun probe(base: String): String? = withContext(Dispatchers.IO) {
         val body = get("$base/", probeClient)
         parseVersion(body)
-    }
-
-    /**
-     * Best-effort probe for identification: any failure reads as "not
-     * Tidal". Tracks protocol first (the live standard), hifi-api v2 after.
-     */
-    suspend fun probeBestEffort(rawUrl: String): String? {
-        val base = normalize(rawUrl) ?: return null
-        if (runCatching { searchTracks(base, "a", 1) }.getOrNull() != null) return "tracks"
-        return runCatching { probe(base) }.getOrNull()
     }
 
     fun parseSearch(body: String): List<TidalTrack> {

@@ -147,7 +147,7 @@ class TidalSource(
             TrackLog.d(TAG, "  ✓ tidal direct ${url.take(96)}")
             return SourceStream(
                 url = url,
-                format = com.music.bitchord.data.sources.StreamFormat(codec = "flac"),
+                format = StreamFormat(codec = "flac"),
             )
         }
         val tiers = when (request) {
@@ -174,7 +174,7 @@ class TidalSource(
             TrackLog.d(TAG, "  ✓ tidal ${answer.quality.ifBlank { "FLAC" }} ${answer.url.take(96)}")
             return SourceStream(
                 url = answer.url,
-                format = com.music.bitchord.data.sources.StreamFormat(codec = codec),
+                format = StreamFormat(codec = codec),
                 belowRequest = request is StreamRequest.Lossless &&
                     answer.quality.isNotBlank() &&
                     answer.quality != TidalApi.HI_RES,

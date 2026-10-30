@@ -13,8 +13,6 @@ import com.music.bitchord.data.sources.addon.AddonClient
 import com.music.bitchord.data.sources.addon.AddonException
 import com.music.bitchord.data.sources.addon.DetectedFormat
 import com.music.bitchord.data.sources.addon.SourceFormats
-import com.music.bitchord.data.tidal.TidalApi
-import com.music.bitchord.data.tidal.TidalInstances
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.playback.audio.LosslessOutput
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,7 +74,6 @@ data class SourceConfig(
     val displayName: String
         get() {
             if (kind == SourceKind.TIDAL) return SourceRegistry.TIDAL_DISPLAY_NAME
-            if (kind == SourceKind.HIRES) return SourceRegistry.HIRES_DISPLAY_NAME
             return label.ifBlank {
                 baseUrl.takeIf { it.isNotBlank() }
                     ?.let { runCatching { Uri.parse(it).host }.getOrNull() }
@@ -91,17 +88,19 @@ data class SourceConfig(
 
 /**
  * The user's sources, always tried in the fixed order [SourceKind] declares:
- * their own addons first, then Monochrome, then JioSaavn, then YouTube Music.
+ * their own addons first, then Hi-Res Lossless, then JioSaavn, then YouTube
+ * Music.
  *
  * The built-in kinds are seeded on first run (and on the first launch of a
  * build that adds one) and cannot be deleted, only disabled — they need no
  * configuration, so a "remove" would delete something the user could not then
  * re-create by typing anything in, it would just be a switch that hides
  * itself. Addons are entirely optional: with none configured, YouTube is the
- * only active source on a fresh install. Monochrome (FLAC, from an unofficial
- * service) and JioSaavn (catalogue matches that can pick the wrong recording)
- * are present but off until the user accepts what each one costs. Every other
- * source, Hi-Res Lossless included, also starts off until the user turns it on.
+ * only active source on a fresh install. JioSaavn (catalogue matches that can
+ * pick the wrong recording) and a legacy Monochrome config (FLAC, from an
+ * unofficial service) stay off until the user accepts what each one costs.
+ * Every other source, Hi-Res Lossless included, also starts off until the user
+ * turns it on.
  */
 object SourceRegistry {
 
@@ -178,7 +177,7 @@ object SourceRegistry {
         // The retired built-in module is removed, while a custom module entered
         // by the user is preserved.
         return seeded
-            .filterNot { it.kind == SourceKind.MODULE || it.kind == SourceKind.HIRES }
+            .filterNot { it.kind == SourceKind.MODULE }
             .map { config ->
                 when {
                     config.kind == SourceKind.YOUTUBE && !config.enabled -> config.copy(enabled = true)
@@ -277,7 +276,7 @@ object SourceRegistry {
 
     fun permitsForPlayback(
         configId: String?,
-        ceiling: com.music.bitchord.data.settings.AudioQuality = AppSettings.effectiveAudioQuality,
+        ceiling: AudioQuality = AppSettings.effectiveAudioQuality,
     ): Boolean {
         val kind = configId?.let { config(it)?.kind } ?: return true
         return ceiling.permits(kind)
@@ -418,19 +417,6 @@ object SourceRegistry {
      * its on/off state; a new source gets a fresh config.
      */
     suspend fun identify(url: String, existing: SourceConfig? = null): Result<SourceConfig> {
-        TidalApi.probeBestEffort(url)?.let { version ->
-            val base = TidalApi.normalize(url) ?: url.trim().trimEnd('/')
-            val host = runCatching { android.net.Uri.parse(base).host }.getOrNull()
-            return Result.success(
-                (existing ?: SourceConfig(kind = SourceKind.TIDAL)).copy(
-                    kind = SourceKind.TIDAL,
-                    baseUrl = base,
-                    label = existing?.label.orEmpty().ifBlank {
-                        host?.takeIf { it.isNotBlank() } ?: SourceKind.TIDAL.label
-                    },
-                ),
-            )
-        }
         val detected = SourceFormats.identify(url).getOrElse { return Result.failure(it) }
         return when (detected) {
             is DetectedFormat.Addon -> Result.success(
@@ -511,7 +497,6 @@ object SourceRegistry {
         SourceKind.MODULE -> ModuleSource(config)
         SourceKind.MONOCHROME -> MonochromeSource(config, unknownArtist = { unknownArtist() })
         SourceKind.TIDAL -> TidalSource(config)
-        SourceKind.HIRES -> HiresDirectSource(config)
         SourceKind.JIOSAAVN -> JioSaavnSource(config)
         SourceKind.YOUTUBE -> YouTubeSource(config)
     }
@@ -560,7 +545,6 @@ object SourceRegistry {
     private val BUILT_IN_KINDS = listOf(SourceKind.TIDAL, SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
 
     const val TIDAL_DISPLAY_NAME = "Hi-Res Lossless"
-    const val HIRES_DISPLAY_NAME = "BitChord Hi-Res Lossless Addon" 
 
     private const val KEY_SOURCES = "sources"
     /** One-shot migration: existing users must explicitly opt in again. */

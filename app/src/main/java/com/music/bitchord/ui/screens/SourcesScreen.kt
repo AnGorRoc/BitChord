@@ -266,7 +266,7 @@ fun SourcesScreen(
                         if (active != null) {
                             SourceHealth.Ok("${active.label} (${active.pingMs} ms)")
                         } else if (tidalRatings.isNotEmpty()) {
-                            SourceHealth.Unreachable("Sin respuesta")
+                            SourceHealth.Unreachable(stringResource(R.string.tidal_no_answer))
                         } else {
                             health[config.id]
                         }
@@ -369,7 +369,7 @@ fun SourcesScreen(
                                 } else {
                                     Icon(
                                         imageVector = Icons.Rounded.Refresh,
-                                        contentDescription = "Refresh",
+                                        contentDescription = stringResource(R.string.tidal_providers_refresh),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(16.dp),
                                     )
@@ -1000,7 +1000,6 @@ private fun SourceRow(
                 SourceKind.MODULE -> Icons.Rounded.Extension
                 SourceKind.MONOCHROME -> Icons.Rounded.HighQuality
                 SourceKind.TIDAL -> Icons.Rounded.HighQuality
-                SourceKind.HIRES -> Icons.Rounded.HighQuality
                 SourceKind.JIOSAAVN -> Icons.Rounded.GraphicEq
                 SourceKind.YOUTUBE -> Icons.Rounded.PlayCircle
             },

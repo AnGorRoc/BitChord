@@ -5,8 +5,8 @@ package com.music.bitchord.data.sources
  *
  * Fixed and small on purpose. **[rank] is the order sources are tried** — see
  * `SourceRegistry.active()`, which sorts on it — so the sources a user added
- * come first, then Monochrome (and the legacy built-in module kind), then
- * JioSaavn, then YouTube Music. Adding a source means adding a [MusicSource]
+ * come first, then the lossless providers (Hi-Res Lossless, and the legacy
+ * Monochrome and module kinds), then JioSaavn, then YouTube Music. Adding a source means adding a [MusicSource]
  * implementation and an entry here, which is the point — every protocol the
  * app speaks is one someone can read in this repo, and a source can't teach
  * the app a new way to behave after it ships.
@@ -133,21 +133,17 @@ enum class SourceKind(
     ),
 
     /**
-     * Monochrome's track streamer: the catalogue searched by title and artist,
-     * each track served as one FLAC file with byte ranges. No account, no
-     * challenge and no DRM, so it ships on rather than waiting to be set up.
+     * Hi-Res Lossless: genuine lossless FLAC from a pool of community
+     * providers, ranked by latency and failed over automatically — see
+     * [TidalInstances][com.music.bitchord.data.tidal.TidalInstances]. No account
+     * and no key, so it needs no address of its own, and like every built-in it
+     * starts switched off.
      *
      * Ranked behind the sources a user added on purpose and ahead of everything
      * lossy, which is the whole point of having it: a track it holds plays
-     * bit-exact instead of as YouTube's Opus. It shares rank 1 with [MODULE],
-     * which [SourceRegistry.init] drops on every launch, so the two never meet.
-     *
-     * Only asked when the connection's ceiling is Lossless — see
-     * [AudioQuality.permits][com.music.bitchord.data.settings.permits] — and
-     * never listed in search; see [showsInSearch].
-     */
-    /**
-     * Genuine lossless FLAC via community Tidal Hi-Fi instances with automatic failover.
+     * bit-exact instead of as YouTube's Opus. Only asked when the connection's
+     * ceiling is Lossless — see
+     * [AudioQuality.permits][com.music.bitchord.data.settings.permits].
      */
     TIDAL(
         label = "Hi-Res Lossless",
@@ -159,17 +155,14 @@ enum class SourceKind(
     ),
 
     /**
-     * Direct Hi-Res FLAC files, verified and measured.
+     * Monochrome's track streamer on its own: the catalogue searched by title
+     * and artist, each track served as one FLAC file with byte ranges.
+     *
+     * Legacy, and no longer seeded: [TIDAL] reaches the same streamer through
+     * its provider pool. Kept so a config an earlier build stored keeps
+     * working, still behind its opt-in warning, and never listed in search; see
+     * [showsInSearch]. It shares rank 1 with [TIDAL].
      */
-    HIRES(
-        label = "Hi-Res Lossless",
-        labels = listOf("FLAC", "Lossless", "Hi-Res"),
-        needsServer = false,
-        canServeLossless = true,
-        worthPrefetching = true,
-        rank = 1,
-    ),
-
     MONOCHROME(
         label = "Monochrome",
         // What the file's own header states, nothing more: "Hi-Res" would claim
