@@ -562,8 +562,22 @@ fun <T : Any> IosMenuPopover(
             val p = progress.value
             alpha = (p * 2.5f).coerceIn(0f, 1f)
             if (!reduceMotion) {
-                transformOrigin = TransformOrigin(1f, if (hangsDown) 0f else 1f)
-                val scale = lerp(0.3f, 1f, p)
+                // Out of the ⋮ it hangs off: the panel starts at the button's
+                // own width and pivots on the button's centre, so it opens up
+                // from the button rather than from a corner of its own. With
+                // no button to hang off, it grows from the corner as it did.
+                val from = anchorBounds
+                val scale: Float
+                if (from != null) {
+                    transformOrigin = TransformOrigin(
+                        (from.center.x - panelX) / panel.width,
+                        (from.center.y - panelY) / panel.height,
+                    )
+                    scale = lerp((from.width / panel.width).coerceIn(0.1f, 0.3f), 1f, p)
+                } else {
+                    transformOrigin = TransformOrigin(1f, if (hangsDown) 0f else 1f)
+                    scale = lerp(0.3f, 1f, p)
+                }
                 scaleX = scale
                 scaleY = scale
             }
