@@ -32,7 +32,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -41,7 +40,6 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Login
 import androidx.compose.material.icons.rounded.Logout
 import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -57,20 +55,17 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -83,7 +78,6 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -102,6 +96,8 @@ import com.music.bitchord.BuildConfig
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 internal fun ServerUrlError.toMessageRes(): Int = when (this) {
     ServerUrlError.Whitespace -> R.string.listen_together_err_whitespace
@@ -640,51 +636,6 @@ fun ListenTogetherScreen(
 }
 
 /**
- * Whether the party server is answering, before anything else on the screen.
- *
- * Every other failure in this feature looks the same from the outside — a code
- * that will not create, a join that sits there — and most of the time the
- * answer is simply that the server is asleep or unreachable. Saying so up front
- * is the difference between a feature that looks broken and one that is waiting.
- *
- * Deliberately says nothing about *where* the server is. The address this build
- * uses is not shown here, on the row below, or in any log — see
- * [ListenTogether.customServerUrl].
- */
-@Composable
-private fun ServerHealthRow(
-    status: ListenTogether.ServerStatus,
-    onRecheck: () -> Unit,
-) {
-    SettingsGroup {
-        SettingsRow(
-            icon = when (status.health) {
-                ListenTogether.Health.ONLINE -> Icons.Rounded.CloudDone
-                ListenTogether.Health.OFFLINE -> Icons.Rounded.CloudOff
-                else -> Icons.Rounded.Cloud
-            },
-            title = stringResource(R.string.listen_together_server),
-            subtitle = when (status.health) {
-                ListenTogether.Health.ONLINE ->
-                    if (status.isFallback) {
-                        stringResource(R.string.listen_together_server_online_fallback, status.latencyMs)
-                    } else {
-                        stringResource(R.string.listen_together_server_online, status.latencyMs)
-                    }
-                ListenTogether.Health.OFFLINE ->
-                    stringResource(R.string.listen_together_server_offline)
-                ListenTogether.Health.CHECKING ->
-                    stringResource(R.string.listen_together_server_checking)
-                ListenTogether.Health.UNKNOWN ->
-                    stringResource(R.string.listen_together_server_unknown)
-            },
-            trailing = if (status.health == ListenTogether.Health.CHECKING) ({ Spinner() }) else null,
-            onClick = onRecheck,
-        )
-    }
-}
-
-/**
  * Whether the address that was typed is actually answering.
  *
  * Under the address rather than in a toast, because the interesting case is the
@@ -1051,30 +1002,6 @@ private fun connectionLine(state: ListenTogether.State): String = when {
     // saying so is more use than a spinner.
     !state.clockSynced -> stringResource(R.string.listen_together_syncing_clock)
     else -> stringResource(R.string.listen_together_in_sync, state.roundTripMs)
-}
-
-/**
- * This device's own party picture, drawn in the slot the rows around it give
- * their glyphs — so the field beside it starts on the same line as every other
- * field on the screen.
- */
-@Composable
-private fun PartyAvatar(url: String?, size: Dp = ICON_SIZE) {
-    if (url != null) {
-        AsyncImage(
-            model = url,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.size(size).clip(CircleShape),
-        )
-    } else {
-        Icon(
-            Icons.Rounded.Person,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.size(size),
-        )
-    }
 }
 
 @Composable

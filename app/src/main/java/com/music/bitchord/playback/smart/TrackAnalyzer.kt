@@ -241,9 +241,6 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         }
     }
 
-    /** True once [trackId] has a result, including a failure. Nothing more will arrive. */
-    fun isAnalysed(trackId: String): Boolean = results.containsKey(trackId)
-
     /**
      * True while a decode and inference for [trackId] is actually in flight.
      *

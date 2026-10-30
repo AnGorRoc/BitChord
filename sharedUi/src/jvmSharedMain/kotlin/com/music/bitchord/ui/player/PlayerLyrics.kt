@@ -64,7 +64,6 @@ import androidx.compose.runtime.MutableLongState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -72,7 +71,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.runtime.snapshots.Snapshot
@@ -151,6 +149,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 
 /** Returns true if any character in [text] belongs to a BMP RTL script. */
@@ -169,12 +169,6 @@ private fun isRtl(text: String): Boolean {
         }
     }
     return rtlCount > ltrCount
-}
-
-/** Returns the text direction for [text]: LTR by default, RTL when detected. */
-private fun textDirectionFor(text: String): androidx.compose.ui.text.style.TextDirection {
-    return if (isRtl(text)) androidx.compose.ui.text.style.TextDirection.Rtl
-    else androidx.compose.ui.text.style.TextDirection.Ltr
 }
 
 /** Whether [text] carries Arabic-script letters (Persian, Arabic, Urdu…). */

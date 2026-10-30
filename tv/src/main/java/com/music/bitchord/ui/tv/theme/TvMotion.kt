@@ -1,11 +1,7 @@
 package com.music.bitchord.ui.tv.theme
 
-import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.SpringSpec
-import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Immutable
 
 /**
@@ -51,13 +47,3 @@ fun <T> appleSpring(
     visibilityThreshold = visibilityThreshold,
 )
 
-/**
- * Creates an Apple-spec tween animation spec.
- */
-fun <T> appleTween(
-    duration: AppleDuration = AppleDuration.Normal,
-    easing: Easing = FastOutSlowInEasing,
-): TweenSpec<T> = tween(
-    durationMillis = duration.millis,
-    easing = easing,
-)

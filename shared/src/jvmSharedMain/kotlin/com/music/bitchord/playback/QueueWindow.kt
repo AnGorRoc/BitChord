@@ -246,7 +246,6 @@ class QueueWindow(
             return restored
         }
 
-        fun fromSnapshot(snapshot: QueueWindowSnapshot): QueueWindow = restore(snapshot)
     }
 
     /** Add canonical indices [canonicalN, newCanonicalSize) without rebuilding old order. */
@@ -345,9 +344,6 @@ class QueueWindow(
         repeatAll: Boolean = false,
     ): List<QueueWindowEntry> = upcoming(count, repeatAll)
 
-    /** Number of entries currently available to [upcoming] without changing state. */
-    fun upcomingCount(repeatAll: Boolean = false): Int = upcoming(WINDOW_AHEAD, repeatAll).size
-
     /**
      * Automatic forward traversal.  Shuffle mode scans for the next unconsumed item; explicit
      * navigation may have moved the cursor backwards, so this is deliberately not just cursor + 1.
@@ -374,9 +370,6 @@ class QueueWindow(
 
     /** Short alias for automatic player-driven advancement. */
     fun advance(repeatAll: Boolean = false): QueueWindowEntry? = advanceAutomatically(repeatAll)
-
-    /** Alias used by integrations that name the operation after the player event. */
-    fun nextAutomatic(repeatAll: Boolean = false): QueueWindowEntry? = advanceAutomatically(repeatAll)
 
     /**
      * Explicit Next.  It follows the stable logical order even when the target was consumed; an

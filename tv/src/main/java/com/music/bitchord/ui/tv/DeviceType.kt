@@ -1,6 +1,5 @@
 package com.music.bitchord.ui.tv
 
-import android.app.ActivityManager
 import android.app.UiModeManager
 import android.content.Context
 import android.content.pm.PackageManager
@@ -30,26 +29,4 @@ object DeviceType {
                 pm.hasSystemFeature("android.hardware.type.television")
     }
 
-    /**
-     * Returns true if the device has a physical touchscreen.
-     */
-    fun hasTouchScreen(context: Context): Boolean {
-        return context.packageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)
-    }
-
-    /**
-     * Returns true if the device is a memory-constrained (low-RAM) device.
-     * Used to throttle mesh gradient blur, video canvas playback, and cache sizes.
-     */
-    fun isLowRam(context: Context): Boolean {
-        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false
-        return am.isLowRamDevice
-    }
-
-    /**
-     * Returns true if the device has a working microphone hardware feature.
-     */
-    fun hasMicrophone(context: Context): Boolean {
-        return context.packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)
-    }
 }

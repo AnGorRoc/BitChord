@@ -22,24 +22,6 @@ object ReplayGainReader {
             size > MAX_CACHED_FILES
     }
 
-    suspend fun readGainDb(
-        context: Context,
-        song: Song,
-        useAlbumGain: Boolean,
-        preampDb: Float,
-        preventClipping: Boolean,
-    ): Float = withContext(Dispatchers.IO) {
-        runCatching {
-            val properties = readProperties(context, song)
-            if (ReplayGainValues.hasGainTags(properties)) {
-                ReplayGainValues.calculateDb(properties, useAlbumGain, preampDb, preventClipping)
-            } else {
-                val scanProperties = ReplayGainScanner.cachedProperties(context, song).orEmpty()
-                ReplayGainValues.calculateDb(scanProperties, useAlbumGain, preampDb, preventClipping)
-            }
-        }.getOrDefault(0f)
-    }
-
     suspend fun hasReplayGainTags(context: Context, song: Song): Boolean =
         ReplayGainValues.hasGainTags(readProperties(context, song))
 

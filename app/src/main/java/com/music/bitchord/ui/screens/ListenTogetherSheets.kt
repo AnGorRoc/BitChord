@@ -32,7 +32,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -54,6 +53,7 @@ import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.listentogether.PartyPreview
 import com.music.bitchord.ui.components.PillTextField
 import com.music.bitchord.ui.components.QrCode
+import androidx.compose.runtime.getValue
 
 /**
  * Which of the party sheets is up, if any.
@@ -727,6 +727,3 @@ internal fun InviteSheet(
     }
 }
 
-/** @see ListenTogether.myAvatarUrl */
-@Composable
-internal fun rememberMyAvatar(): String? = ListenTogether.myAvatarUrl()

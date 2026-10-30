@@ -1,7 +1,6 @@
 package com.music.bitchord.playback
 
 import android.net.Uri
-import android.util.Log
 import com.music.bitchord.data.MonotonicClock
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.NerdStats
@@ -344,16 +343,6 @@ object QualityUpgrade {
      * and thrown away again at every retry.
      */
     private val unalignedUntil = ConcurrentHashMap<String, Long>()
-
-    /** Leaves [mediaId] alone for [UNALIGNED_HOLD_MS]; see [unalignedUntil]. */
-    fun holdUnaligned(mediaId: String) {
-        if (unalignedUntil.size >= MAX_UNALIGNED) {
-            val at = MonotonicClock.nowMs()
-            unalignedUntil.entries.removeIf { it.value <= at }
-            if (unalignedUntil.size >= MAX_UNALIGNED) unalignedUntil.clear()
-        }
-        unalignedUntil[mediaId] = MonotonicClock.nowMs() + UNALIGNED_HOLD_MS
-    }
 
     /**
      * An upgrade that was found but refused on its way to the listener — the

@@ -67,9 +67,6 @@ object WebDavConfig {
 
     fun isWebDavId(videoId: String): Boolean = videoId.startsWith("webdav:")
 
-    fun fileUrlOf(videoId: String): String? =
-        videoId.removePrefix("webdav:").takeIf { isWebDavId(videoId) && it.startsWith("http") }
-
     /**
      * A row for a remote file. Title/artist come from the filename —
      * "Artist - Title.ext" splits, anything else is a title by an unknown

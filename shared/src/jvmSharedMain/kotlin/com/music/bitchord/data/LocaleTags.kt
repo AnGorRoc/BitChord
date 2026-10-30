@@ -43,9 +43,6 @@ object LocaleTags {
         }
     }
 
-    /** Full tag for the current device/app locale, script-preserving. */
-    fun systemTag(): String = normalizeAppTag(Locale.getDefault().toLanguageTag())
-
     /** What YouTube Music wants as `hl` / Innertube context hl. */
     fun ytHl(appTag: String): String {
         val norm = normalizeAppTag(appTag)
@@ -93,21 +90,6 @@ object LocaleTags {
             ZH_HANS -> ZH_CN_WIRE
             else -> t.ifBlank { "en" }
         }
-    }
-
-    /** Script-aware equality: zh-Hant != zh-Hans != zh, unlike base-language compare. */
-    fun sameLanguageScriptAware(first: String, second: String): Boolean {
-        fun canon(tag: String): String {
-            val t = tag.trim().replace('_', '-')
-            val lower = t.lowercase(Locale.ROOT)
-            if (lower.startsWith("zh")) {
-                if ("tw" in lower || "hant" in lower || "hk" in lower || "mo" in lower) return "zh-hant"
-                if ("cn" in lower || "hans" in lower || "sg" in lower) return "zh-hans"
-                return "zh"
-            }
-            return Locale.forLanguageTag(t).language.lowercase(Locale.ROOT).ifBlank { lower.substringBefore('-') }
-        }
-        return canon(first) == canon(second)
     }
 
     fun isChineseTag(tag: String): Boolean =

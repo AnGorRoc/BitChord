@@ -256,20 +256,6 @@ object QueueTimeline {
         }
     }
 
-    /** Indices of the upcoming USER_QUEUE rows — what "Clear" removes. Context and AutoPlay stay. */
-    fun upcomingUserQueueIndices(tiers: List<QueueTier>, currentIndex: Int): List<Int> =
-        ((currentIndex + 1).coerceAtLeast(0) until tiers.size).filter { tiers[it] == QueueTier.USER_QUEUE }
-
-    /**
-     * Indices of played USER_QUEUE rows to prune once playback has moved into CONTEXT, so repeat-all
-     * only cycles the context. Empty while a hand-queued track (or AutoPlay) is the one playing.
-     */
-    fun playedUserQueueIndices(tiers: List<QueueTier>, currentIndex: Int): List<Int> {
-        if (currentIndex !in tiers.indices || currentIndex == 0) return emptyList()
-        if (tiers[currentIndex] != QueueTier.CONTEXT) return emptyList()
-        return (0 until currentIndex).filter { tiers[it] == QueueTier.USER_QUEUE }
-    }
-
     /**
      * The order a queue goes in when it is started while shuffle is on: the picked track leads, the
      * listener's own queue stays pinned in order behind it, and the context and AutoPlay sections are
@@ -284,27 +270,6 @@ object QueueTimeline {
             rest.filter { it.queueTier == QueueTier.CONTEXT }.shuffled() +
             rest.filter { it.queueTier == QueueTier.AUTOPLAY }.shuffled()
     }
-
-    /**
-     * Shuffle applied to what is still to come: USER_QUEUE is never shuffled, CONTEXT and AUTOPLAY
-     * are shuffled within their own sections. Returned as a permutation of indices into [upcoming].
-     */
-    fun shuffledUpcomingOrder(upcoming: List<QueueTier>): List<Int> {
-        val user = upcoming.indices.filter { upcoming[it] == QueueTier.USER_QUEUE }
-        val context = upcoming.indices.filter { upcoming[it] == QueueTier.CONTEXT }
-        val autoplay = upcoming.indices.filter { upcoming[it] == QueueTier.AUTOPLAY }
-        return user + avoidIdentityShuffle(context, context.shuffled()) +
-            avoidIdentityShuffle(autoplay, autoplay.shuffled())
-    }
-
-    /**
-     * A permutation that puts restored upcoming rows back in their sections — user queue, then
-     * context, then AutoPlay — keeping the order [restored] gave them within each.
-     */
-    fun sectionedOrder(restored: List<Int>, upcoming: List<QueueTier>): List<Int> =
-        restored.filter { upcoming[it] == QueueTier.USER_QUEUE } +
-            restored.filter { upcoming[it] == QueueTier.CONTEXT } +
-            restored.filter { upcoming[it] == QueueTier.AUTOPLAY }
 
     /**
      * Never returns a section's unchanged order when at least two tracks can move: an identity

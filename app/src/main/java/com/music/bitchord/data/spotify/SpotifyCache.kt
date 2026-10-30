@@ -14,7 +14,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
@@ -314,10 +313,6 @@ object SpotifyCache {
     fun putMatch(spotifyTrackId: String, song: Song) {
         if (song.isUnresolvedSpotify) return
         if (trackMatchMemoryCache.put(spotifyTrackId, song) != song) matchesDirty = true
-    }
-
-    fun putMatches(matches: Map<String, Song>) {
-        matches.forEach { (id, song) -> putMatch(id, song) }
     }
 
     /** The match table as written to disk, oldest first so a reload keeps the order of use. */

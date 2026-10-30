@@ -63,26 +63,10 @@ object TvSettings {
         if (this::prefs.isInitialized) prefs.edit().apply(edit).apply()
     }
 
-    fun setTvFontFamily(fontId: String) {
-        tvFontFamily.value = fontId
-        save { putString(KEY_TV_FONT, fontId) }
-    }
-
     fun setTvUiScale(scale: Float) {
         val clamped = scale.coerceIn(0.8f, 1.4f)
         tvUiScale.value = clamped
         save { putFloat(KEY_TV_UI_SCALE, clamped) }
-    }
-
-    fun setTvLiquidGlassEnabled(enabled: Boolean) {
-        tvLiquidGlassEnabled.value = enabled
-        save { putBoolean(KEY_TV_LIQUID_GLASS, enabled) }
-    }
-
-    fun setTvBlurIntensity(intensity: Float) {
-        val clamped = intensity.coerceIn(0.0f, 1.0f)
-        tvBlurIntensity.value = clamped
-        save { putFloat(KEY_TV_BLUR_INTENSITY, clamped) }
     }
 
     fun setTvLyricsCanvasEnabled(enabled: Boolean) {
@@ -90,29 +74,9 @@ object TvSettings {
         save { putBoolean(KEY_TV_LYRICS_CANVAS, enabled) }
     }
 
-    fun setTvVideoAuto1080p(enabled: Boolean) {
-        tvVideoAuto1080p.value = enabled
-        save { putBoolean(KEY_TV_VIDEO_AUTO_1080P, enabled) }
-    }
-
     fun setSpatialAudioEnabled(enabled: Boolean) {
         spatialAudioEnabled.value = enabled
         save { putBoolean(KEY_TV_SPATIAL_AUDIO, enabled) }
-    }
-
-    fun setSoundCheckEnabled(enabled: Boolean) {
-        soundCheckEnabled.value = enabled
-        save { putBoolean(KEY_SOUND_CHECK, enabled) }
-    }
-
-    fun setAddPlaylistSongsToLibrary(enabled: Boolean) {
-        addPlaylistSongsToLibrary.value = enabled
-        save { putBoolean(KEY_ADD_PLAYLIST_SONGS_TO_LIBRARY, enabled) }
-    }
-
-    fun setAddFavoriteSongsToLibrary(enabled: Boolean) {
-        addFavoriteSongsToLibrary.value = enabled
-        save { putBoolean(KEY_ADD_FAVORITE_SONGS_TO_LIBRARY, enabled) }
     }
 
     fun setTvRefreshRate(value: String) {
@@ -131,19 +95,9 @@ object TvSettings {
         }
     }
 
-    fun setTvNickname(nickname: String) {
-        tvNickname.value = nickname
-        save { putString(KEY_TV_NICKNAME, nickname) }
-    }
-
     fun setTvTheme(themeId: String) {
         tvTheme.value = themeId
         save { putString(KEY_TV_THEME, themeId) }
-    }
-
-    fun setTvNavLayout(layout: String) {
-        tvNavLayout.value = layout
-        save { putString(KEY_TV_NAV_LAYOUT, layout) }
     }
 
     /**
@@ -215,16 +169,6 @@ object TvSettings {
                 .forEach { key -> remove(key) }
         }
         TvPinThrottle.resetAll()
-    }
-
-    fun getPinThrottleDelayRemainingMs(profileId: String): Long =
-        TvPinThrottle.getDelayRemainingMs(profileId)
-
-    fun recordFailedPinAttempt(profileId: String): Long =
-        TvPinThrottle.recordFailure(profileId)
-
-    fun recordSuccessfulPinAttempt(profileId: String) {
-        TvPinThrottle.recordSuccess(profileId)
     }
 
     private fun hashPin(pin: String, salt: ByteArray, iterations: Int = PIN_PBKDF2_ITERATIONS): ByteArray {

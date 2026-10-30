@@ -123,15 +123,6 @@ object LastFM {
             )
         }
 
-    fun getAuthUrl(token: String): String {
-        val config = runtimeConfig
-        return if (config.endpoint == LIBREFM_API_ENDPOINT) {
-            "https://libre.fm/api/auth?api_key=${config.apiKey}&token=$token"
-        } else {
-            "https://www.last.fm/api/auth/?api_key=${config.apiKey}&token=$token"
-        }
-    }
-
     suspend fun getMobileSession(
         username: String,
         password: String,
@@ -220,8 +211,6 @@ object LastFM {
                 sessionKey = sessionKey,
             )
     }
-
-    fun currentConfig(): RuntimeConfig = runtimeConfig
 
     fun isInitialized(): Boolean = runtimeConfig.apiKey.isNotEmpty() && runtimeConfig.secret.isNotEmpty()
 

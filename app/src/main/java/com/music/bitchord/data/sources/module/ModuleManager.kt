@@ -1,13 +1,11 @@
 package com.music.bitchord.data.sources.module
 
-import android.util.Log
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.Http
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -361,11 +359,6 @@ class ModuleManager {
         ) { (key, value) -> "\"$key\":{\"value\":\"$value\"}" }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────
-
-    fun unloadModule(moduleId: String) {
-        loadedModules.remove(moduleId)
-        QuickJsExecutor.unload(moduleId)
-    }
 
     /**
      * Everything this manager is holding, dropped.
