@@ -73,6 +73,23 @@ import com.music.bitchord.data.settings.permits
 import com.music.bitchord.data.smb.SmbRepository
 import com.music.bitchord.data.webdav.WebDavRepository
 import com.music.bitchord.data.settings.AudioQuality
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
+import com.music.bitchord.data.tidal.TidalInstances
+import kotlinx.coroutines.launch
 import com.music.bitchord.data.sources.AddonSource
 import com.music.bitchord.data.sources.OPT_IN_KINDS
 import com.music.bitchord.data.sources.SourceConfig
@@ -276,9 +293,157 @@ fun SourcesScreen(
             // No leading divider when addons came first: each of those wrappers
             // ends with one, which is what makes them all the same height for
             // the drag to measure against.
+            var expandedTidal by remember { mutableStateOf(false) }
+            val tidalRatings by TidalInstances.ratings.collectAsStateWithLifecycle()
+            val scope = rememberCoroutineScope()
+            var refreshingRatings by remember { mutableStateOf(false) }
+
+            LaunchedEffect(Unit) {
+                if (tidalRatings.isEmpty()) {
+                    TidalInstances.refreshRatings(force = false)
+                }
+            }
+
             fixed.forEachIndexed { index, config ->
                 if (index > 0) RowDivider()
                 row(addons.size + index + 1, config, null)
+                if (config.kind == SourceKind.TIDAL && config.enabled) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = ROW_INSET, vertical = 2.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { expandedTidal = !expandedTidal }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Speed,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.tidal_servers_status),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(
+                                onClick = {
+                                    if (!refreshingRatings) {
+                                        refreshingRatings = true
+                                        scope.launch {
+                                            TidalInstances.refreshRatings(force = true)
+                                            refreshingRatings = false
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.size(28.dp),
+                            ) {
+                                if (refreshingRatings) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Refresh,
+                                        contentDescription = "Refresh",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                            }
+                            Icon(
+                                imageVector = if (expandedTidal) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+
+                        AnimatedVisibility(
+                            visible = expandedTidal,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut(),
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                        shape = RoundedCornerShape(8.dp),
+                                    )
+                                    .padding(8.dp),
+                            ) {
+                                if (tidalRatings.isEmpty()) {
+                                    Text(
+                                        text = stringResource(R.string.checking),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(8.dp),
+                                    )
+                                } else {
+                                    tidalRatings.forEachIndexed { rIndex, item ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp, horizontal = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                text = "${rIndex + 1}.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.width(20.dp),
+                                            )
+                                            Text(
+                                                text = item.label,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = if (item.isHealthy) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            if (item.isHealthy) {
+                                                Text(
+                                                    text = "${item.pingMs} ms",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = if (item.pingMs < 1000) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                                Spacer(Modifier.width(6.dp))
+                                                Icon(
+                                                    imageVector = Icons.Rounded.CheckCircle,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(14.dp),
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = stringResource(R.string.server_unreachable),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.error,
+                                                )
+                                                Spacer(Modifier.width(6.dp))
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Error,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier.size(14.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // The one shut-out an addon can't tell apart from "not lossless":

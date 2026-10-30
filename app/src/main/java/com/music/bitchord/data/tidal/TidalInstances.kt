@@ -36,6 +36,13 @@ object TidalInstances {
     @Serializable
     data class Entry(val url: String, val label: String = "", val verified: Boolean = false)
 
+    data class RatedInstance(
+        val url: String,
+        val label: String,
+        val pingMs: Long,
+        val isHealthy: Boolean,
+    )
+
     @Serializable
     private data class RemoteList(val instances: List<Entry> = emptyList())
 
@@ -46,14 +53,12 @@ object TidalInstances {
      * network — the on-device probe decides, not this list.
      */
     val BUNDLED = listOf(
+        Entry("https://wolf.qqdl.site", "Lucida (Wolf)", verified = true),
+        Entry("https://maus.qqdl.site", "Lucida (Maus)", verified = true),
+        Entry("https://katze.qqdl.site", "Lucida (Katze)", verified = true),
+        Entry("https://hund.qqdl.site", "Lucida (Hund)", verified = true),
         Entry("https://tracks.monochrome.st", "Monochrome Tracks", verified = true),
-        Entry("https://api.monochrome.tf", "Monochrome (official)"),
-        Entry("https://wolf.qqdl.site", "Lucida / QQDL"),
-        Entry("https://maus.qqdl.site", "Lucida / QQDL"),
-        Entry("https://vogel.qqdl.site", "Lucida / QQDL"),
-        Entry("https://katze.qqdl.site", "Lucida / QQDL"),
-        Entry("https://hund.qqdl.site", "Lucida / QQDL"),
-        Entry("https://tidal.kinoplus.online", "Kinoplus"),
+        Entry("https://vogel.qqdl.site", "Lucida (Vogel)"),
     )
 
     private const val FILE = "bitchord_tidal"
@@ -77,6 +82,10 @@ object TidalInstances {
     /** Last known reachability per instance URL; null means never probed. */
     private val _health = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val health: StateFlow<Map<String, Boolean>> = _health.asStateFlow()
+
+    /** Rated instances ordered by latency / health. */
+    private val _ratings = MutableStateFlow<List<RatedInstance>>(emptyList())
+    val ratings: StateFlow<List<RatedInstance>> = _ratings.asStateFlow()
 
     private var healthAt = 0L
     private val lock = Any()
@@ -135,32 +144,48 @@ object TidalInstances {
         val pool = (listOfNotNull(primary) + public().mapNotNull { TidalApi.normalize(it.url) })
             .distinct()
         if (pool.size <= 1) return pool
-        return probeAll(pool).filter { it.second }.map { it.first }
-            .takeIf { it.isNotEmpty() } ?: pool
+        val rated = probeAndRank(pool)
+        val healthy = rated.filter { it.isHealthy }.map { it.url }
+        return healthy.ifEmpty { pool }
     }
 
-    private suspend fun probeAll(urls: List<String>): List<Pair<String, Boolean>> =
+    suspend fun refreshRatings(force: Boolean = false) {
+        val pool = public().mapNotNull { TidalApi.normalize(it.url) }.distinct()
+        probeAndRank(pool, force = force)
+    }
+
+    private suspend fun probeAndRank(urls: List<String>, force: Boolean = false): List<RatedInstance> =
         withContext(Dispatchers.IO) {
             val now = System.currentTimeMillis()
             synchronized(lock) {
-                if (now - healthAt < HEALTH_TTL_MS && _health.value.keys.containsAll(urls)) {
-                    return@withContext urls.map { it to (_health.value[it] ?: false) }
+                if (!force && now - healthAt < HEALTH_TTL_MS && _ratings.value.isNotEmpty()) {
+                    return@withContext _ratings.value
                 }
             }
+            val publicList = public()
             val results = urls.map { url ->
                 async {
-                    // Either protocol counts: tracks instances have no
-                    // version document, hifi ones do — isLive tries both.
+                    val label = publicList.firstOrNull { TidalApi.normalize(it.url) == url }?.label
+                        ?: url.substringAfter("://").substringBefore('/')
+                    val t0 = System.currentTimeMillis()
                     val ok = runCatching { TidalApi.isLive(url) }.getOrDefault(false)
-                    url to ok
+                    val rtt = if (ok) System.currentTimeMillis() - t0 else Long.MAX_VALUE
+                    RatedInstance(url = url, label = label, pingMs = rtt, isHealthy = ok)
                 }
             }.awaitAll()
+
+            // Order by: healthy first, then lowest ping / RTT
+            val sorted = results.sortedWith(
+                compareBy<RatedInstance> { !it.isHealthy }.thenBy { it.pingMs }
+            )
+
             synchronized(lock) {
-                _health.value = _health.value + results.toMap()
+                _health.value = sorted.associate { it.url to it.isHealthy }
+                _ratings.value = sorted
                 healthAt = now
             }
-            TrackLog.d(TAG, "tidal health: ${results.count { it.second }} of ${results.size} instances live")
-            results
+            TrackLog.d(TAG, "tidal ratings updated: ${sorted.filter { it.isHealthy }.map { "${it.label} (${it.pingMs}ms)" }}")
+            sorted
         }
 
     private fun lastFetch(): Long =

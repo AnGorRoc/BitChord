@@ -175,7 +175,7 @@ object SourceRegistry {
         // The retired built-in module is removed, while a custom module entered
         // by the user is preserved.
         return seeded
-            .filterNot { it.kind == SourceKind.MODULE }
+            .filterNot { it.kind == SourceKind.MODULE || it.kind == SourceKind.HIRES }
             .map { config ->
                 when {
                     config.kind == SourceKind.YOUTUBE && !config.enabled -> config.copy(enabled = true)
@@ -554,9 +554,9 @@ object SourceRegistry {
             .build()
             .toString()
 
-    private val BUILT_IN_KINDS = listOf(SourceKind.HIRES, SourceKind.TIDAL, SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
+    private val BUILT_IN_KINDS = listOf(SourceKind.TIDAL, SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
 
-    const val TIDAL_DISPLAY_NAME = "BitChord NEXT Addon"
+    const val TIDAL_DISPLAY_NAME = "Hi-Res Lossless"
     const val HIRES_DISPLAY_NAME = "BitChord Hi-Res Lossless Addon" 
 
     private const val KEY_SOURCES = "sources"

@@ -150,9 +150,9 @@ enum class SourceKind(
      * Genuine lossless FLAC via community Tidal Hi-Fi instances with automatic failover.
      */
     TIDAL(
-        label = "Tidal Hi-Fi",
+        label = "Hi-Res Lossless",
         labels = listOf("FLAC", "Lossless", "Hi-Res"),
-        needsServer = true,
+        needsServer = false,
         canServeLossless = true,
         worthPrefetching = true,
         rank = 1,
