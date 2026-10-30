@@ -593,6 +593,15 @@ object SourceResolver {
         val asked = rankedAbove(youtube.configId, active).filterNot { candidate ->
             val skip = candidate.configId == servedBy || candidate.configId in avoid || resting(candidate)
             if (skip) {
+                if (candidate.configId != servedBy) {
+                    SourceResolutionTracker.record(
+                        sourceId = candidate.configId,
+                        displayName = candidate.displayName,
+                        kind = candidate.kind,
+                        status = "Omitida en la segunda búsqueda",
+                        detail = if (candidate.configId in avoid) "Su archivo era otra grabación" else "En pausa tras fallos recientes",
+                    )
+                }
                 TrackLog.d(
                     TAG,
                     "upgrade for '${target.title}': not asking ${candidate.displayName} " +

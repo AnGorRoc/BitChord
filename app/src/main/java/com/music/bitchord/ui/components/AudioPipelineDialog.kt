@@ -546,8 +546,12 @@ fun AudioPipelineDialog(
             // Reports for the previous track can still be on the tracker
             // between a track change and the next resolve; they are not
             // this track's sources, so they are not shown as such.
+            // The stats are empty from the track change until the decoder has
+            // spoken; the tracker is reset per resolved track, so with no stats
+            // to compare against its reports are the ones to show.
+            val statsMediaId = nerdStats?.mediaId
             val resolutionReports = if (
-                SourceResolutionTracker.sameTrack(resolutionState.mediaId, nerdStats?.mediaId)
+                statsMediaId == null || SourceResolutionTracker.sameTrack(resolutionState.mediaId, statsMediaId)
             ) {
                 resolutionState.reports
             } else {
