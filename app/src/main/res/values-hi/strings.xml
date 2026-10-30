@@ -798,11 +798,7 @@
     <string name="dolby_atmos_unavailable">यह डिवाइस Atmos का समर्थन नहीं करता, गाने सामान्य संस्करण में बजेंगे</string>
 
     <string name="export_compatible_downloads">संगत डाउनलोड निर्यात करें</string>
-    <string name="sync_downloaded_playlists">प्लेलिस्ट अपडेट रखें</string>
-    <string name="sync_downloaded_playlists_subtitle">दिन में दो बार जाँचता है और डाउनलोड की गई प्लेलिस्ट में जोड़े गए नए गाने डाउनलोड करता है</string>
-    <string name="playlist_sync_ask_title">%1$s में नए गाने: %2$d</string>
-    <string name="playlist_sync_ask_text">डाउनलोड करने के लिए टैप करें</string>
-    <string name="playlist_sync_done_title">%1$s में जोड़े गए: %2$d</string>
+    <string name="auto_download_notice_title">%1$s में जोड़े गए: %2$d</string>
     <string name="playlist_updates_channel">प्लेलिस्ट अपडेट</string>
 
     <string name="legacy_mesh_gradient">क्लासिक मेश ग्रेडिएंट</string>

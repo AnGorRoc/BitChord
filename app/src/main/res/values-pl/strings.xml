@@ -834,11 +834,7 @@
     <string name="dolby_atmos_unavailable">To urządzenie nie obsługuje Atmos, utwory będą odtwarzane w wersji standardowej</string>
 
     <string name="export_compatible_downloads">Eksportuj zgodne pobrane pliki</string>
-    <string name="sync_downloaded_playlists">Aktualizuj playlisty</string>
-    <string name="sync_downloaded_playlists_subtitle">Sprawdza dwa razy dziennie i pobiera utwory dodane do pobranych playlist</string>
-    <string name="playlist_sync_ask_title">Nowe utwory w %1$s: %2$d</string>
-    <string name="playlist_sync_ask_text">Dotknij, aby pobrać</string>
-    <string name="playlist_sync_done_title">Dodano do %1$s: %2$d</string>
+    <string name="auto_download_notice_title">Dodano do %1$s: %2$d</string>
     <string name="playlist_updates_channel">Aktualizacje playlist</string>
 
     <string name="legacy_mesh_gradient">Klasyczny gradient siatkowy</string>

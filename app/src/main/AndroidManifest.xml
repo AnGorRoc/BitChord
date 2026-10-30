@@ -699,26 +699,6 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
-        <!-- The tap on a "new songs in this playlist" notification. See PlaylistSync. -->
-        <receiver
-            android:name=".download.PlaylistSyncApproval"
-            android:exported="false" />
-
-        <!--
-          WorkManager comes up on first use instead of at every launch, since the
-          one thing using it is a setting that is off by default.
-        -->
-        <provider
-            android:name="androidx.startup.InitializationProvider"
-            android:authorities="${applicationId}.androidx-startup"
-            android:exported="false"
-            tools:node="merge">
-            <meta-data
-                android:name="androidx.work.WorkManagerInitializer"
-                android:value="androidx.startup"
-                tools:node="remove" />
-        </provider>
-
         <!--
           Home-screen widgets. Two providers so the picker lists a 2×2 and a 4×2,
           both of which are the same widget resized — see MediaWidget.
