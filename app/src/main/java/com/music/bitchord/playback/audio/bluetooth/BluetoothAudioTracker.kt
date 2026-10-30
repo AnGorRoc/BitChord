@@ -14,6 +14,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothA2dp
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -168,7 +169,7 @@ class BluetoothAudioTracker(private val context: Context) {
         }
 
         try {
-            val adapter = BluetoothAdapter.getDefaultAdapter()
+            val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
             adapter?.getProfileProxy(context, profileListener, BluetoothProfile.A2DP)
         } catch (e: Throwable) {
             Log.w(TAG, "Failed to bind A2DP profile proxy", e)
@@ -193,7 +194,7 @@ class BluetoothAudioTracker(private val context: Context) {
         val proxy = a2dpProfile
         if (proxy != null) {
             try {
-                BluetoothAdapter.getDefaultAdapter()?.closeProfileProxy(BluetoothProfile.A2DP, proxy)
+                context.getSystemService(BluetoothManager::class.java)?.adapter?.closeProfileProxy(BluetoothProfile.A2DP, proxy)
             } catch (_: Throwable) {
             }
             a2dpProfile = null

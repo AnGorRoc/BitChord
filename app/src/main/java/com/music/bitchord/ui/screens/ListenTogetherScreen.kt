@@ -66,10 +66,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -83,6 +82,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
+import com.music.bitchord.ui.copyText
 import com.music.bitchord.data.listentogether.JamInviteLink
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.listentogether.PartyActivity
@@ -145,7 +145,7 @@ fun ListenTogetherScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
 
     val state by ListenTogether.state.collectAsStateWithLifecycle()
@@ -461,7 +461,7 @@ fun ListenTogetherScreen(
                         shareInvite()
                     },
                     onCopyCode = {
-                        clipboard.setText(AnnotatedString(state.code.orEmpty()))
+                        scope.launch { clipboard.copyText(state.code.orEmpty()) }
                         Toast.makeText(
                             context,
                             context.getString(R.string.copy_code),
@@ -514,7 +514,7 @@ fun ListenTogetherScreen(
         } else {
             InAParty(
                 state = state,
-                onCopy = { clipboard.setText(AnnotatedString(state.code.orEmpty())) },
+                onCopy = { scope.launch { clipboard.copyText(state.code.orEmpty()) } },
                 onShare = { sheet = PartySheet.Invite },
                 onShareLink = shareInvite,
                 onLeave = { scope.launch { ListenTogether.leaveParty() } },
