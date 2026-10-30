@@ -1491,4 +1491,8 @@
     <string name="tidal_servers_status">Proveedores Lossless y latencia</string>
     <string name="server_unreachable">No disponible</string>
     <string name="server_active">Activo</string>
+    <string name="tidal_provider_placeholder">Dirección del proveedor</string>
+    <string name="tidal_provider_add">Añadir</string>
+    <string name="tidal_provider_remove">Quitar</string>
+    <string name="tidal_provider_rejected">No es una dirección de proveedor utilizable</string>
 </resources>

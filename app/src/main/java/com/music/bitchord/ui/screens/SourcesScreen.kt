@@ -88,6 +88,11 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.IconButton
 import com.music.bitchord.data.tidal.TidalInstances
 import kotlinx.coroutines.launch
@@ -393,6 +398,7 @@ fun SourcesScreen(
                                     )
                                     .padding(8.dp),
                             ) {
+                                TidalManualProviders()
                                 if (tidalRatings.isEmpty()) {
                                     Text(
                                         text = stringResource(R.string.checking),
@@ -1091,6 +1097,76 @@ private fun AudioQuality.localizedLabel(): String = stringResource(
         AudioQuality.LOSSLESS -> R.string.lossless
     },
 )
+
+/**
+ * The space inside Hi-Res Lossless for providers the public pool does not
+ * list: typed in here, probed and ranked with the rest, removable.
+ */
+@Composable
+private fun TidalManualProviders() {
+    val manual by TidalInstances.manual.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    var input by remember { mutableStateOf("") }
+    var rejected by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = input,
+                onValueChange = {
+                    input = it
+                    rejected = false
+                },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                isError = rejected,
+                textStyle = MaterialTheme.typography.bodyMedium,
+                placeholder = { Text(stringResource(R.string.tidal_provider_placeholder)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+            )
+            TextButton(
+                enabled = input.isNotBlank(),
+                onClick = {
+                    if (TidalInstances.addManual(input)) {
+                        input = ""
+                        scope.launch { TidalInstances.refreshRatings(force = true) }
+                    } else {
+                        rejected = true
+                    }
+                },
+            ) {
+                Text(stringResource(R.string.tidal_provider_add))
+            }
+        }
+        if (rejected) {
+            Text(
+                text = stringResource(R.string.tidal_provider_rejected),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        manual.forEach { entry ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = entry.url.substringAfter("://"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { TidalInstances.removeManual(entry.url) }) {
+                    Text(stringResource(R.string.tidal_provider_remove))
+                }
+            }
+        }
+    }
+}
 
 /** The second line of a row: what this source is, or what is wrong with it. */
 @Composable

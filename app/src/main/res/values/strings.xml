@@ -1390,4 +1390,8 @@
     <string name="tidal_servers_status" translatable="false">Lossless providers &amp; latency</string>
     <string name="server_unreachable" translatable="false">Unreachable</string>
     <string name="server_active" translatable="false">Active</string>
+    <string name="tidal_provider_placeholder">Provider address</string>
+    <string name="tidal_provider_add">Add</string>
+    <string name="tidal_provider_remove">Remove</string>
+    <string name="tidal_provider_rejected">Not a usable provider address</string>
 </resources>

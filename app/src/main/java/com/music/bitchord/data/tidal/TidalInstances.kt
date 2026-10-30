@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import okhttp3.Request
 
@@ -58,6 +59,7 @@ object TidalInstances {
     private const val KEY_PUBLIC_JSON = "tidal_public_json"
     private const val KEY_LAST_FETCH = "tidal_last_fetch"
     private const val KEY_AUTO_UPDATE = "tidal_auto_update"
+    private const val KEY_MANUAL_JSON = "tidal_manual_json"
 
     private const val FETCH_INTERVAL_MS = 24 * 60 * 60 * 1000L
     // Half an hour: probes are network, and a pool that was alive minutes
@@ -71,6 +73,10 @@ object TidalInstances {
 
     private val _autoUpdate = MutableStateFlow(true)
     val autoUpdate: StateFlow<Boolean> = _autoUpdate.asStateFlow()
+
+    /** Providers the user typed in. Probed and ranked alongside the public pool. */
+    private val _manual = MutableStateFlow<List<Entry>>(emptyList())
+    val manual: StateFlow<List<Entry>> = _manual.asStateFlow()
 
     /** Last known reachability per instance URL; null means never probed. */
     private val _health = MutableStateFlow<Map<String, Boolean>>(emptyMap())
@@ -87,12 +93,55 @@ object TidalInstances {
         if (this::prefs.isInitialized) return
         prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
         _autoUpdate.value = prefs.getBoolean(KEY_AUTO_UPDATE, true)
+        _manual.value = readManual()
     }
 
     fun setAutoUpdate(value: Boolean) {
         _autoUpdate.value = value
         if (this::prefs.isInitialized) prefs.edit().putBoolean(KEY_AUTO_UPDATE, value).apply()
     }
+
+    private fun readManual(): List<Entry> {
+        val raw = prefs.getString(KEY_MANUAL_JSON, null) ?: return emptyList()
+        return runCatching { json.decodeFromString(ListSerializer(Entry.serializer()), raw) }
+            .getOrDefault(emptyList())
+    }
+
+    private fun writeManual(list: List<Entry>) {
+        if (!this::prefs.isInitialized) return
+        prefs.edit()
+            .putString(KEY_MANUAL_JSON, json.encodeToString(ListSerializer(Entry.serializer()), list))
+            .apply()
+    }
+
+    /**
+     * Adds a provider the user typed in. False when [raw] is not an address
+     * this can use, or when it is already one of the manual providers.
+     */
+    fun addManual(raw: String): Boolean {
+        val url = TidalApi.normalize(raw) ?: return false
+        synchronized(lock) {
+            if (_manual.value.any { TidalApi.normalize(it.url) == url }) return false
+            val next = _manual.value + Entry(url = url)
+            _manual.value = next
+            writeManual(next)
+        }
+        return true
+    }
+
+    /** Forgets a manual provider and drops its row from the last probe. */
+    fun removeManual(url: String) {
+        synchronized(lock) {
+            val next = _manual.value.filterNot { TidalApi.normalize(it.url) == url }
+            _manual.value = next
+            _ratings.value = _ratings.value.filterNot { it.url == url }
+            writeManual(next)
+        }
+    }
+
+    /** Manual providers first, then the public pool, each address once. */
+    private fun candidates(): List<Entry> =
+        (_manual.value + public()).distinctBy { TidalApi.normalize(it.url) ?: it.url }
 
     /** The public pool: fetched list when fresh, else the bundled candidates. */
     fun public(): List<Entry> {
@@ -135,7 +184,7 @@ object TidalInstances {
      */
     suspend fun endpoints(primaryRaw: String): List<String> {
         val primary = TidalApi.normalize(primaryRaw)
-        val pool = (listOfNotNull(primary) + public().mapNotNull { TidalApi.normalize(it.url) })
+        val pool = (listOfNotNull(primary) + candidates().mapNotNull { TidalApi.normalize(it.url) })
             .distinct()
         if (pool.size <= 1) return pool
         val rated = probeAndRank(pool)
@@ -144,7 +193,7 @@ object TidalInstances {
     }
 
     suspend fun refreshRatings(force: Boolean = false) {
-        val pool = public().mapNotNull { TidalApi.normalize(it.url) }.distinct()
+        val pool = candidates().mapNotNull { TidalApi.normalize(it.url) }.distinct()
         probeAndRank(pool, force = force)
     }
 
@@ -156,10 +205,10 @@ object TidalInstances {
                     return@withContext _ratings.value
                 }
             }
-            val publicList = public()
+            val known = candidates()
             val results = urls.map { url ->
                 async {
-                    val label = publicList.firstOrNull { TidalApi.normalize(it.url) == url }?.label
+                    val label = known.firstOrNull { TidalApi.normalize(it.url) == url }?.label
                         ?: url.substringAfter("://").substringBefore('/')
                     val t0 = System.currentTimeMillis()
                     val ok = runCatching { TidalApi.isLive(url) }.getOrDefault(false)
