@@ -307,6 +307,12 @@ private val ART_BOX_TOP_PAD = 8.dp
  * that was cut off rather than one that ran out.
  */
 private const val HERO_FADE_FRACTION = 0.42f
+/** Share of the common still-artwork banner's height given over to its bottom dissolve. */
+private const val COMMON_ART_BOTTOM_FADE_FRACTION = 0.14f
+/** Height of the clean fade at the top of the common still-artwork banner. */
+private val COMMON_ART_TOP_FADE_HEIGHT = 28.dp
+/** Top scrim alpha over the empty space above common still-artwork. */
+private const val COMMON_ART_STATUS_SCRIM_ALPHA = 0.52f
 /** Kept transparent so the cover remains edge-to-edge, while aiding icon contrast. */
 /** A modest floor while a subview replaces the hero with its blurred artwork backdrop. */
 private const val SUBVIEW_STATUS_SCRIM_MIN_ALPHA = 0.40f
@@ -1330,6 +1336,7 @@ fun NowPlayingScreen(
     // still-art full-bleed preference. Other providers and static artwork keep
     // answering to that preference exactly as before.
     // A music video sits in the card's place at its own 16:9, never full bleed.
+    val isCommonCover = canvas == null && !videoMode
     val heroMode = !videoMode && (
         spotifyCanvasOnPhone ||
             (fullBleedArt && playerFillsWindow(windowWidth))
@@ -2431,6 +2438,8 @@ fun NowPlayingScreen(
                     lyricsShare != null
                 val topGradientAlpha = if (playerSubviewOpen) {
                     maxOf(artworkStatusScrimAlpha, SUBVIEW_STATUS_SCRIM_MIN_ALPHA)
+                } else if (isCommonCover) {
+                    COMMON_ART_STATUS_SCRIM_ALPHA
                 } else {
                     artworkStatusScrimAlpha
                 }
@@ -2986,13 +2995,19 @@ fun NowPlayingScreen(
                             val share = bannerShare()
                             if (share == 0f) return card
                             val banner = with(density) {
+                                val topInsetPx = if (isCommonCover) statusBarTop.roundToPx().toFloat() else 0f
+                                val heightPx = if (isCommonCover) {
+                                    (heroHeight - statusBarTop).roundToPx().toFloat()
+                                } else {
+                                    stillBottomPx().takeIf { it > 0f } ?: heroHeight.roundToPx().toFloat()
+                                }
                                 Rect(
-                                    offset = Offset(-(playerBounds.width - boxWidthPx) / 2f, bannerTopPx.toFloat()),
+                                    offset = Offset(-(playerBounds.width - boxWidthPx) / 2f, bannerTopPx.toFloat() + topInsetPx),
                                     // A portrait clip's still is as tall as the clip
                                     // is, from the same top edge.
                                     size = Size(
                                         playerBounds.width.toFloat(),
-                                        stillBottomPx().takeIf { it > 0f } ?: heroHeight.roundToPx().toFloat(),
+                                        heightPx,
                                     ),
                                 )
                             }
@@ -3182,6 +3197,27 @@ fun NowPlayingScreen(
                                     drawContent()
                                     val shown = sleeveShown()
                                     if (shown > 0f) {
+                                        if (isCommonCover) {
+                                            val topFadePx = with(density) { COMMON_ART_TOP_FADE_HEIGHT.toPx() }
+                                            if (topFadePx > 0f && size.height > topFadePx * 2f) {
+                                                drawRect(
+                                                    brush = Brush.verticalGradient(
+                                                        colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
+                                                            val t = i / FADE_CURVE_STOPS.toFloat()
+                                                            t to Color.Black.copy(alpha = 1f - shown * (1f - smootherStep(t)))
+                                                        },
+                                                        startY = 0f,
+                                                        endY = topFadePx,
+                                                    ),
+                                                    topLeft = Offset.Zero,
+                                                    size = Size(size.width, topFadePx),
+                                                    blendMode = BlendMode.DstIn,
+                                                )
+                                            }
+                                        }
+                                        val bottomFade = if (isCommonCover) COMMON_ART_BOTTOM_FADE_FRACTION else stillFadeFraction()
+                                        val bottomFadeHeight = size.height * bottomFade
+                                        val bottomStartY = size.height - bottomFadeHeight
                                         drawRect(
                                             // Along smootherstep, not a straight ramp,
                                             // so neither end of the dissolve shows as a line.
@@ -3190,9 +3226,11 @@ fun NowPlayingScreen(
                                                     val t = i / FADE_CURVE_STOPS.toFloat()
                                                     t to Color.Black.copy(alpha = 1f - shown * smootherStep(t))
                                                 },
-                                                startY = size.height * (1f - stillFadeFraction()),
+                                                startY = bottomStartY,
                                                 endY = size.height,
                                             ),
+                                            topLeft = Offset(0f, bottomStartY),
+                                            size = Size(size.width, bottomFadeHeight),
                                             blendMode = BlendMode.DstIn,
                                         )
                                     }
