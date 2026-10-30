@@ -10175,34 +10175,6 @@ class PlaybackService : MediaLibraryService() {
             .build()
     }
 
-    private fun MediaItem.withGridStyle(): MediaItem {
-        val currentExtras = mediaMetadata.extras ?: Bundle()
-        val newExtras = Bundle(currentExtras).apply {
-            putInt(EXTRA_CONTENT_STYLE_BROWSABLE_HINT, CONTENT_STYLE_GRID_ITEM_HINT_VALUE)
-            putInt(EXTRA_CONTENT_STYLE_PLAYABLE_HINT, CONTENT_STYLE_GRID_ITEM_HINT_VALUE)
-            putInt(EXTRA_CONTENT_STYLE_BROWSABLE_HINT_AX, CONTENT_STYLE_GRID_ITEM_HINT_VALUE)
-            putInt(EXTRA_CONTENT_STYLE_PLAYABLE_HINT_AX, CONTENT_STYLE_GRID_ITEM_HINT_VALUE)
-            putInt(EXTRA_CONTENT_STYLE_BROWSABLE_HINT_LEGACY, CONTENT_STYLE_GRID_ITEM_HINT_VALUE)
-            putInt(EXTRA_CONTENT_STYLE_PLAYABLE_HINT_LEGACY, CONTENT_STYLE_GRID_ITEM_HINT_VALUE)
-            putInt("android.media.extras.CONTENT_STYLE_BROWSABLE_HINT", CONTENT_STYLE_GRID_ITEM_HINT_VALUE)
-            putInt("android.media.extras.CONTENT_STYLE_PLAYABLE_HINT", CONTENT_STYLE_GRID_ITEM_HINT_VALUE)
-            putInt("android.media.browse.CONTENT_STYLE_BROWSABLE_HINT", CONTENT_STYLE_GRID_ITEM_HINT_VALUE)
-            putInt("android.media.browse.CONTENT_STYLE_PLAYABLE_HINT", CONTENT_STYLE_GRID_ITEM_HINT_VALUE)
-            putBoolean(EXTRA_CONTENT_STYLE_SUPPORTED, true)
-            putBoolean(EXTRA_CONTENT_STYLE_SUPPORTED_AX, true)
-        }
-        return buildUpon()
-            .setMediaMetadata(
-                mediaMetadata.buildUpon()
-                    .setIsBrowsable(true)
-                    .setIsPlayable(true)
-                    .setFolderType(MediaMetadata.FOLDER_TYPE_ALBUMS)
-                    .setExtras(newExtras)
-                    .build(),
-            )
-            .build()
-    }
-
     private fun ShelfItem.toMediaItemOrNull(): MediaItem? {
         val vid = videoId
         if (vid != null) {

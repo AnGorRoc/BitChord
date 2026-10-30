@@ -1817,21 +1817,6 @@ object AppSettings {
         prefs.edit().putString(KEY_LASTFM_SESSION_KEY, value).apply()
     }
 
-    fun setLastfmApiKey(value: String) {
-        lastfmApiKey.value = value
-        prefs.edit().putString(KEY_LASTFM_API_KEY, value).apply()
-    }
-
-    fun setLastfmSecret(value: String) {
-        lastfmSecret.value = value
-        prefs.edit().putString(KEY_LASTFM_SECRET, value).apply()
-    }
-
-    fun setLastfmEndpoint(value: String) {
-        lastfmEndpoint.value = value
-        prefs.edit().putString(KEY_LASTFM_ENDPOINT, value).apply()
-    }
-
     fun setSpotifySpdcToken(value: String) {
         spotifySpdcToken.value = value
         prefs.edit().putString(KEY_SPOTIFY_SPDC_TOKEN, value).apply()
