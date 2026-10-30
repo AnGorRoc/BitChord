@@ -27,6 +27,8 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
+private val lenientJson = Json { ignoreUnknownKeys = true }
+
 /**
  * Modified by Zion Huang
  */
@@ -44,10 +46,6 @@ open class KizzyRPC(
     fun closeRPC() {
         discordWebSocket.close()
         discordApiClient.close()
-    }
-
-    fun isRpcRunning(): Boolean {
-        return discordWebSocket.isWebSocketConnected()
     }
 
     /**
@@ -175,8 +173,7 @@ open class KizzyRPC(
             }.bodyAsText()
             // kotlinx rather than org.json: this module is shared with the
             // desktop, which has no Android JSON on its classpath.
-            val json = Json { ignoreUnknownKeys = true }
-                .parseToJsonElement(response).jsonObject
+            val json = lenientJson.parseToJsonElement(response).jsonObject
             fun field(name: String): String? =
                 json[name]?.jsonPrimitive?.contentOrNull?.takeIf { it != "null" }
             val id = field("id") ?: error("Discord returned no user id")

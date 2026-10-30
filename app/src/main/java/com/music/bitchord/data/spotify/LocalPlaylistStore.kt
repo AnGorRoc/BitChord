@@ -62,11 +62,11 @@ object LocalPlaylistStore {
                         videoId = sObj.optString("videoId", ""),
                         title = sObj.optString("title", ""),
                         artist = sObj.optString("artist", ""),
-                        thumbnailUrl = sObj.optString("thumbnailUrl", null).takeIf { !it.isNullOrBlank() && it != "null" },
-                        durationText = sObj.optString("durationText", null).takeIf { !it.isNullOrBlank() && it != "null" },
-                        artistId = sObj.optString("artistId", null).takeIf { !it.isNullOrBlank() && it != "null" },
-                        albumId = sObj.optString("albumId", null).takeIf { !it.isNullOrBlank() && it != "null" },
-                        albumName = sObj.optString("albumName", null).takeIf { !it.isNullOrBlank() && it != "null" },
+                        thumbnailUrl = sObj.optString("thumbnailUrl").takeIf { it.isNotBlank() && it != "null" },
+                        durationText = sObj.optString("durationText").takeIf { it.isNotBlank() && it != "null" },
+                        artistId = sObj.optString("artistId").takeIf { it.isNotBlank() && it != "null" },
+                        albumId = sObj.optString("albumId").takeIf { it.isNotBlank() && it != "null" },
+                        albumName = sObj.optString("albumName").takeIf { it.isNotBlank() && it != "null" },
                         isVideo = sObj.optBoolean("isVideo", false),
                     )
                     songs.add(song)

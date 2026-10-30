@@ -10,15 +10,11 @@
 package com.music.bitchord.ui.components.backdrop.backdrops
 
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.Stable
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.unit.Density
 import com.music.bitchord.ui.components.backdrop.Backdrop
-
-@Stable
-fun emptyBackdrop(): Backdrop = EmptyBackdrop
 
 @Immutable
 private object EmptyBackdrop : Backdrop {
