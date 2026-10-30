@@ -260,11 +260,6 @@ fun SongActionsSheet(
                 ActionRow(Icons.Rounded.Share, stringResource(R.string.share), accent = palette.accent, onClick = it)
             }
         }
-        if (song.thumbnailUrl != null) {
-            onSaveArtwork?.let {
-                ActionRow(Icons.Rounded.Image, stringResource(R.string.save_cover_art), accent = palette.accent, onClick = it)
-            }
-        }
         ActionRow(
             icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
             label = stringResource(R.string.play_next),
@@ -293,6 +288,11 @@ fun SongActionsSheet(
             onClick = onAddToPlaylist,
         )
         DownloadRow(song, palette, isOffline, onDownload)
+        if (song.thumbnailUrl != null) {
+            onSaveArtwork?.let {
+                ActionRow(Icons.Rounded.Image, stringResource(R.string.save_cover_art), accent = palette.accent, onClick = it)
+            }
+        }
         onSaveQueueAsPlaylist?.let {
             val label = if (song.radioName != null) {
                 stringResource(R.string.save_radio_as_playlist)
