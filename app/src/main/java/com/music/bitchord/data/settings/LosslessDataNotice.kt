@@ -13,8 +13,8 @@ import kotlinx.coroutines.flow.map
 /**
  * The quiet heads-up that lossless is streaming over mobile data.
  *
- * The mobile-data ceiling ships at Lossless, and a FLAC runs to 20-50 MB a
- * track, so the setting the listener never touched can cost them real money.
+ * The mobile-data ceiling is only ever Lossless when the listener picked it,
+ * and a FLAC runs to 20-50 MB a track, so that choice can cost them real money.
  * The setting is theirs and is left alone; this only says, once, what it is
  * doing and where to change it.
  *

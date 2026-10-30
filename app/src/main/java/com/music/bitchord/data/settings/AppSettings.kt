@@ -167,12 +167,13 @@ object AppSettings {
 
     /**
      * Quality ceilings, one per kind of connection — the point of the split is
-     * that Wi-Fi can stay on Lossless while mobile data is capped. Both
-     * default to Lossless; the mobile plan is the user's to budget, not ours
-     * to assume.
+     * that Wi-Fi can stay on Lossless while mobile data is capped. Wi-Fi
+     * defaults to Lossless; mobile data defaults to High, since a FLAC over
+     * cellular runs to tens of megabytes a track and the plan is the user's to
+     * budget, not ours to assume.
      */
     val audioQualityWifi = MutableStateFlow(AudioQuality.LOSSLESS)
-    val audioQualityCellular = MutableStateFlow(AudioQuality.LOSSLESS)
+    val audioQualityCellular = MutableStateFlow(AudioQuality.HIGH)
 
     /** Allowed duration difference when replacing a playing stream with one from a source. */
     val upgradeLengthSlackSeconds = MutableStateFlow(DEFAULT_UPGRADE_LENGTH_SLACK_SECONDS)
@@ -1005,7 +1006,7 @@ object AppSettings {
     private fun readAll() {
         migrateSingleQuality()
         audioQualityWifi.value = readQuality(KEY_QUALITY_WIFI)
-        audioQualityCellular.value = readQuality(KEY_QUALITY_CELLULAR)
+        audioQualityCellular.value = readQuality(KEY_QUALITY_CELLULAR, AudioQuality.HIGH)
         upgradeLengthSlackSeconds.value = prefs.getInt(
             KEY_UPGRADE_LENGTH_SLACK_SECONDS,
             DEFAULT_UPGRADE_LENGTH_SLACK_SECONDS,
@@ -1220,9 +1221,9 @@ object AppSettings {
             .apply()
     }
 
-    private fun readQuality(key: String): AudioQuality {
-        val stored = prefs.getString(key, null) ?: return AudioQuality.LOSSLESS
-        return runCatching { AudioQuality.valueOf(stored) }.getOrDefault(AudioQuality.LOSSLESS)
+    private fun readQuality(key: String, default: AudioQuality = AudioQuality.LOSSLESS): AudioQuality {
+        val stored = prefs.getString(key, null) ?: return default
+        return runCatching { AudioQuality.valueOf(stored) }.getOrDefault(default)
     }
 
     /**
