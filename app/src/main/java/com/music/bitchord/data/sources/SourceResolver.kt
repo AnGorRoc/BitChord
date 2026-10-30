@@ -216,7 +216,7 @@ object SourceResolver {
         if (pinned != null) {
             attempt(pinned) {
                 if (picked) {
-                    (pinned as AddonSource).stream(trackId, request, stereoOnly = pickedMix == MIX_STEREO)
+                    pinned.stream(trackId, request, stereoOnly = pickedMix == MIX_STEREO)
                 } else {
                     pinned.stream(trackId, request)
                 }
@@ -1101,7 +1101,7 @@ object SourceResolver {
                 // patient result. Let every source finish so a fast lower tier
                 // cannot cancel a later, better rendition.
                 if (best != null && !waitForAll) {
-                    val isLossless = best?.second?.format?.let { it.isLossless == true || it.isDolbyAtmos } == true
+                    val isLossless = best.second?.format?.let { it.isLossless == true || it.isDolbyAtmos } == true
                     val hasRunningLossless = running.any { candidateSourceMap[it]?.kind?.canServeLossless == true }
                     if (isLossless || request !is StreamRequest.Lossless || !hasRunningLossless) {
                         break

@@ -23,7 +23,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PlaylistPlay
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Text
@@ -165,7 +165,7 @@ fun TvSongActionMenuDialog(
             item {
                 TvListRow(
                     title = "Play Last",
-                    trailingIcon = Icons.Rounded.PlaylistPlay,
+                    trailingIcon = Icons.AutoMirrored.Rounded.PlaylistPlay,
                     onClick = {
                         mediaController?.addMediaItem(song.toMediaItem())
                         onDismiss()

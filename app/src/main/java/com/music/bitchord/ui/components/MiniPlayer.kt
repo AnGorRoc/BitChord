@@ -255,7 +255,7 @@ internal fun Modifier.miniPlayerGestures(
                 change.consume()
                 start = change
             }
-            val slopped = start ?: return@awaitEachGesture
+            val slopped = start
 
             if (!vertical) {
                 var dragged = slopped.position.x - down.position.x

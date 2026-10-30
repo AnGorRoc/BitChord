@@ -326,7 +326,7 @@ object SpotifyCanvas {
             .build()
         val (code, body) = runCatching {
             Http.client.newCall(request).execute().use { response ->
-                response.code to if (response.isSuccessful) response.body?.string() else null
+                response.code to if (response.isSuccessful) response.body.string() else null
             }
         }.getOrElse { return SpotifyCanvasQuery.Answer.Failed("request threw: ${it.message}") }
         if (body == null) return SpotifyCanvasQuery.Answer.Failed("http $code")
@@ -360,7 +360,7 @@ object SpotifyCanvas {
                 if (!response.isSuccessful) {
                     Log.w(TAG, "canvaz-cache http ${response.code} for $trackUri")
                 }
-                if (response.isSuccessful) response.body?.bytes() else null
+                if (response.isSuccessful) response.body.bytes() else null
             }
         }.onFailure { Log.w(TAG, "canvaz-cache request threw: ${it.message}") }.getOrNull() ?: return null
 

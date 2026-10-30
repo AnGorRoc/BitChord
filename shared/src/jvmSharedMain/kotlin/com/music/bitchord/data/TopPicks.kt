@@ -473,7 +473,7 @@ object TopPicks {
                 // As a watch queue, so YouTube hands over each official video's
                 // song version directly; the playlist page only lists videos.
                 YtMusicRepository.playlistAsAudio(playlistId).getOrNull()?.takeIf { it.isNotEmpty() }
-                    ?: YtMusicRepository.browseSongs(item.browseId!!).getOrNull()?.songs.orEmpty()
+                    ?: YtMusicRepository.browseSongs(item.browseId).getOrNull()?.songs.orEmpty()
             }
         }.awaitAll().flatten()
             // A row YouTube couldn't pair stays the video, and plays as one;

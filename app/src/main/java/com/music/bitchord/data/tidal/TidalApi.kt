@@ -374,7 +374,7 @@ object TidalApi {
             .header("User-Agent", BROWSER_UA).header("Accept-Language", "en-US,en;q=0.9")
             .build()
         client.newCall(request).execute().use { response ->
-            val text = runCatching { response.body?.string().orEmpty() }.getOrDefault("")
+            val text = runCatching { response.body.string().orEmpty() }.getOrDefault("")
             TrackLog.d(TAG, "tidal ${response.code} ${redact(url)}")
             return Body(response.isSuccessful, response.code, text)
         }

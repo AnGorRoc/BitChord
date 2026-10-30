@@ -188,7 +188,7 @@ private fun planAt(type: Fonts, lines: List<LyricsShareLine>, size: Float): Plan
             // and a dim grey. Keep its row compact so the marker follows the
             // preceding lyric closely; the regular gap on the next lyric line
             // provides the separation below it.
-            val marker = type.body(size * 0.65f, 0x66FFFFFF.toInt())
+            val marker = type.body(size * 0.65f, 0x66FFFFFF)
             val markerHeight = marker.descent() - marker.ascent()
             rows += Row("(...)", marker, markerHeight, 0f, isGap = true)
             return@forEachIndexed

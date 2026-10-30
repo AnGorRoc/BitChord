@@ -432,7 +432,7 @@ internal fun AndroidCanvasArtworkPlayer(
                             val view = textureView
                             val layoutReady = !portrait ||
                                 (expected != IntSize.Zero && view?.width == expected.width &&
-                                    view?.height == expected.height)
+                                    view.height == expected.height)
                             if ((currentContentMode == CanvasContentMode.CROP || transformed) && layoutReady) {
                                 rendered = true
                                 frameTick++

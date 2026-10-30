@@ -60,7 +60,7 @@ object AppleCatalogue {
             .header("User-Agent", USER_AGENT)
             .build()
         val body = Http.client.newCall(request).execute()
-            .use { if (it.isSuccessful) it.body?.string() else null } ?: return false
+            .use { if (it.isSuccessful) it.body.string() else null } ?: return false
         val rows = json.parseToJsonElement(body).jsonObject["results"]?.jsonArray ?: return false
         return rows.any { row ->
             val o = row.jsonObject

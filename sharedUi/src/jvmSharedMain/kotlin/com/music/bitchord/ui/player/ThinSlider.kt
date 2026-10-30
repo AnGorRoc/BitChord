@@ -375,7 +375,7 @@ fun rememberMixPulse(mixBlend: () -> MixBlend?, enabled: Boolean): MixPulse {
                 val blend = pulse.blendNow()
                 val beatNanos = blend?.beatMs?.takeIf { it > 0f }?.let { it * 1_000_000.0 }
                 var phase = pulse.phase
-                if (beatNanos != null && blend != null) {
+                if (beatNanos != null) {
                     phase += dt / beatNanos
                     val target = Math.floorMod(now - blend.beatAnchorNanos, beatNanos.toLong()) / beatNanos
                     // Shortest way round the circle to where the beat should be. The very first

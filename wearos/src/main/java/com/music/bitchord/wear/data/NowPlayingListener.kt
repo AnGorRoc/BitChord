@@ -35,7 +35,7 @@ class NowPlayingListener : WearableListenerService() {
 
     /** The phone driving this watch as its speaker — see [Speaker]. */
     override fun onMessageReceived(event: MessageEvent) {
-        val path = event.path ?: return
+        val path = event.path
         when {
             path == P.PATH_WATCH_INFO_REQUEST -> SelfUpdate.publishInfo(this)
             path.startsWith(P.PATH_SPEAKER + "/") -> Speaker.handle(this, path.substringAfterLast('/'), event.data)

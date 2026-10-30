@@ -457,7 +457,7 @@ object LoopMix {
             val next = sorted.subList(index + 1, sorted.size).firstOrNull { it.timeMs > line.timeMs }?.timeMs
             val stated = line.endMs != null && line.endMs > line.timeMs
             val end = if (stated) {
-                line.endMs!! / 1000.0
+                line.endMs / 1000.0
             } else {
                 min(start + LYRIC_OPEN_LINE_SEC, (next ?: (line.timeMs + 10_000)) / 1000.0)
             }

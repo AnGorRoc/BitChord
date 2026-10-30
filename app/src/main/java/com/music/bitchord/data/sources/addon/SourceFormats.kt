@@ -217,7 +217,7 @@ object SourceFormats {
                 if (response.code >= 500) throw AddonUnavailable("HTTP ${response.code}")
                 throw AddonException("HTTP ${response.code}")
             }
-            response.body?.string()?.takeIf { it.isNotBlank() }
+            response.body.string()?.takeIf { it.isNotBlank() }
                 ?: throw AddonException("Empty response")
         }
     }.onFailure {

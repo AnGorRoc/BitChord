@@ -288,7 +288,7 @@ object Musixmatch {
             .apply { if (cookie != null) header("Cookie", cookie) }
             .build()
         client.newCall(request).execute().use { response ->
-            if (response.isSuccessful) response.body?.string() else null
+            if (response.isSuccessful) response.body.string() else null
         }
     }.getOrNull()
 

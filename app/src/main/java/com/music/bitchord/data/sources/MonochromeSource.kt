@@ -246,7 +246,7 @@ class MonochromeSource(
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             // A server that ignores the range answers 200 with the whole file;
             // only its first bytes are read either way.
-            val source = response.body?.source() ?: throw IOException("Empty body")
+            val source = response.body.source()
             source.request(HEAD_BYTES.toLong())
             val head = source.buffer.readByteArray(minOf(HEAD_BYTES.toLong(), source.buffer.size))
             if (!isFlac(head)) {
@@ -275,7 +275,7 @@ class MonochromeSource(
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             // Bounded: this is a search answer of a few kilobytes, and a body
             // that outgrows the cap is not one.
-            val source = (response.body ?: throw IOException("Empty body")).source()
+            val source = response.body.source()
             if (source.request(MAX_JSON_BYTES + 1)) throw IOException("Answer larger than $MAX_JSON_BYTES bytes")
             return source.readUtf8()
         }

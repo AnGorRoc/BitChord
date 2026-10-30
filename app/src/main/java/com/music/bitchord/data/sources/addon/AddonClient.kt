@@ -342,7 +342,7 @@ class AddonClient(rawBaseUrl: String) {
             val wait = client.newCall(request).execute().use { response ->
                 when {
                     response.isSuccessful ->
-                        return@withContext response.body?.string()?.takeIf { it.isNotBlank() }
+                        return@withContext response.body.string()?.takeIf { it.isNotBlank() }
                             ?: throw AddonException("Empty response")
                     response.code == 404 -> throw AddonNotFound()
                     // A 5xx is a server having a bad minute and will be tried

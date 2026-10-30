@@ -170,7 +170,7 @@ object StreamResolver {
                 response.code,
                 response.message,
                 response.headers.toMultimap(),
-                response.body?.string(),
+                response.body.string(),
                 response.request.url.toString(),
             )
         }
@@ -868,7 +868,7 @@ object StreamResolver {
                     // exactly the shaping this whole path exists to sidestep.
                     // Insisting on the bytes is the point: a trickle that
                     // yields its first byte and stalls is a failure too.
-                    response.body?.source()?.request(PROBE_READ_BYTES) != true -> Probe.UNREACHABLE
+                    response.body.source()?.request(PROBE_READ_BYTES) != true -> Probe.UNREACHABLE
                     else -> Probe.OK
                 }
                 if (verdict != Probe.OK) {

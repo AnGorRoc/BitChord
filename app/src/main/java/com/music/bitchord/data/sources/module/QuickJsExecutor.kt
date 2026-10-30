@@ -509,7 +509,7 @@ internal object QuickJsExecutor {
         }
 
         syncHttpClient.newCall(builder.build()).execute().use { response ->
-            val responseBody = response.body?.string() ?: ""
+            val responseBody = response.body.string() ?: ""
             return response.code to responseBody
         }
     }

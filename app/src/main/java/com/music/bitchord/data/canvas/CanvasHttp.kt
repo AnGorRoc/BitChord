@@ -17,7 +17,7 @@ internal fun canvasGet(url: String, headers: Map<String, String> = emptyMap()): 
     }.build()
     return runCatching {
         Http.client.newCall(request).execute().use { response ->
-            if (response.isSuccessful) response.body?.string() else null
+            if (response.isSuccessful) response.body.string() else null
         }
     }.getOrNull()
 }
@@ -33,7 +33,7 @@ internal fun canvasGetWithStatus(url: String, headers: Map<String, String> = emp
     }.build()
     return runCatching {
         Http.client.newCall(request).execute().use { response ->
-            response.code to if (response.isSuccessful) response.body?.string() else null
+            response.code to if (response.isSuccessful) response.body.string() else null
         }
     }.getOrDefault(-1 to null)
 }

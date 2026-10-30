@@ -89,21 +89,17 @@ object Http {
         val request = chain.request()
         val response = chain.proceed(request)
         val body = response.body
-        if (body == null) {
-            response
-        } else {
-            val host = request.url.host
-            val range = request.header("Range")
-            val counting = CountingSource(body.source()) { bytes ->
-                val total = usageTotals.computeIfAbsent(host) { AtomicLong() }.addAndGet(bytes)
-                DebugLog.d(
-                    USAGE_TAG,
-                    "$host ${request.method} ${request.url.encodedPath} " +
-                        "range=$range status=${response.code} bytes=$bytes total[$host]=$total",
-                )
-            }.buffer()
-            response.newBuilder().body(CountedBody(body, counting)).build()
-        }
+        val host = request.url.host
+        val range = request.header("Range")
+        val counting = CountingSource(body.source()) { bytes ->
+            val total = usageTotals.computeIfAbsent(host) { AtomicLong() }.addAndGet(bytes)
+            DebugLog.d(
+                USAGE_TAG,
+                "$host ${request.method} ${request.url.encodedPath} " +
+                    "range=$range status=${response.code} bytes=$bytes total[$host]=$total",
+            )
+        }.buffer()
+        response.newBuilder().body(CountedBody(body, counting)).build()
     }
     // ---- End temporary instrumentation ----------------------------------
 

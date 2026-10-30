@@ -234,7 +234,7 @@ internal class PageFetcher(
                     return@use
                 }
                 if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
-                val source = (response.body ?: throw IOException("Empty body")).source()
+                val source = response.body.source()
                 source.request(maxBytes)
                 val html = source.buffer.readUtf8(minOf(source.buffer.size, maxBytes))
                 return FetchedPage(url, html)

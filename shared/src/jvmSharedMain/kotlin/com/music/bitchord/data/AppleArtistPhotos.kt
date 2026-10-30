@@ -117,7 +117,7 @@ object AppleArtistPhotos {
         val url = "https://itunes.apple.com/search?term=${URLEncoder.encode(artistName, "UTF-8")}" +
             "&entity=musicArtist&limit=5"
         val body = client.newCall(Request.Builder().url(url).header("User-Agent", USER_AGENT).build())
-            .execute().use { if (it.isSuccessful) it.body?.string() else null } ?: return null
+            .execute().use { if (it.isSuccessful) it.body.string() else null } ?: return null
         val results = json.parseToJsonElement(body).jsonObject["results"]?.jsonArray ?: return null
         return results.asSequence()
             .map { it.jsonObject }
@@ -142,7 +142,7 @@ object AppleArtistPhotos {
     private fun ogImage(pageUrl: String): String? =
         client.newCall(Request.Builder().url(pageUrl).header("User-Agent", USER_AGENT).build()).execute().use { response ->
             if (!response.isSuccessful) return null
-            val source = response.body?.source() ?: return null
+            val source = response.body.source() ?: return null
             val buffer = Buffer()
             val head = StringBuilder()
             while (head.length < HEAD_LIMIT && source.read(buffer, 8_192) != -1L) {

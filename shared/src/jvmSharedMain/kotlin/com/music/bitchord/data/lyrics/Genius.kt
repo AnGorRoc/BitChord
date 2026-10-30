@@ -332,7 +332,7 @@ object Genius {
             .header("Accept-Language", "en-US,en;q=0.9")
             .build()
         httpClient.newCall(request).execute().use { response ->
-            if (response.isSuccessful) response.body?.string() else null
+            if (response.isSuccessful) response.body.string() else null
         }
     }.getOrNull()
 

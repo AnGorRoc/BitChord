@@ -204,7 +204,7 @@ object SpotifyLibrary {
             .apply { headers.forEach { (name, value) -> header(name, value) } }
             .build()
         val text = Http.client.newCall(request).execute().use { response ->
-            val payload = response.body?.string().orEmpty()
+            val payload = response.body.string().orEmpty()
             if (!response.isSuccessful) {
                 throw SpotifyHttpException(operation, response.code)
             }

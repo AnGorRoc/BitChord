@@ -33,8 +33,8 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.PlaylistPlay
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SwipeToDismissBox
@@ -401,12 +401,12 @@ fun SwipeToQueueBox(
 
     val swipeState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
-            if (value != SwipeToDismissBoxValue.Settled && currentOnSwipeToQueue != null) {
+            if (value != SwipeToDismissBoxValue.Settled) {
                 val offset = try { swipeStateHolder.value?.requireOffset() ?: 0f } catch (e: Exception) { 0f }
                 // Only queue if the physical drag reached half the box width, ignoring short accidental flings.
                 if (abs(offset) >= boxWidth * 0.45f) {
                     haptics.play(Haptic.Select)
-                    currentOnSwipeToQueue?.invoke()
+                    currentOnSwipeToQueue.invoke()
                 }
             }
             false // never actually dismiss; snap back
@@ -481,7 +481,7 @@ private fun QueueSwipeBackground(swipeState: SwipeToDismissBoxState) {
 private fun QueueSwipeLabel(playNext: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            if (playNext) Icons.Rounded.PlaylistPlay else Icons.Rounded.PlaylistAdd,
+            if (playNext) Icons.AutoMirrored.Rounded.PlaylistPlay else Icons.AutoMirrored.Rounded.PlaylistAdd,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp),

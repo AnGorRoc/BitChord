@@ -303,7 +303,7 @@ internal object SpotifyToken {
         val body = runCatching {
             Http.client.newCall(request).execute().use { response ->
                 lastCode = response.code
-                if (response.isSuccessful) response.body?.string() else null
+                if (response.isSuccessful) response.body.string() else null
             }
         }.onFailure { Log.w(TAG, "client-token request threw: ${it.message}") }.getOrNull()
         if (body == null) {
@@ -352,7 +352,7 @@ internal object SpotifyToken {
             .build()
         val (html, deviceId) = runCatching {
             Http.client.newCall(request).execute().use { response ->
-                val body = response.body?.string()
+                val body = response.body.string()
                 val spT = response.headers("Set-Cookie").firstNotNullOfOrNull { header ->
                     Regex("""sp_t=([^;]+)""").find(header)?.groupValues?.get(1)
                 }

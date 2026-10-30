@@ -223,18 +223,18 @@ object EmbeddedArt {
             return u32(head, pos).also { pos += 4 }
         }
         u32at() // picture type
-        val mimeLen = u32at().toInt()
+        val mimeLen = u32at()
         if (mimeLen < 0 || pos + mimeLen > head.size) return null
         val mime = head.decodeToString(pos, pos + mimeLen).ifBlank { null }
         pos += mimeLen
-        val descLen = u32at().toInt()
+        val descLen = u32at()
         if (descLen < 0 || pos + descLen + 20 > head.size) return null
         pos += descLen + 16 // description, width, height, depth, colors
         val dataLen = u32at()
         if (dataLen <= 0 || dataLen > MAX_PICTURE_BYTES) return null
         val dataAt = at + pos
-        val data = reader.read(dataAt, dataLen.toInt())
-        if (data.size != dataLen.toInt()) return null
+        val data = reader.read(dataAt, dataLen)
+        if (data.size != dataLen) return null
         return picture(data, mime)
     }
 
@@ -401,16 +401,16 @@ object EmbeddedArt {
             return u32(payload, pos).also { pos += 4 }
         }
         u32be()
-        val mimeLen = u32be().toInt()
+        val mimeLen = u32be()
         if (mimeLen < 0 || pos + mimeLen > payload.size) return null
         val mime = payload.decodeToString(pos, pos + mimeLen).ifBlank { null }
         pos += mimeLen
-        val descLen = u32be().toInt()
+        val descLen = u32be()
         if (descLen < 0 || pos + descLen + 20 > payload.size) return null
         pos += descLen + 16
         val dataLen = u32be()
         if (dataLen <= 0 || dataLen > MAX_PICTURE_BYTES || pos + dataLen > payload.size) return null
-        return picture(payload.copyOfRange(pos, (pos + dataLen).toInt()), mime)
+        return picture(payload.copyOfRange(pos, (pos + dataLen)), mime)
     }
 
     // ── Small byte readers ────────────────────────────────────────────────

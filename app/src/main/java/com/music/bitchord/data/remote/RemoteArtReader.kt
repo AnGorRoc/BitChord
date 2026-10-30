@@ -38,7 +38,7 @@ object RemoteArtReader {
                     // No range support: only the front is usable.
                     return ByteArray(0)
                 }
-                val body = response.body ?: return ByteArray(0)
+                val body = response.body
                 // Bounded either way: a 200 answer carries the whole file,
                 // and only the requested window is ever kept.
                 val buffer = okio.Buffer()

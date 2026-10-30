@@ -610,10 +610,10 @@ class WearCommandService : WearableListenerService() {
     private val main = Handler(Looper.getMainLooper())
 
     override fun onMessageReceived(event: MessageEvent) {
-        val path = event.path ?: return
+        val path = event.path
         if (!path.startsWith(P.PATH_COMMAND + "/")) return
         val command = path.substringAfterLast('/')
-        val arg = event.data?.let { String(it, Charsets.UTF_8) }.orEmpty()
+        val arg = event.data.let { String(it, Charsets.UTF_8) }.orEmpty()
         WearBridge.onWatchSeen(this)
 
         when (command) {
@@ -629,7 +629,7 @@ class WearCommandService : WearableListenerService() {
                 return
             }
             P.CMD_SPEAKER_STATUS -> {
-                val map = event.data?.let { runCatching { DataMap.fromByteArray(it) }.getOrNull() } ?: return
+                val map = event.data.let { runCatching { DataMap.fromByteArray(it) }.getOrNull() } ?: return
                 main.post { WearBridge.speaker?.onStatus(map) }
                 return
             }

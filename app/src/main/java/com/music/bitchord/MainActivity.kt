@@ -72,7 +72,7 @@ import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Upgrade
 import com.music.bitchord.data.listentogether.ServerConnectionState
 import androidx.compose.material3.DropdownMenu
@@ -1707,7 +1707,7 @@ private fun BitChordApp(
             scope.launch {
                 val songs = TopPicks.queue(pick).getOrNull().orEmpty()
                 if (request != playRequestGeneration) return@launch
-                val activeController = controller ?: return@launch
+                val activeController = controller
                 if (songs.isEmpty()) {
                     Toast.makeText(context, R.string.couldnt_load_tracks, Toast.LENGTH_SHORT).show()
                     return@launch
@@ -3519,7 +3519,7 @@ private fun BitChordApp(
                                 },
                                 onBrowseClick = { item ->
                                     viewModel.recordEntity(SearchHistoryEntity(
-                                        id = item.browseId ?: "",
+                                        id = item.browseId,
                                         title = item.title,
                                         subtitle = item.subtitle.ifBlank { "" },
                                         artworkUrl = item.thumbnailUrl,
@@ -3778,7 +3778,7 @@ private fun BitChordApp(
                         AppRoute.Settings -> stringResource(R.string.settings)
                         AppRoute.Replay -> stringResource(R.string.replay)
                         null -> when {
-                            detail != null && detailActiveShelf != null -> detailActiveShelf?.title.orEmpty()
+                            detail != null && detailActiveShelf != null -> detailActiveShelf.title.orEmpty()
                             detail != null -> detail.title
                             selectedMoodGenre != null -> selectedMoodGenre?.title.orEmpty()
                             else -> tabs[selectedTab].let {
@@ -3850,15 +3850,15 @@ private fun BitChordApp(
                         val notInSettings = !(route != null && AppRoute.Settings in navigator)
                         val releaseSongs = (detail?.songs as? UiState.Success)?.data.orEmpty()
                         val isLocalPlaylist = detail?.browseId?.startsWith("local:playlist:") == true &&
-                            com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(detail?.browseId.orEmpty()) != null
+                            com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(detail.browseId.orEmpty()) != null
 
                         // 1. Rightmost anchor slot: Profile (avatar) or More (three dots)
                         val anchorState = when {
                             !notInSettings -> TopBarAnchor.None
-                            isReleaseDetail && detail != null && (releaseSongs.isNotEmpty() || detail?.type == BrowseType.PLAYLIST || isLocalPlaylist) -> {
+                            isReleaseDetail && detail != null && (releaseSongs.isNotEmpty() || detail.type == BrowseType.PLAYLIST || isLocalPlaylist) -> {
                                 TopBarAnchor.More(
                                     onClick = {
-                                        detail?.let { d ->
+                                        detail.let { d ->
                                             browseActions = BrowseTarget(
                                                 browseId = d.browseId,
                                                 title = d.title,
@@ -3909,7 +3909,7 @@ private fun BitChordApp(
                                                     modifier = Modifier.size(TOP_CONTROL_SIZE),
                                                 ) {
                                                     Icon(
-                                                        Icons.Rounded.Sort,
+                                                        Icons.AutoMirrored.Rounded.Sort,
                                                         contentDescription = stringResource(
                                                             if (isLocalDetail) R.string.sort_music else R.string.sort_songs,
                                                         ),
@@ -3940,11 +3940,11 @@ private fun BitChordApp(
                                     }
 
                                     // Artist Detail
-                                    detail != null && !isLocalDetail && detail?.type == BrowseType.ARTIST &&
-                                        detailActiveShelf == null && detail?.browseId?.startsWith("UC") == true -> {
+                                    detail != null && !isLocalDetail && detail.type == BrowseType.ARTIST &&
+                                        detailActiveShelf == null && detail.browseId?.startsWith("UC") == true -> {
                                         add(
                                             TopBarActionItem(key = "share") {
-                                                detail?.let { d ->
+                                                detail.let { d ->
                                                     IconButton(
                                                         onClick = {
                                                             val sendIntent = Intent(Intent.ACTION_SEND).apply {
@@ -4024,7 +4024,7 @@ private fun BitChordApp(
                                                         modifier = Modifier.size(TOP_CONTROL_SIZE),
                                                     ) {
                                                         Icon(
-                                                            Icons.Rounded.Sort,
+                                                            Icons.AutoMirrored.Rounded.Sort,
                                                             contentDescription = stringResource(R.string.sort_library),
                                                             tint = MaterialTheme.colorScheme.onSurface,
                                                         )
@@ -4083,7 +4083,7 @@ private fun BitChordApp(
                                                 ) {
                                                     Icon(
                                                         Icons.Rounded.Upgrade,
-                                                        contentDescription = stringResource(R.string.update_available, updateNotice?.version.orEmpty()),
+                                                        contentDescription = stringResource(R.string.update_available, updateNotice.version.orEmpty()),
                                                         tint = MaterialTheme.colorScheme.primary,
                                                     )
                                                 }
@@ -4600,7 +4600,6 @@ private fun BitChordApp(
                     val original = convertedFromVideo
                     val originalAudio = convertedFromAudio
                     when {
-                        c == null -> Unit
                         original != null && (
                             convertedAudioId == song.videoId ||
                                 convertedAudioId == versionEffectiveSong.videoId ||
@@ -4818,7 +4817,7 @@ private fun BitChordApp(
                     controller?.currentMediaItem?.mediaId == song.videoId
                 ) {
                     {
-                        controller?.revertToOriginal()
+                        controller.revertToOriginal()
                         songActions = null
                     }
                 } else {

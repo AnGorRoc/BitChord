@@ -414,7 +414,7 @@ object MediaTagger {
             val request = okhttp3.Request.Builder().url(url).build()
             Http.client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@runCatching null
-                val raw = response.body?.bytes() ?: return@runCatching null
+                val raw = response.body.bytes() ?: return@runCatching null
                 val bitmap = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return@runCatching null
                 val scaled = downscale(bitmap, COVER_MAX_SIDE)
                 val out = ByteArrayOutputStream()
