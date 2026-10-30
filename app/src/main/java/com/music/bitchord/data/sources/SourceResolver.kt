@@ -2,6 +2,7 @@ package com.music.bitchord.data.sources
 
 import android.net.Uri
 import android.util.Log
+import com.music.bitchord.R
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
@@ -598,8 +599,14 @@ object SourceResolver {
                         sourceId = candidate.configId,
                         displayName = candidate.displayName,
                         kind = candidate.kind,
-                        status = "Omitida en la segunda búsqueda",
-                        detail = if (candidate.configId in avoid) "Su archivo era otra grabación" else "En pausa tras fallos recientes",
+                        status = SourceResolutionTracker.text(R.string.pipeline_status_skipped_second_look),
+                        detail = SourceResolutionTracker.text(
+                            if (candidate.configId in avoid) {
+                                R.string.pipeline_detail_other_recording
+                            } else {
+                                R.string.pipeline_detail_resting
+                            },
+                        ),
                     )
                 }
                 TrackLog.d(
@@ -638,8 +645,8 @@ object SourceResolver {
                             sourceId = candidate.configId,
                             displayName = candidate.displayName,
                             kind = candidate.kind,
-                            status = "Calidad menor a la actual (${stream.format.summary})",
-                            detail = "No supera la ganancia mínima requerida para cambiar de fuente",
+                            status = SourceResolutionTracker.text(R.string.pipeline_status_lower_quality, stream.format.summary),
+                            detail = SourceResolutionTracker.text(R.string.pipeline_detail_below_gain),
                         )
                     }
                 }
@@ -1227,7 +1234,7 @@ object SourceResolver {
                         sourceId = source.configId,
                         displayName = source.displayName,
                         kind = source.kind,
-                        status = "Álbum en conflicto / versión ambigua",
+                        status = SourceResolutionTracker.text(R.string.pipeline_status_album_conflict),
                     )
                     continue
                 }
@@ -1269,13 +1276,17 @@ object SourceResolver {
                     sourceId = source.configId,
                     displayName = source.displayName,
                     kind = source.kind,
-                    status = "Servidor con límite de peticiones (429)",
+                    status = SourceResolutionTracker.text(R.string.pipeline_status_rate_limited),
                     detail = e.message,
                 )
                 break
             }
             if (stream != null) {
-                val statusText = if (stream.format.isLossless == true) "Disponible en FLAC Lossless" else "Disponible en ${stream.format.summary}"
+                val statusText = if (stream.format.isLossless == true) {
+                    SourceResolutionTracker.text(R.string.pipeline_status_available_lossless)
+                } else {
+                    SourceResolutionTracker.text(R.string.pipeline_status_available, stream.format.summary)
+                }
                 SourceResolutionTracker.record(
                     sourceId = source.configId,
                     displayName = source.displayName,
@@ -1290,15 +1301,15 @@ object SourceResolver {
                     sourceId = source.configId,
                     displayName = source.displayName,
                     kind = source.kind,
-                    status = "No se pudo obtener enlace de audio",
+                    status = SourceResolutionTracker.text(R.string.pipeline_status_no_link),
                 )
             }
         }
         if (searchedAny) {
             val status = when {
-                hadFailedStream -> "No se pudo obtener enlace de audio"
-                !hadAnyCandidates || !hadRelevantCandidates -> "No se encontró en su catálogo"
-                else -> "Versión no coincide (duración distinta o artista)"
+                hadFailedStream -> SourceResolutionTracker.text(R.string.pipeline_status_no_link)
+                !hadAnyCandidates || !hadRelevantCandidates -> SourceResolutionTracker.text(R.string.pipeline_status_not_in_catalogue)
+                else -> SourceResolutionTracker.text(R.string.pipeline_status_version_mismatch)
             }
             SourceResolutionTracker.record(
                 sourceId = source.configId,
@@ -1518,7 +1529,7 @@ object SourceResolver {
             sourceId = source.configId,
             displayName = source.displayName,
             kind = source.kind,
-            status = "Error de conexión o servidor",
+            status = SourceResolutionTracker.text(R.string.pipeline_status_connection_error),
             detail = errorMsg,
         )
         // Only meaningful inside an upgrade lookup, which is the one caller that

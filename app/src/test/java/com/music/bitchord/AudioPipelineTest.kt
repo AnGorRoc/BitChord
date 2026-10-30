@@ -383,7 +383,7 @@ class AudioPipelineTest {
         assertEquals("En reproducción (FLAC Lossless)", mono.status)
 
         assertFalse(yt.isWinner)
-        assertEquals("Reemplazado por mayor calidad", yt.status)
+        assertEquals(SourceResolutionTracker.text(R.string.pipeline_status_superseded), yt.status)
     }
 
     @Test

@@ -1334,40 +1334,6 @@
     <string name="sing_method_band">Band</string>
     <string name="sing_method_gate">Smart</string>
     <string name="sing_method_gate_note">The same band, rebuilt as a true bandpass, with a voice detector that leaves instrumentals alone and side makeup that replaces the removed energy.</string>
-    <!-- Flow Mode -->
-    <string name="flow">Flow</string>
-    <string name="flow_subtitle">Your personal soundtrack</string>
-    <string name="flow_started">Flow started</string>
-    <string name="flow_locked_title">Flow unlocks at 16 favorites</string>
-    <string name="flow_locked_subtitle">Like %1$d more to start your endless mix</string>
-    <string name="flow_temp_playlist">Flow · temporary</string>
-    <string name="flow_growing">Growing as you listen</string>
-    <string name="flow_save">Save Flow</string>
-    <string name="flow_saved">Flow saved to playlists</string>
-    <string name="flow_save_failed">Couldn\'t save Flow</string>
-    <string name="flow_moods">Moods</string>
-    <string name="flow_tuner">Flow Tuner</string>
-    <string name="flow_discovery">Discovery</string>
-    <string name="flow_discovery_subtitle">More fresh finds vs favorites</string>
-    <string name="flow_favorites">Favorites</string>
-    <string name="flow_favorites_subtitle">Weight of liked tracks in the mix</string>
-    <string name="flow_genres">Genres in my Flow</string>
-    <string name="flow_banned">Banned from Flow</string>
-    <string name="flow_empty_banned">Nothing banned — hold a track to ban it from Flow</string>
-    <string name="flow_apply">Apply &amp; rebuild</string>
-    <string name="flow_save_title">Save Flow</string>
-    <string name="flow_draft_hint">Edits stay local until you apply them</string>
-    <string name="flow_mix_title">In this mix · %1$d</string>
-    <string name="flow_temp_count">%1$d tracks · %2$s mood · temporary</string>
-    <string name="flow_temp_meta">%1$d tracks · temporary</string>
-    <string name="flow_new_mix">New mix</string>
-    <string name="flow_memory">Memory</string>
-    <string name="flow_memory_subtitle">All-time likes vs what you have been playing lately</string>
-    <string name="flow_alltime">All-time</string>
-    <string name="flow_recent">Recent</string>
-    <string name="flow_rebuilding">Rebuilding Flow…</string>
-    <string name="flow_personal">Personal</string>
-    <string name="flow_adventurous">Adventurous</string>
 
     
     <string name="sing_method_original_note" translatable="false">The plain centre cut, from the first version. Fastest and cleanest on an old recording; takes the kick and snare with the vocal on anything modern.</string>
@@ -1394,4 +1360,34 @@
     <string name="tidal_provider_add">Add</string>
     <string name="tidal_provider_remove">Remove</string>
     <string name="tidal_provider_rejected">Not a usable provider address</string>
+
+    <!-- Source Inspection statuses: diagnostic text, English like the section title. -->
+    <string name="pipeline_status_playing" translatable="false">Playing</string>
+    <string name="pipeline_status_playing_with" translatable="false">Playing (%1$s)</string>
+    <string name="pipeline_status_playing_direct" translatable="false">Playing directly (%1$s)</string>
+    <string name="pipeline_status_superseded" translatable="false">Replaced by higher quality</string>
+    <string name="pipeline_status_querying" translatable="false">Looking up…</string>
+    <string name="pipeline_status_waiting" translatable="false">Waiting</string>
+    <string name="pipeline_status_skipped_data" translatable="false">Skipped by data limit (%1$s)</string>
+    <string name="pipeline_status_skipped_lossless_first" translatable="false">Skipped (direct Lossless preferred)</string>
+    <string name="pipeline_status_skipped_better_source" translatable="false">Skipped (higher-quality source preferred)</string>
+    <string name="pipeline_status_skipped_direct_addon" translatable="false">Skipped (direct playback from Addon)</string>
+    <string name="pipeline_status_skipped_second_look" translatable="false">Skipped in the second look</string>
+    <string name="pipeline_detail_other_recording" translatable="false">Its file was another recording</string>
+    <string name="pipeline_detail_resting" translatable="false">Paused after recent failures</string>
+    <string name="pipeline_status_lower_quality" translatable="false">Lower quality than current (%1$s)</string>
+    <string name="pipeline_detail_below_gain" translatable="false">Doesn’t clear the minimum gain needed to switch source</string>
+    <string name="pipeline_status_album_conflict" translatable="false">Conflicting album / ambiguous version</string>
+    <string name="pipeline_status_rate_limited" translatable="false">Server rate-limited (429)</string>
+    <string name="pipeline_status_available_lossless" translatable="false">Available as FLAC Lossless</string>
+    <string name="pipeline_status_available" translatable="false">Available as %1$s</string>
+    <string name="pipeline_status_no_link" translatable="false">Couldn’t get an audio link</string>
+    <string name="pipeline_status_not_in_catalogue" translatable="false">Not found in its catalogue</string>
+    <string name="pipeline_status_version_mismatch" translatable="false">Version doesn’t match (different length or artist)</string>
+    <string name="pipeline_status_connection_error" translatable="false">Connection or server error</string>
+    <string name="pipeline_status_audition_error" translatable="false">Audio test failed (audition)</string>
+    <string name="pipeline_detail_audition_error" translatable="false">The server refused or didn’t answer the playback test in time</string>
+    <string name="pipeline_status_audition_rejected" translatable="false">Rejected in test (%1$s)</string>
+    <string name="tidal_no_answer" translatable="false">No answer</string>
+    <string name="tidal_providers_refresh" translatable="false">Refresh</string>
 </resources>

@@ -4704,6 +4704,13 @@ class PlaybackService : MediaLibraryService() {
      */
     private var audioFormatFor: String? = null
 
+    /** Whether offline mode rules out a second look, which would only be asking the network. */
+    private fun offlineBlocksUpgrades(): Boolean {
+        if (!AppSettings.effectiveOffline.value) return false
+        TrackLog.d("BitChord", "offline mode: skipping the second look")
+        return true
+    }
+
     /**
      * Starts the second look for the playing track, if it settled for less
      * than was asked for — see [QualityUpgrade].
@@ -4723,12 +4730,6 @@ class PlaybackService : MediaLibraryService() {
      * served from the disk cache was never resolved at all and is judged here
      * instead — see [adoptCachedTrack] and [QualityUpgrade.adoptUnresolved].
      */
-    private fun offlineBlocksUpgrades(): Boolean {
-        if (!AppSettings.effectiveOffline.value) return false
-        TrackLog.d("BitChord", "offline mode: skipping the second look")
-        return true
-    }
-
     private fun lookForBetterCopy(player: ExoPlayer) {
         if (offlineBlocksUpgrades()) return
         val item = player.currentMediaItem ?: return
@@ -5602,14 +5603,14 @@ class PlaybackService : MediaLibraryService() {
             QualityUpgrade.holdIfRefused(mediaId, auditionStartedAtMs)
             val sourceId = stream.sourceConfigId ?: "module"
             val config = SourceRegistry.config(sourceId)
-            val sourceName = config?.displayName ?: "Fuente"
+            val sourceName = config?.displayName ?: getString(R.string.pipeline_source)
             val sourceKind = config?.kind ?: SourceKind.ADDON
             SourceResolutionTracker.record(
                 sourceId = sourceId,
                 displayName = sourceName,
                 kind = sourceKind,
-                status = "Error en prueba de audio (audición)",
-                detail = "El servidor rechazó o no respondió a tiempo la prueba de reproducción",
+                status = SourceResolutionTracker.text(R.string.pipeline_status_audition_error),
+                detail = SourceResolutionTracker.text(R.string.pipeline_detail_audition_error),
             )
             return SwapResult.Rejected
         }
@@ -5689,7 +5690,7 @@ class PlaybackService : MediaLibraryService() {
             NerdStats.recordSource(mediaId, upgradedSourceName)
             SourceResolutionTracker.setWinner(
                 stream.sourceConfigId ?: "upgrade",
-                "En reproducción (${stream.format.summary})",
+                SourceResolutionTracker.text(R.string.pipeline_status_playing_with, stream.format.summary),
                 mediaId = mediaId,
             )
             QualityUpgrade.unshelve(mediaId)
@@ -5963,12 +5964,12 @@ class PlaybackService : MediaLibraryService() {
                         is Audition.Rejected -> {
                             TrackLog.w("BitChord", "upgrade dropped before it was heard: ${verdict.why}")
                             val sourceConfigId = stream.sourceConfigId
-                            val sourceName = sourceConfigId?.let { SourceRegistry.config(it)?.displayName } ?: "Mejora"
+                            val sourceName = sourceConfigId?.let { SourceRegistry.config(it)?.displayName } ?: "Upgrade"
                             SourceResolutionTracker.record(
                                 sourceId = sourceConfigId ?: "upgrade",
                                 displayName = sourceName,
                                 kind = SourceKind.ADDON,
-                                status = "Rechazado en prueba (${verdict.why})",
+                                status = SourceResolutionTracker.text(R.string.pipeline_status_audition_rejected, verdict.why),
                             )
                             return@withTimeoutOrNull null
                         }
@@ -6386,14 +6387,14 @@ class PlaybackService : MediaLibraryService() {
                     s.configId,
                     s.displayName,
                     s.kind,
-                    "Omitido por límite de datos (${ceiling.label})",
+                    SourceResolutionTracker.text(R.string.pipeline_status_skipped_data, ceiling.label),
                 )
             } else {
                 SourceResolutionTracker.record(
                     s.configId,
                     s.displayName,
                     s.kind,
-                    "Consultando...",
+                    SourceResolutionTracker.text(R.string.pipeline_status_querying),
                 )
             }
         }
@@ -6401,7 +6402,7 @@ class PlaybackService : MediaLibraryService() {
             "youtube",
             "YouTube Music",
             SourceKind.YOUTUBE,
-            "En espera",
+            SourceResolutionTracker.text(R.string.pipeline_status_waiting),
         )
 
         if (SourceResolver.losslessFromStart()) {
@@ -6411,8 +6412,8 @@ class PlaybackService : MediaLibraryService() {
             if (lossless != null && !StreamContainer.isManifest(lossless.url)) {
                 NerdStats.onLosslessRaceEnd(videoId)
                 val configId = lossless.sourceConfigId ?: "module"
-                SourceResolutionTracker.setWinner(configId, "En reproducción (${lossless.format.summary})", mediaId = videoId)
-                SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, "Omitido (se prefirió Lossless directo)")
+                SourceResolutionTracker.setWinner(configId, SourceResolutionTracker.text(R.string.pipeline_status_playing_with, lossless.format.summary), mediaId = videoId)
+                SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, SourceResolutionTracker.text(R.string.pipeline_status_skipped_lossless_first))
                 return Resolved.Module(lossless)
             }
             TrackLog.d("BitChord", "no lossless copy of '${target.title}' in ${LOSSLESS_FROM_START_TIMEOUT_MS}ms; starting as usual", about = videoId)
@@ -6510,8 +6511,8 @@ class PlaybackService : MediaLibraryService() {
             // finish into its own cache.
             fallback.cancel()
             val quickConfigId = quick.sourceConfigId ?: "module"
-            SourceResolutionTracker.setWinner(quickConfigId, "En reproducción (${quick.format.summary})", mediaId = videoId)
-            SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, "Omitido (se prefirió fuente de mayor calidad)")
+            SourceResolutionTracker.setWinner(quickConfigId, SourceResolutionTracker.text(R.string.pipeline_status_playing_with, quick.format.summary), mediaId = videoId)
+            SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, SourceResolutionTracker.text(R.string.pipeline_status_skipped_better_source))
             // Everything that was asked for, ahead of the fallback: the
             // ordinary good case, and the one with no seam in it.
             if (!quick.belowRequest) {
@@ -6533,7 +6534,7 @@ class PlaybackService : MediaLibraryService() {
 
         val url = fallback.await().getOrThrow()
         val ytBitrate = NerdStats.pickedBitrateKbps(videoId) ?: 160
-        SourceResolutionTracker.setWinner("youtube", "En reproducción (~$ytBitrate kbps Opus)", mediaId = videoId)
+        SourceResolutionTracker.setWinner("youtube", SourceResolutionTracker.text(R.string.pipeline_status_playing_with, "~$ytBitrate kbps Opus"), mediaId = videoId)
         // Marked pending only here, with the fallback's own bitrate in hand:
         // that figure is the answer to "better than what?" the second look
         // measures candidates against, and it isn't known until the client
@@ -6569,8 +6570,8 @@ class PlaybackService : MediaLibraryService() {
             .getOrNull()
         if (direct != null) {
             val configId = direct.sourceConfigId ?: "addon"
-            SourceResolutionTracker.setWinner(configId, "En reproducción directa (${direct.format.summary})", mediaId = videoId)
-            SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, "Omitido (reproducción directa desde Addon)")
+            SourceResolutionTracker.setWinner(configId, SourceResolutionTracker.text(R.string.pipeline_status_playing_direct, direct.format.summary), mediaId = videoId)
+            SourceResolutionTracker.record("youtube", "YouTube Music", SourceKind.YOUTUBE, SourceResolutionTracker.text(R.string.pipeline_status_skipped_direct_addon))
             return Resolved.Module(direct)
         }
         TrackLog.d(
@@ -6578,7 +6579,7 @@ class PlaybackService : MediaLibraryService() {
             "no addon served '${target.title}' directly; playing it from YouTube",
             about = videoId,
         )
-        SourceResolutionTracker.setWinner("youtube", "En reproducción (YouTube Opus)", mediaId = videoId)
+        SourceResolutionTracker.setWinner("youtube", SourceResolutionTracker.text(R.string.pipeline_status_playing_with, "YouTube Opus"), mediaId = videoId)
         return Resolved.YouTube(StreamResolver.resolve(videoId))
     }
 
@@ -8178,8 +8179,8 @@ class PlaybackService : MediaLibraryService() {
         scope.launch {
             var wasOffline = AppSettings.effectiveOffline.value
             AppSettings.effectiveOffline.collect { offline ->
-                if (wasOffline && !offline) restoreStreamingAfterOffline()
-                if (!wasOffline && offline) applyOfflineFilesToQueue()
+                if (wasOffline && !offline) rebuildLocalQueueItems("back online")
+                if (!wasOffline && offline) rebuildLocalQueueItems("offline")
                 wasOffline = offline
             }
         }
@@ -8265,42 +8266,29 @@ class PlaybackService : MediaLibraryService() {
         singProcessorB.level = level
     }
 
-        private suspend fun restoreStreamingAfterOffline() {
+    /**
+     * Rebuilds the upcoming queue items that have a file on the device, so
+     * [toMediaItem] picks again between that file and a stream for the
+     * connection as it now is: the file when offline, the stream when back
+     * online. Items with nothing local have nothing to choose and are left as
+     * they are.
+     */
+    private fun rebuildLocalQueueItems(what: String) {
         val player = player ?: return
         val count = player.mediaItemCount
         if (count == 0) return
-        val items: List<MediaItem> = (0 until count).map { player.getMediaItemAt(it) }
         val from = player.currentMediaItemIndex + 1
-        if (from >= items.size) return
-        val rebuilt = (from until items.size)
-            .mapNotNull { items[it].toSong().takeIf { song -> song.localUri != null } }
+        if (from >= count) return
+        val rebuilt = (from until count)
+            .mapNotNull { player.getMediaItemAt(it).toSong().takeIf { song -> song.localUri != null } }
             .map { it.toMediaItem() }
         if (rebuilt.isEmpty()) return
         TrackLog.d(
             "BitChord",
-            "back online; ${rebuilt.size} queued track(s) return to streaming",
+            "$what: ${rebuilt.size} queued track(s) with files rebuilt",
             about = player.currentMediaItem?.mediaId,
         )
-        player.replaceMediaItems(from, items.size, rebuilt)
-    }
-
-    private fun applyOfflineFilesToQueue() {
-        val player = player ?: return
-        val count = player.mediaItemCount
-        if (count == 0) return
-        val items: List<MediaItem> = (0 until count).map { player.getMediaItemAt(it) }
-        val from = player.currentMediaItemIndex + 1
-        if (from >= items.size) return
-        val rebuilt = (from until items.size)
-            .mapNotNull { items[it].toSong().takeIf { song -> song.localUri != null } }
-            .map { it.toMediaItem() }
-        if (rebuilt.isEmpty()) return
-        TrackLog.d(
-            "BitChord",
-            "offline; ${rebuilt.size} queued track(s) with files switch to them",
-            about = player.currentMediaItem?.mediaId,
-        )
-        player.replaceMediaItems(from, items.size, rebuilt)
+        player.replaceMediaItems(from, count, rebuilt)
     }
 
     /**

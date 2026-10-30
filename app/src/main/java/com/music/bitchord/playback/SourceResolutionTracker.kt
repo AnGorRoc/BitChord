@@ -1,5 +1,8 @@
 package com.music.bitchord.playback
 
+import android.content.Context
+import androidx.annotation.StringRes
+import com.music.bitchord.R
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceTrackKeys
@@ -44,6 +47,22 @@ object SourceResolutionTracker {
     val current: StateFlow<TrackResolutionState> = _current.asStateFlow()
 
     private val attemptMap = ConcurrentHashMap<String, SourceAttemptReport>()
+
+    private var appContext: Context? = null
+
+    /** Gives [text] the strings to read; called once from the application. */
+    fun init(context: Context) {
+        appContext = context.applicationContext
+    }
+
+    /**
+     * A status line from the string table. The statuses are stored as text, so
+     * one is written in the language in force when it happened. Before [init]
+     * — plain unit tests — it reads as the resource id, which is still stable
+     * to compare against.
+     */
+    fun text(@StringRes id: Int, vararg args: Any): String =
+        appContext?.getString(id, *args) ?: "#$id"
 
     /**
      * Clears prior reports when advancing or changing to a new track.
@@ -103,13 +122,13 @@ object SourceResolutionTracker {
             sourceId = sourceId,
             displayName = sourceId,
             kind = SourceKind.MODULE,
-            status = winnerStatus ?: "En reproducción",
+            status = winnerStatus ?: text(R.string.pipeline_status_playing),
         )
         attemptMap.forEach { (id, old) ->
             if (id != sourceId && old.isWinner) {
                 attemptMap[id] = old.copy(
                     isWinner = false,
-                    status = "Reemplazado por mayor calidad",
+                    status = text(R.string.pipeline_status_superseded),
                 )
                 TrackLog.d("SourceTracker", "[${old.displayName}] demoted from winner (superseded by higher quality)")
             }
