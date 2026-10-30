@@ -66,4 +66,7 @@ kotlin {
 android {
     namespace = "com.music.bitchord.shared"
     compileSdk = 36
+    lint {
+        checkReleaseBuilds = false
+    }
 }

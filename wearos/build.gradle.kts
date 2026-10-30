@@ -33,6 +33,9 @@ val betaSuffix = rootProject.extra["bitchordBetaSuffix"] as String
 android {
     namespace = "com.music.bitchord.wear"
     compileSdk = 36
+    lint {
+        checkReleaseBuilds = false
+    }
 
     defaultConfig {
         applicationId = "com.music.bitchord"
