@@ -24,14 +24,11 @@
     <string name="choose_lyrics_provider">歌詞の提供元を選択</string>
     <string name="clear">消去</string>
     <string name="close_lyrics">歌詞を閉じる</string>
-    <string name="data_saver">Data-Saver</string>
     <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
-    <string name="downgraded_from">↓ %1$sから</string>
     <string name="drag_to_reorder">ドラッグして並べ替え</string>
     <string name="failed">失敗しました</string>
     <string name="hi_res_lossless">ハイレゾロスレス</string>
     <string name="high_quality">高音質</string>
-    <string name="high_quality_upgrading">高音質、アップグレード中</string>
     <string name="increase_lyrics_offset">Increase lyrics offset</string>
     <string name="instrumental">インストゥルメンタル</string>
     <string name="like">高評価</string>
@@ -93,7 +90,6 @@
     <string name="lyrics_share_pick_limit">カードがいっぱいです</string>
     <string name="lyrics_translated_to">%1$sに翻訳済み</string>
     <string name="lyrics_translation_unavailable">現在、翻訳を利用できません</string>
-    <string name="medium_quality">Medium Quality</string>
     <string name="mono">モノラル</string>
     <string name="more">その他</string>
     <string name="next_from">次の再生元: %1$s</string>
@@ -143,7 +139,6 @@
     <string name="library_sign_in_description">Googleアカウントにログインすると、高評価した曲、プレイリスト、YouTube Musicの履歴が表示されます。</string>
     <string name="new_playlist">新しいプレイリスト</string>
     <string name="on_device">デバイス内</string>
-    <string name="personalized_recommendations">あなたに合わせたおすすめを受け取る</string>
     <string name="pinned">ピン留め済み</string>
     <string name="play_next">次に再生</string>
     <string name="playlist">プレイリスト</string>

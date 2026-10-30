@@ -24,14 +24,11 @@
     <string name="choose_lyrics_provider">लिरिक्स प्रदाता चुनें</string>
     <string name="clear">साफ़ करें</string>
     <string name="close_lyrics">लिरिक्स बंद करें</string>
-    <string name="data_saver">Data-Saver</string>
     <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
-    <string name="downgraded_from">↓ %1$s से</string>
     <string name="drag_to_reorder">क्रम बदलने के लिए खींचें</string>
     <string name="failed">विफल</string>
     <string name="hi_res_lossless">हाई-रेस लॉसलेस</string>
     <string name="high_quality">हाई क्वालिटी</string>
-    <string name="high_quality_upgrading">हाई क्वालिटी, अपग्रेड हो रहा है</string>
     <string name="increase_lyrics_offset">Increase lyrics offset</string>
     <string name="instrumental">इंस्ट्रूमेंटल</string>
     <string name="like">पसंद</string>
@@ -93,7 +90,6 @@
     <string name="lyrics_share_pick_limit">कार्ड भर चुका है</string>
     <string name="lyrics_translated_to">%1$s में अनुवादित</string>
     <string name="lyrics_translation_unavailable">अनुवाद अभी उपलब्ध नहीं है</string>
-    <string name="medium_quality">Medium Quality</string>
     <string name="mono">मोनो</string>
     <string name="more">और</string>
     <string name="next_from">अगला यहाँ से: %1$s</string>
@@ -143,7 +139,6 @@
     <string name="library_sign_in_description">अपने पसंदीदा गाने, प्लेलिस्ट और YouTube Music इतिहास देखने के लिए अपने Google खाते में साइन इन करें।</string>
     <string name="new_playlist">नई प्लेलिस्ट</string>
     <string name="on_device">डिवाइस पर</string>
-    <string name="personalized_recommendations">अपने लिए पर्सनलाइज़्ड सुझाव पाएं</string>
     <string name="pinned">पिन किया गया</string>
     <string name="play_next">आगे चलाएं</string>
     <string name="playlist">प्लेलिस्ट</string>

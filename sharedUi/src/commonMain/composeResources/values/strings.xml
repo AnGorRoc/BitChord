@@ -26,14 +26,11 @@
     <string name="choose_lyrics_provider">Choose lyrics provider</string>
     <string name="clear">Clear</string>
     <string name="close_lyrics">Close lyrics</string>
-    <string name="data_saver">Data-Saver</string>
     <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
-    <string name="downgraded_from">↓ from %1$s</string>
     <string name="drag_to_reorder">Drag to reorder</string>
     <string name="failed">Failed</string>
     <string name="hi_res_lossless">Hi-Res Lossless</string>
     <string name="high_quality">High quality</string>
-    <string name="high_quality_upgrading">High quality, upgrading</string>
     <string name="increase_lyrics_offset">Increase lyrics offset</string>
     <string name="instrumental">Instrumental</string>
     <string name="like">Like</string>
@@ -95,7 +92,6 @@
     <string name="lyrics_share_pick_limit">Card is full</string>
     <string name="lyrics_translated_to">Translated to %1$s</string>
     <string name="lyrics_translation_unavailable">Translation is unavailable right now</string>
-    <string name="medium_quality">Medium Quality</string>
     <string name="mono">Mono</string>
     <string name="more">More</string>
     <string name="next_from">Next from: %1$s</string>
@@ -146,7 +142,6 @@
     <string name="library_sign_in_description">Sign in to your Google account to see your liked songs, playlists, and YouTube Music history.</string>
     <string name="new_playlist">New playlist</string>
     <string name="on_device">On Device</string>
-    <string name="personalized_recommendations">Get personalized recommendations for you</string>
     <string name="pinned">Pinned</string>
     <string name="play_next">Play next</string>
     <string name="playlist">playlist</string>

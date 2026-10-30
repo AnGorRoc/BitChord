@@ -2,11 +2,8 @@
 <resources>
     <string name="app_name">BitChord</string>
     <string name="playback_channel_name">מתנגן כעת</string>
-    <string name="download_channel_name">הורדות</string>
-    <string name="download_channel_description">שירים שנשמרים בתיקיית המוזיקה שלך</string>
     <string name="download_notification_title">מוריד</string>
     <string name="download_notification_starting">מתחיל</string>
-    <string name="download_notification_queued">%1$s · עוד %2$d בתור</string>
     <string name="upload_channel_name">העלאות</string>
     <string name="upload_channel_description">שירים שנשלחים לשרת ה-WebDAV שלכם</string>
     <string name="upload_notification_title">מעלה</string>
@@ -49,23 +46,13 @@
     <string name="download_all">הורדת הכול</string>
     <string name="top_songs">השירים המובילים</string>
     <string name="suggested">מומלץ</string>
-    <string name="song_count">%1$d שיר</string>
     <plurals name="song_count_plural">
         <item quantity="one">%1$d שיר</item>
         <item quantity="other">%1$d שירים</item>
     </plurals>
-    <plurals name="artist_count">
-        <item quantity="one">%1$d אמן</item>
-        <item quantity="other">%1$d אמנים</item>
-    </plurals>
-    <plurals name="album_count">
-        <item quantity="one">%1$d אלבום</item>
-        <item quantity="other">%1$d אלבומים</item>
-    </plurals>
     <string name="songs">שירים</string>
     <string name="artists">אמנים</string>
     <string name="albums">אלבומים</string>
-    <string name="no_album_metadata">אף אחת מהרצועות האלה לא מציינת מאיזה אלבום היא.</string>
     <string name="search_empty">חפשו מיליוני שירים ב-YouTube Music.</string>
     <string name="recent_searches">חיפושים אחרונים</string>
     <string name="clear">ניקוי</string>
@@ -74,18 +61,13 @@
     <string name="recent_search_remove">הסרת “%1$s” מהחיפושים האחרונים</string>
     <string name="storage_required_save">נדרשת גישה לאחסון כדי לשמור שירים</string>
     <string name="storage_required_read">נדרש אישור אחסון כדי לקרוא קובצי אודיו מקומיים</string>
-    <string name="sharing_coming_soon">שיתוף יגיע בקרוב</string>
     <string name="already_downloaded">כבר הורד</string>
     <plurals name="downloading_song_count">
         <item quantity="one">מוריד %1$d שיר</item>
         <item quantity="other">מוריד %1$d שירים</item>
     </plurals>
     <string name="source">מקורות</string>
-    <string name="lossless_audio">אודיו Lossless</string>
-    <string name="prefer_lossless">העדפת Lossless</string>
-    <string name="lossless_source_subtitle">FLAC ו-ALAC ישירות מהמקור</string>
     <string name="overridden">נדרס</string>
-    <string name="add_module_source">הוספת מקור מודול</string>
     <string name="remove_source">הסרת מקור זה</string>
     <string name="test">בדיקה</string>
     <string name="testing">בודק…</string>
@@ -103,8 +85,6 @@
     <string name="song_cache_cleared">מטמון השירים נוקה</string>
     <string name="image_cache_cleared">מטמון התמונות נוקה</string>
     <string name="no_equalizer">אין אקולייזר מערכת במכשיר זה</string>
-    <string name="no_dolby_atmos">אין פאנל Dolby Atmos במכשיר זה</string>
-    <string name="dolby_atmos_open_failed">לא ניתן לפתוח את הגדרות Dolby Atmos</string>
     <string name="update_available">עדכון זמין: גרסה %1$s</string>
     <string name="software_update">עדכון תוכנה</string>
     <string name="update_available_body">bitchord %1$s זמין להורדה.</string>
@@ -118,10 +98,7 @@
     <string name="try_again">נסה שוב</string>
     <string name="open_releases_page">פתיחת דף הגרסאות</string>
     <string name="whats_new">מה חדש</string>
-    <string name="log_copied">היומן הועתק · %1$d שורות</string>
     <string name="sign_in_youtube_music">התחברות ל-YouTube Music</string>
-    <string name="sign_in_discord">התחברות ל-Discord</string>
-    <string name="personalized_recommendations">קבל המלצות מותאמות אישית עבורך</string>
     <string name="play_next">נגן הבא</string>
     <string name="queue">תור ההשמעה</string>
     <string name="source_setup_required">הקש כדי לסיים את ההגדרה</string>
@@ -138,7 +115,6 @@
     <string name="widget_previous">הקודם</string>
     <string name="widget_artwork">עטיפת אלבום</string>
     <string name="widget_nothing_played">עדיין לא הושמע דבר</string>
-    <string name="widget_open_bitchord">פתיחת BitChord</string>
     <string name="widget_preview_title">שם השיר</string>
     <string name="widget_preview_artist">אמן</string>
     <string name="widget_pill_label">מתנגן כעת 4×1</string>
@@ -176,7 +152,6 @@
     <string name="hindi">הינדי</string>
     <string name="japanese">יפנית</string>
     <string name="russian">רוסית</string>
-    <string name="chinese">סינית (מפושטת)</string>
     <string name="chinese_simplified">סינית (מפושטת)</string>
     <string name="chinese_traditional">סינית (מסורתית)</string>
     <string name="italian">איטלקית</string>
@@ -184,8 +159,6 @@
     <string name="thai">תאית</string>
     <string name="korean">קוריאנית</string>
     <string name="show_all">הצג הכול</string>
-    <string name="grid_view">רשת</string>
-    <string name="list_view">רשימה</string>
     <string name="switch_to_grid_view">מעבר לתצוגת רשת</string>
     <string name="switch_to_list_view">מעבר לתצוגת רשימה</string>
     <string name="audio_quality">איכות אודיו</string>
@@ -194,7 +167,6 @@
     <string name="storage">אחסון</string>
     <string name="your_data">הנתונים שלך</string>
     <string name="miscellaneous">שונות</string>
-    <string name="lossless_hq_audio">אודיו Lossless / HQ</string>
     <string name="on_wifi">ב-Wi-Fi</string>
     <string name="on_mobile_data">בנתונים סלולריים</string>
     <string name="in_use">בשימוש</string>
@@ -352,7 +324,6 @@
     <string name="saved_to_bitchord_folder">נשמר ב-Music/BitChord</string>
     <string name="nothing_downloading">שום דבר לא יורד</string>
     <string name="nothing_to_explore">אין מה לחקור כרגע</string>
-    <string name="no_youtube_music_results">אין תוצאות מ-YouTube Music</string>
     <string name="library_empty">שום דבר בספרייה שלך עדיין</string>
     <string name="history_sign_in_required">היכנס כדי לראות למה האזנת</string>
     <string name="history_empty">שום דבר לא הושמע עדיין</string>
@@ -370,9 +341,6 @@
     <string name="nothing_matches">שום דבר כאן לא תואם ל-“%1$s”</string>
     <string name="close_search">סגור חיפוש</string>
     <string name="less">פחות</string>
-    <string name="song_count_with_minutes">%1$s, %2$d דקות</string>
-    <string name="song_count_with_duration">%1$s, %2$s</string>
-    <string name="song_count_with_hours_minutes">%1$s, %2$s %3$d דקות</string>
     <string name="integrate_spotify_canvas">הגדר Spotify Canvas</string>
     <string name="lastfm_login">התחברות ל-Last.fm</string>
     <string name="lastfm_login_description">היכנס עם חשבון Last.fm שלך כדי להפעיל scrobbling.</string>
@@ -428,7 +396,6 @@
     <string name="scrobble_tracks_subtitle">רשום הפעלות לציר הזמן של Last.fm שלך</string>
     <string name="scrobbling_footer">תעד את ההאזנות שלך ל-Last.fm ו-ListenBrainz.</string>
     <string name="scrobbling_paused_footer">Last.fm ו-ListenBrainz מושהים בגרסה זו ויחזרו מאוחר יותר. חיבורים קיימים נשארים שמורים.</string>
-    <string name="search_this_folder">חפש בתיקייה זו</string>
     <string name="search_this_list">חפש ברשימה זו</string>
     <string name="second_button">כפתור שני</string>
     <string name="share">שתף</string>
@@ -527,12 +494,10 @@
     <string name="replay_intro_start">ה-</string>
     <string name="replay_minutes_end"> עם מוזיקה.</string>
     <string name="replay_minutes_start">בילית </string>
-    <string name="replay_minutes_value">%1$s</string>
     <plurals name="replay_minutes_unit">
         <item quantity="one">%1$s דקה</item>
         <item quantity="other">%1$s דקות</item>
     </plurals>
-    <string name="replay_mostly_around">, רובם סביב %1$s.</string>
     <string name="replay_private_counting">נבנה באופן פרטי מההיסטוריה המקומית שלך</string>
     <string name="replay_share_card_description">כרטיס מלוטש עם דגשי ההאזנה העיקריים שלך.</string>
     <string name="replay_share_summary_description">תמונה מלאה עם שירים, אמנים ועוד.</string>
@@ -570,7 +535,6 @@
     <string name="webdav_not_configured">חברו שרת בקטע „מקורות”</string>
     <string name="webdav_empty">לא נמצאו קובצי שמע בשרת ה-WebDAV. בדקו את הכתובת בהגדרות.</string>
     <string name="webdav_description">כוונו את BitChord לתיקיית מוזיקה ב-WebDAV — תיקיית המוזיקה שלכם ב-Nextcloud או כל שרת שתומך ב-WebDAV.</string>
-    <string name="webdav_server_url">כתובת השרת</string>
     <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
     <string name="webdav_disconnect">ניתוק</string>
     <string name="webdav_test_failed">אין גישה: %1$s</string>
@@ -604,15 +568,8 @@
     <string name="delete_playlist_confirmation">למחוק את “%1$s”? הקש שוב לאישור.</string>
     <string name="delete_download_confirmation">להסיר את “%1$s” מהמכשיר? הקש שוב לאישור.</string>
     <string name="running">פועל</string>
-    <string name="version_alignment_status">%1$s · %2$s</string>
-    <string name="version_cut_not_fetched">לא הובא</string>
-    <string name="version_cut_fetching">מביא</string>
-    <string name="version_cut_measuring">מנתח</string>
-    <string name="version_cut_aligned">מיושר</string>
     <string name="automix_enabled_subtitle">מתזמן ומשלב כל מעבר מהרצועות עצמן. כבה זאת אם הטלפון מתחמם או ההפעלה מגמגמת.</string>
     <string name="automix_disabled_subtitle">מתזמן ומשלב מעברים באופן אוטומטי, ללא מחוון. הביצועים עשויים להשתנות במכשירים איטיים.</string>
-    <string name="advanced_automix">Automix מתקדם</string>
-    <string name="advanced_automix_subtitle">מערבב כמו די-ג׳יי: שומר על הקצב מסונכרן, מבצע כל מעבר על הפעמה וחותך בין שירים שלא מתמזגים. ללא עיבוד נוסף.</string>
     <string name="no_lyrics_sources_enabled">אין. מילים לא יורדו.</string>
     <string name="song_cache_large_subtitle">שומר עד %1$s של שמע שהורד בכונן. זה יכול לתפוס נתח משמעותי מהמקום הפנוי שלך.</string>
     <string name="song_cache_limit_subtitle">שומר שמע שהורד בכונן לחיפוש מיידי ולהשמעות חוזרות</string>
@@ -654,10 +611,6 @@
     <plurals name="all_songs_downloaded">
         <item quantity="one">כל השיר ה-%1$d ירד</item>
         <item quantity="other">כל %1$d השירים ירדו</item>
-    </plurals>
-    <plurals name="hour_count">
-        <item quantity="one">שעה %1$d</item>
-        <item quantity="other">%1$d שעות</item>
     </plurals>
     <plurals name="songs_will_play_next">
         <item quantity="one">שיר %1$d יתנגן בהמשך</item>
@@ -709,11 +662,7 @@
     <string name="listen_together_using_default">נעשה שימוש בשרת המובנה</string>
     <string name="listen_together_remove_server">הסרת השרת</string>
     <string name="listen_together_switched_to_default">עברתם לשרת ברירת המחדל</string>
-    <string name="listen_together_custom_server_saved">השרת המותאם אישית נשמר</string>
     <string name="listen_together_create">יצירת מסיבה</string>
-    <string name="listen_together_create_subtitle">קבלו קוד לשיתוף עם חברים</string>
-    <string name="listen_together_create_footer">תקבלו קוד של שישה תווים. כל מי שיש לו אותו יכול להצטרף, עד %1$d מכשירים כולל שלכם.</string>
-    <string name="listen_together_profile">פרופיל המסיבה שלכם</string>
     <string name="listen_together_nickname_hint">כינוי למסיבה הזו</string>
     <string name="listen_together_party_size">גודל המסיבה</string>
     <string name="listen_together_party_size_subtitle">בחרו 2–10 מאזינים</string>
@@ -721,18 +670,6 @@
     <string name="listen_together_remove">הסרה</string>
     <string name="listen_together_activity">פעילות אחרונה</string>
     <string name="listen_together_activity_footer">הסשן הזה בלבד · החדש ביותר קודם · עד 100 פעולות</string>
-    <string name="listen_together_activity_played">התחיל/ה השמעה</string>
-    <string name="listen_together_activity_paused">השהה/תה השמעה</string>
-    <string name="listen_together_activity_seeked">דילג/ה בתוך הרצועה</string>
-    <string name="listen_together_activity_skipped">דילג/ה קדימה</string>
-    <string name="listen_together_activity_went_back">חזר/ה אחורה</string>
-    <string name="listen_together_activity_added">הוסיף/ה לתור</string>
-    <string name="listen_together_activity_removed_track">הסיר/ה רצועה מהתור</string>
-    <string name="listen_together_activity_cleared">ניקה/תה את הרצועות הבאות</string>
-    <string name="listen_together_activity_reordered">סידר/ה מחדש את התור</string>
-    <string name="listen_together_activity_removed_member">הסיר/ה מאזין</string>
-    <string name="listen_together_activity_changed_size">שינה/תה את גודל המסיבה</string>
-    <string name="listen_together_activity_updated">עדכן/ה את המסיבה</string>
     <string name="listen_together_join">הצטרפות למסיבה</string>
     <string name="listen_together_join_action">הצטרפות</string>
     <string name="listen_together_code_hint">שש אותיות או ספרות</string>
@@ -763,7 +700,6 @@
     <string name="listen_together_share_link">שיתוף קישור</string>
     <string name="listen_together_scan_qr">סריקת קוד QR</string>
     <string name="listen_together_scan_qr_subtitle">חברים יכולים לסרוק את זה כדי להצטרף.</string>
-    <string name="listen_together_invite">הזמנה</string>
     <string name="listen_together_host_only">רק אני שולט/ת במוזיקה</string>
     <string name="listen_together_host_only_subtitle">כל השאר מאזינים יחד ויכולים להשהות במכשיר שלהם</string>
     <string name="listen_together_host_only_notice">רק המארח/ת יכול/ה לשלוט במוזיקה</string>
@@ -777,8 +713,6 @@
     <string name="listen_together_custom_server_switch_and_join">החלפה והצטרפות</string>
     <string name="listen_together_official_server_dialog_title">לעבור לשרת הרשמי?</string>
     <string name="listen_together_official_server_dialog_message">המסיבה הזו מתארחת בשרת הרשמי של BitChord.\n\nלחזור לשרת הרשמי ולהצטרף למסיבה %1$s?</string>
-    <string name="listen_together_switch_failed_stayed_in_party">לא ניתן להצטרף למסיבה: %1$s. נשארתם במסיבה %2$s.</string>
-    <string name="listen_together_switch_failed">לא ניתן להצטרף למסיבה: %1$s.</string>
     <string name="listen_together_ping">%1$d ms</string>
     <string name="listen_together_server_offline_dash">—</string>
     <string name="listen_together_invalid_server_url">כתובת שרת לא תקינה. הזינו כתובת תקינה (למשל https://your-server.com)</string>
@@ -797,7 +731,6 @@
 
     <string name="vietnamese">וייטנאמית</string>
 
-    <string name="miscellaneous_footer">כשמופעל, סגירת האפליקציה ממסך האפליקציות האחרונות תעצור גם את השמעת המוזיקה.</string>
 
 
     <plurals name="track_count_plural">
@@ -850,22 +783,16 @@
 
     <string name="card_views_format">%1$s צפיות</string>
 
-    <string name="channel_session_unavailable">אין עדיין סשן כאן — פתח תחילה את YouTube Music</string>
 
-    <string name="channel_switch_instructions">החלף באמצעות האווטאר, ואז לחץ על \'השתמש בערוץ זה\'</string>
 
-    <string name="choose_a_channel">בחר ערוץ</string>
 
     <string name="choose_profile">בחר פרופיל</string>
 
     <string name="convert_to_audio">המר לאודיו</string>
     <string name="convert_to_video">המרה לווידאו</string>
 
-    <string name="converting_to_audio">ממיר לאודיו…</string>
 
-    <string name="current_account">חשבון נוכחי</string>
 
-    <string name="current_profile">פרופיל נוכחי</string>
 
     <string name="default_youtube_profile">פרופיל ברירת מחדל של YouTube Music</string>
 
@@ -889,9 +816,7 @@
 
     <string name="listen_as">האזן כ-</string>
 
-    <string name="lyrics_debug_logs">יומני ניפוי שגיאות של מילים</string>
 
-    <string name="lyrics_debug_logs_subtitle">הצג שאילתות API בזמן אמת בלוח המילים</string>
 
     <string name="manage_accounts">נהל חשבונות</string>
 
@@ -906,14 +831,9 @@
     <string name="loudness_normalization">נרמול עוצמה</string>
     <string name="loudness_normalization_subtitle">מביא כל רצועה לאותה עוצמה נשמעת</string>
     <string name="loudness_off_on_speaker">השבתה ברמקול הטלפון</string>
-    <string name="loudness_target">עוצמת יעד</string>
-    <string name="loudness_target_subtitle">שקט יותר מתאים לאוזניות; חזק יותר לרכב או לרמקול הטלפון</string>
-    <string name="loudness_target_value">%1$s LUFS</string>
-    <string name="pipeline_loudness">עוצמה</string>
     <string name="pipeline_loudness_gain">הגבר</string>
     <string name="pipeline_loudness_measured">נמדד</string>
     <string name="pipeline_bit_exact">זהה ברמת הביט</string>
-    <string name="loudness_measuring">מודד…</string>
     <string name="loudness_gain_db">%1$s dB</string>
     <string name="loudness_lufs">%1$s LUFS</string>
 
@@ -933,7 +853,6 @@
 
     <string name="selected_account">חשבון נבחר</string>
 
-    <string name="shelf_100_on_repeat">בלופ חוזר</string>
 
     <string name="shelf_artists_on_the_rise">אמנים בצמיחה</string>
 
@@ -941,17 +860,13 @@
 
     <string name="shelf_charts">מצעדים</string>
 
-    <string name="shelf_commute">בדרכים</string>
 
     <string name="shelf_concerts">הופעות</string>
 
-    <string name="shelf_energy_boosters">זריקת אנרגיה</string>
 
     <string name="shelf_featured_playlists_for_you">פלייליסטים מומלצים עבורך</string>
 
-    <string name="shelf_feel_good">מצב רוח טוב</string>
 
-    <string name="shelf_focus">ריכוז</string>
 
     <string name="shelf_for_you">עבורך</string>
 
@@ -967,11 +882,9 @@
 
     <string name="shelf_mixed_for_you">מיקסים עבורך</string>
 
-    <string name="shelf_new_albums_singles">אלבומים וסינגלים חדשים</string>
 
     <string name="shelf_new_releases">יציאות חדשות</string>
 
-    <string name="shelf_party">מסיבה</string>
 
     <string name="shelf_quick_picks">בחירות מהירות</string>
 
@@ -979,11 +892,8 @@
 
     <string name="shelf_recommended_music_videos">קליפים מומלצים</string>
 
-    <string name="shelf_relax">רוגע</string>
 
-    <string name="shelf_romance">רומנטיקה</string>
 
-    <string name="shelf_sad">עצוב</string>
 
     <string name="shelf_shorts">Shorts</string>
 
@@ -991,7 +901,6 @@
 
     <string name="shelf_single">סינגל</string>
 
-    <string name="shelf_sleep">שינה</string>
 
     <string name="shelf_song_item">שיר</string>
 
@@ -1003,7 +912,6 @@
 
     <string name="shelf_trending_community_playlists">פלייליסטים קהילתיים פופולריים</string>
 
-    <string name="shelf_workout">אימון</string>
 
     <string name="shelf_youtube_charts">מצעדי YouTube</string>
 
@@ -1037,7 +945,6 @@
 
     <string name="upgrade_quality">שדרג איכות</string>
 
-    <string name="use_this_channel">השתמש בערוץ זה</string>
 
     <string name="use_this_profile">השתמש בפרופיל זה</string>
 
@@ -1304,7 +1211,6 @@
     <string name="spotify">Spotify</string>
     <string name="spotify_connect_subtitle">התחברו כדי לטעון את הפלייליסטים שלכם. ההשמעה משתמשת ב-YouTube Music.</string>
     <string name="spotify_disconnect">התנתקות</string>
-    <string name="spotify_empty_playlists">אין פלייליסטים בחשבון זה</string>
     <string name="spotify_empty_tracks">לפלייליסט זה אין שירים</string>
     <string name="spotify_import_button">ייבוא</string>
     <string name="spotify_import_description">הדביקו קישור לפלייליסט ציבורי. השירים יותאמו ב-YouTube Music.</string>
@@ -1323,7 +1229,6 @@
     <string name="spotify_library_subtitle">הפלייליסטים שלכם ב-Spotify</string>
     <string name="spotify_sign_in">התחברות עם Spotify</string>
     <string name="spotify_use_spdc_token">שימוש באסימון sp_dc</string>
-    <string name="spotify_track_unavailable">לא נמצא שיר כזה ב-YouTube Music</string>
     <string name="artist_signatures">חתימות של אמנים</string>
     <string name="artist_signatures_subtitle">מציג חתימה בכתב יד כאשר ל-Apple Music אין לוגו כותרת</string>
     <string name="artist_signatures_url">כתובת API של חתימות</string>

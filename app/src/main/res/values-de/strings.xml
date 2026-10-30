@@ -1,11 +1,8 @@
 <resources>
     <string name="app_name">BitChord</string>
     <string name="playback_channel_name">Wird wiedergegeben</string>
-    <string name="download_channel_name">Downloads</string>
-    <string name="download_channel_description">Songs, die in deinem Musikordner gespeichert werden</string>
     <string name="download_notification_title">Wird heruntergeladen</string>
     <string name="download_notification_starting">Wird gestartet</string>
-    <string name="download_notification_queued">%1$s · %2$d weitere in Warteschlange</string>
     <string name="upload_channel_name">Uploads</string>
     <string name="upload_channel_description">Songs, die an deinen WebDAV-Server gesendet werden</string>
     <string name="upload_notification_title">Wird hochgeladen</string>
@@ -47,23 +44,13 @@
     <string name="download_all">Alle herunterladen</string>
     <string name="top_songs">Meistgehörte Songs</string>
     <string name="suggested">Vorschläge</string>
-    <string name="song_count">%1$d Song</string>
     <plurals name="song_count_plural">
         <item quantity="one">%1$d Song</item>
         <item quantity="other">%1$d Songs</item>
     </plurals>
-    <plurals name="artist_count">
-        <item quantity="one">%1$d Künstler</item>
-        <item quantity="other">%1$d Künstler</item>
-    </plurals>
-    <plurals name="album_count">
-        <item quantity="one">%1$d Album</item>
-        <item quantity="other">%1$d Alben</item>
-    </plurals>
     <string name="songs">Songs</string>
     <string name="artists">Künstler</string>
     <string name="albums">Alben</string>
-    <string name="no_album_metadata">Keiner dieser Titel gibt an, zu welchem Album er gehört.</string>
     <string name="search_empty">Durchsuche Millionen Songs auf YouTube Music.</string>
     <string name="recent_searches">Letzte Suchanfragen</string>
     <string name="clear">Löschen</string>
@@ -72,18 +59,13 @@
     <string name="recent_search_remove">„%1$s“ aus letzten Suchanfragen entfernen</string>
     <string name="storage_required_save">Speicherzugriff ist erforderlich, um Songs zu speichern</string>
     <string name="storage_required_read">Speicherberechtigung ist erforderlich, um lokale Audiodateien zu lesen</string>
-    <string name="sharing_coming_soon">Teilen ist bald verfügbar</string>
     <string name="already_downloaded">Bereits heruntergeladen</string>
     <plurals name="downloading_song_count">
         <item quantity="one">%1$d Song wird heruntergeladen</item>
         <item quantity="other">%1$d Songs werden heruntergeladen</item>
     </plurals>
     <string name="source">Quellen</string>
-    <string name="lossless_audio">Verlustfreies Audio</string>
-    <string name="prefer_lossless">Verlustfrei bevorzugen</string>
-    <string name="lossless_source_subtitle">FLAC und ALAC direkt von der Quelle</string>
     <string name="overridden">Überschrieben</string>
-    <string name="add_module_source">Modulquelle hinzufügen</string>
     <string name="remove_source">Diese Quelle entfernen</string>
     <string name="test">Testen</string>
     <string name="testing">Wird getestet…</string>
@@ -101,8 +83,6 @@
     <string name="song_cache_cleared">Song-Cache geleert</string>
     <string name="image_cache_cleared">Bild-Cache geleert</string>
     <string name="no_equalizer">Kein System-Equalizer auf diesem Gerät</string>
-    <string name="no_dolby_atmos">Kein Dolby-Atmos-Panel auf diesem Gerät</string>
-    <string name="dolby_atmos_open_failed">Dolby-Atmos-Einstellungen konnten nicht geöffnet werden</string>
     <string name="update_available">Update verfügbar: v%1$s</string>
     <string name="software_update">Softwareupdate</string>
     <string name="update_available_body">bitchord %1$s steht zum Download bereit.</string>
@@ -116,10 +96,7 @@
     <string name="try_again">Erneut versuchen</string>
     <string name="open_releases_page">Release-Seite öffnen</string>
     <string name="whats_new">Neuerungen</string>
-    <string name="log_copied">Protokoll kopiert · %1$d Zeilen</string>
     <string name="sign_in_youtube_music">Bei YouTube Music anmelden</string>
-    <string name="sign_in_discord">Bei Discord anmelden</string>
-    <string name="personalized_recommendations">Erhalte personalisierte Empfehlungen</string>
     <string name="play_next">Als Nächstes wiedergeben</string>
     <string name="queue">Warteschlange</string>
     <string name="source_setup_required">Tippen, um die Einrichtung abzuschließen</string>
@@ -136,7 +113,6 @@
     <string name="widget_previous">Zurück</string>
     <string name="widget_artwork">Albumcover</string>
     <string name="widget_nothing_played">Noch nichts wiedergegeben</string>
-    <string name="widget_open_bitchord">BitChord öffnen</string>
     <string name="widget_preview_title">Songtitel</string>
     <string name="widget_preview_artist">Künstler</string>
     <string name="widget_pill_label">Wird wiedergegeben 4×1</string>
@@ -174,7 +150,6 @@
     <string name="hindi">Hindi</string>
     <string name="japanese">Japanisch</string>
     <string name="russian">Russisch</string>
-    <string name="chinese">Chinesisch (vereinfacht)</string>
     <string name="chinese_simplified">Chinesisch (vereinfacht)</string>
     <string name="chinese_traditional">Chinesisch (traditionell)</string>
     <string name="hebrew">Hebräisch</string>
@@ -183,8 +158,6 @@
     <string name="thai">Thailändisch</string>
     <string name="korean">Koreanisch</string>
     <string name="show_all">Alle anzeigen</string>
-    <string name="grid_view">Raster</string>
-    <string name="list_view">Liste</string>
     <string name="switch_to_grid_view">Zur Rasteransicht wechseln</string>
     <string name="switch_to_list_view">Zur Listenansicht wechseln</string>
     <string name="audio_quality">Audioqualität</string>
@@ -193,7 +166,6 @@
     <string name="storage">Speicher</string>
     <string name="your_data">Deine Daten</string>
     <string name="miscellaneous">Sonstiges</string>
-    <string name="lossless_hq_audio">Verlustfrei / HQ-Audio</string>
     <string name="on_wifi">Bei WLAN</string>
     <string name="on_mobile_data">Bei mobilen Daten</string>
     <string name="in_use">In Verwendung</string>
@@ -351,7 +323,6 @@
     <string name="saved_to_bitchord_folder">In Music/BitChord gespeichert</string>
     <string name="nothing_downloading">Nichts wird heruntergeladen</string>
     <string name="nothing_to_explore">Gerade nichts zu entdecken</string>
-    <string name="no_youtube_music_results">Keine Ergebnisse von YouTube Music</string>
     <string name="library_empty">Noch nichts in deiner Bibliothek</string>
     <string name="history_sign_in_required">Melde dich an, um zu sehen, was du gehört hast</string>
     <string name="history_empty">Noch nichts gespielt</string>
@@ -389,13 +360,6 @@
     <string name="nothing_matches">Hier passt nichts zu „%1$s“</string>
     <string name="close_search">Suche schließen</string>
     <string name="less">Weniger</string>
-    <string name="song_count_with_minutes">%1$s, %2$d Minuten</string>
-    <string name="song_count_with_duration">%1$s, %2$s</string>
-    <string name="song_count_with_hours_minutes">%1$s, %2$s %3$d Minuten</string>
-    <plurals name="hour_count">
-        <item quantity="one">%1$d Stunde</item>
-        <item quantity="other">%1$d Stunden</item>
-    </plurals>
     <plurals name="songs_will_play_next">
         <item quantity="one">%1$d Song wird als Nächstes gespielt</item>
         <item quantity="other">%1$d Songs werden als Nächstes gespielt</item>
@@ -463,7 +427,6 @@
     <string name="scrobble_tracks_subtitle">Zeichnet Wiedergaben in deiner Last.fm-Timeline auf</string>
     <string name="scrobbling_footer">Scrobble deine Wiedergaben zu Last.fm und ListenBrainz.</string>
     <string name="scrobbling_paused_footer">Last.fm und ListenBrainz sind für diese Version pausiert und kehren später zurück. Bestehende Verbindungen bleiben gespeichert.</string>
-    <string name="search_this_folder">Diesen Ordner durchsuchen</string>
     <string name="search_this_list">Diese Liste durchsuchen</string>
     <string name="second_button">Zweite Schaltfläche</string>
     <string name="share">Teilen</string>
@@ -563,12 +526,10 @@
     <string name="replay_intro_start">Dein </string>
     <string name="replay_minutes_end"> mit Musik verbracht.</string>
     <string name="replay_minutes_start">Du hast </string>
-    <string name="replay_minutes_value">%1$s</string>
     <plurals name="replay_minutes_unit">
         <item quantity="one">%1$s Minute</item>
         <item quantity="other">%1$s Minuten</item>
     </plurals>
-    <string name="replay_mostly_around">, meist gegen %1$s.</string>
     <string name="replay_private_counting">Privat aus deinem Hörverlauf auf diesem Gerät erstellt</string>
     <string name="replay_share_card_description">Eine übersichtliche Karte mit deinen wichtigsten Höhepunkten.</string>
     <string name="replay_share_summary_description">Ein vollständiges Bild mit Songs, Künstlern, Alben, Genres und Gewohnheiten.</string>
@@ -618,7 +579,6 @@
     <string name="webdav_not_configured">Verbinde unter „Quellen“ einen Server</string>
     <string name="webdav_empty">Keine Audiodateien auf dem WebDAV-Server gefunden. Prüfe die URL in den Einstellungen.</string>
     <string name="webdav_description">Verbinde BitChord mit einem WebDAV-Musikordner – deinem Nextcloud-Musikverzeichnis oder einem beliebigen WebDAV-Server.</string>
-    <string name="webdav_server_url">Server-URL</string>
     <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
     <string name="webdav_disconnect">Trennen</string>
     <string name="webdav_test_failed">Nicht erreichbar: %1$s</string>
@@ -652,15 +612,8 @@
     <string name="delete_playlist_confirmation">„%1$s“ löschen? Erneut tippen, um zu bestätigen.</string>
     <string name="delete_download_confirmation">„%1$s“ von diesem Gerät entfernen? Erneut tippen, um zu bestätigen.</string>
     <string name="running">Läuft</string>
-    <string name="version_alignment_status">%1$s · %2$s</string>
-    <string name="version_cut_not_fetched">nicht geladen</string>
-    <string name="version_cut_fetching">wird geladen</string>
-    <string name="version_cut_measuring">wird analysiert</string>
-    <string name="version_cut_aligned">ausgerichtet</string>
     <string name="automix_enabled_subtitle">Timing und Überblendung jedes Übergangs werden direkt aus den Titeln bestimmt. Schalte dies aus, wenn das Telefon heiß wird oder die Wiedergabe stockt.</string>
     <string name="automix_disabled_subtitle">Timing und Überblendung von Übergängen erfolgen automatisch, ohne Regler. Die Leistung kann auf langsameren Geräten variieren.</string>
-    <string name="advanced_automix">Erweiterter Automix</string>
-    <string name="advanced_automix_subtitle">Mischt wie ein DJ: hält die Beats synchron, setzt jeden Übergang auf den Beat und schneidet zwischen Songs, die nicht zusammenpassen. Keine zusätzliche Verarbeitung.</string>
     <string name="no_lyrics_sources_enabled">Keine. Songtexte werden nicht abgerufen.</string>
     <string name="song_cache_large_subtitle">Behält bis zu %1$s heruntergeladenes Audio auf dem Speicher. Das kann einen spürbaren Teil deines freien Speicherplatzes beanspruchen.</string>
     <string name="song_cache_limit_subtitle">Behält heruntergeladenes Audio auf dem Speicher für sofortiges Springen und Wiederholen</string>
@@ -704,11 +657,7 @@
     <string name="listen_together_using_default">Eingebauter Server wird genutzt</string>
     <string name="listen_together_remove_server">Server entfernen</string>
     <string name="listen_together_switched_to_default">Zum Standardserver gewechselt</string>
-    <string name="listen_together_custom_server_saved">Eigener Server gespeichert</string>
     <string name="listen_together_create">Party erstellen</string>
-    <string name="listen_together_create_subtitle">Code holen und mit Freunden teilen</string>
-    <string name="listen_together_create_footer">Du bekommst einen sechsstelligen Code. Jeder, der ihn hat, kann beitreten – bis zu %1$d Geräte, dein eigenes eingeschlossen.</string>
-    <string name="listen_together_profile">Dein Party-Profil</string>
     <string name="listen_together_nickname_hint">Spitzname für diese Party</string>
     <string name="listen_together_party_size">Partygröße</string>
     <string name="listen_together_party_size_subtitle">2–10 Zuhörer auswählen</string>
@@ -716,18 +665,6 @@
     <string name="listen_together_remove">Entfernen</string>
     <string name="listen_together_activity">Letzte Aktivitäten</string>
     <string name="listen_together_activity_footer">Nur diese Sitzung · neueste zuerst · bis zu 100 Aktionen</string>
-    <string name="listen_together_activity_played">Wiedergabe gestartet</string>
-    <string name="listen_together_activity_paused">Wiedergabe pausiert</string>
-    <string name="listen_together_activity_seeked">Im Titel gespult</string>
-    <string name="listen_together_activity_skipped">Weitergesprungen</string>
-    <string name="listen_together_activity_went_back">Zurückgesprungen</string>
-    <string name="listen_together_activity_added">Zur Warteschlange hinzugefügt</string>
-    <string name="listen_together_activity_removed_track">Einen Titel aus der Warteschlange entfernt</string>
-    <string name="listen_together_activity_cleared">Kommende Titel geleert</string>
-    <string name="listen_together_activity_reordered">Warteschlange neu sortiert</string>
-    <string name="listen_together_activity_removed_member">Einen Zuhörer entfernt</string>
-    <string name="listen_together_activity_changed_size">Partygröße geändert</string>
-    <string name="listen_together_activity_updated">Party aktualisiert</string>
     <string name="listen_together_join">Party beitreten</string>
     <string name="listen_together_join_action">Beitreten</string>
     <string name="listen_together_code_hint">Sechs Buchstaben oder Zahlen</string>
@@ -758,7 +695,6 @@
     <string name="listen_together_share_link">Link teilen</string>
     <string name="listen_together_scan_qr">QR-Code scannen</string>
     <string name="listen_together_scan_qr_subtitle">Freunde können diesen Code scannen, um beizutreten.</string>
-    <string name="listen_together_invite">Einladen</string>
     <string name="listen_together_host_only">Nur ich steuere die Musik</string>
     <string name="listen_together_host_only_subtitle">Alle anderen hören mit und können auf ihrem eigenen Gerät pausieren</string>
     <string name="listen_together_host_only_notice">Nur der Host kann die Musik steuern</string>
@@ -772,8 +708,6 @@
     <string name="listen_together_custom_server_switch_and_join">Wechseln &amp; beitreten</string>
     <string name="listen_together_official_server_dialog_title">Zum offiziellen Server wechseln?</string>
     <string name="listen_together_official_server_dialog_message">Diese Party läuft auf dem offiziellen BitChord-Server.\n\nMöchtest du zurück zum offiziellen Server wechseln und der Party %1$s beitreten?</string>
-    <string name="listen_together_switch_failed_stayed_in_party">Party-Beitritt fehlgeschlagen: %1$s. Du bleibst in der Party %2$s.</string>
-    <string name="listen_together_switch_failed">Party-Beitritt fehlgeschlagen: %1$s.</string>
     <string name="listen_together_ping">%1$d ms</string>
     <string name="listen_together_server_offline_dash">—</string>
     <string name="listen_together_invalid_server_url">Ungültige Server-URL. Bitte gib eine gültige Adresse ein (z. B. https://your-server.com)</string>
@@ -792,7 +726,6 @@
 
     <string name="vietnamese">Vietnamesisch</string>
 
-    <string name="miscellaneous_footer">Wenn aktiviert, stoppt das Schließen der App aus den letzten Apps auch die Musikwiedergabe.</string>
 
 
     <plurals name="track_count_plural">
@@ -845,22 +778,16 @@
 
     <string name="card_views_format">%1$s Aufrufe</string>
 
-    <string name="channel_session_unavailable">Noch keine Sitzung — bitte zuerst YouTube Music öffnen</string>
 
-    <string name="channel_switch_instructions">Mit Avatar wechseln, dann \'Diesen Kanal nutzen\' tippen</string>
 
-    <string name="choose_a_channel">Kanal wählen</string>
 
     <string name="choose_profile">Profil wählen</string>
 
     <string name="convert_to_audio">In Audio umwandeln</string>
     <string name="convert_to_video">In Video umwandeln</string>
 
-    <string name="converting_to_audio">Wandle in Audio um…</string>
 
-    <string name="current_account">Aktuelles Konto</string>
 
-    <string name="current_profile">Aktuelles Profil</string>
 
     <string name="default_youtube_profile">Standard-YouTube Music-Profil</string>
 
@@ -884,9 +811,7 @@
 
     <string name="listen_as">Hören als</string>
 
-    <string name="lyrics_debug_logs">Songtext-Debug-Protokolle</string>
 
-    <string name="lyrics_debug_logs_subtitle">Live-API-Anfragen im Songtext-Bereich anzeigen</string>
 
     <string name="manage_accounts">Konten verwalten</string>
 
@@ -901,14 +826,9 @@
     <string name="loudness_normalization">Lautstärkenormalisierung</string>
     <string name="loudness_normalization_subtitle">Bringt jeden Titel auf dieselbe Lautheit</string>
     <string name="loudness_off_on_speaker">Auf dem Handylautsprecher deaktivieren</string>
-    <string name="loudness_target">Ziel-Lautheit</string>
-    <string name="loudness_target_subtitle">Leiser passt zu Kopfhörern, lauter zum Auto oder Handylautsprecher</string>
-    <string name="loudness_target_value">%1$s LUFS</string>
-    <string name="pipeline_loudness">Lautheit</string>
     <string name="pipeline_loudness_gain">Verstärkung</string>
     <string name="pipeline_loudness_measured">Gemessen</string>
     <string name="pipeline_bit_exact">Bit-genau</string>
-    <string name="loudness_measuring">Wird gemessen…</string>
     <string name="loudness_gain_db">%1$s dB</string>
     <string name="loudness_lufs">%1$s LUFS</string>
 
@@ -928,7 +848,6 @@
 
     <string name="selected_account">Ausgewähltes Konto</string>
 
-    <string name="shelf_100_on_repeat">In Dauerschleife</string>
 
     <string name="shelf_artists_on_the_rise">Aufstrebende Künstler</string>
 
@@ -936,17 +855,13 @@
 
     <string name="shelf_charts">Charts</string>
 
-    <string name="shelf_commute">Unterwegs</string>
 
     <string name="shelf_concerts">Konzerte</string>
 
-    <string name="shelf_energy_boosters">Energiebündel</string>
 
     <string name="shelf_featured_playlists_for_you">Empfohlene Playlists für dich</string>
 
-    <string name="shelf_feel_good">Gute Laune</string>
 
-    <string name="shelf_focus">Fokus</string>
 
     <string name="shelf_for_you">Für dich</string>
 
@@ -962,11 +877,9 @@
 
     <string name="shelf_mixed_for_you">Für dich gemixt</string>
 
-    <string name="shelf_new_albums_singles">Neue Alben &amp; Singles</string>
 
     <string name="shelf_new_releases">Neuerscheinungen</string>
 
-    <string name="shelf_party">Party</string>
 
     <string name="shelf_quick_picks">Schnellauswahl</string>
 
@@ -974,11 +887,8 @@
 
     <string name="shelf_recommended_music_videos">Empfohlene Musikvideos</string>
 
-    <string name="shelf_relax">Entspannung</string>
 
-    <string name="shelf_romance">Romantik</string>
 
-    <string name="shelf_sad">Melancholisch</string>
 
     <string name="shelf_shorts">Shorts</string>
 
@@ -986,7 +896,6 @@
 
     <string name="shelf_single">Single</string>
 
-    <string name="shelf_sleep">Schlafen</string>
 
     <string name="shelf_song_item">Titel</string>
 
@@ -998,7 +907,6 @@
 
     <string name="shelf_trending_community_playlists">Beliebte Community-Playlists</string>
 
-    <string name="shelf_workout">Training</string>
 
     <string name="shelf_youtube_charts">YouTube-Charts</string>
 
@@ -1032,7 +940,6 @@
 
     <string name="upgrade_quality">Qualität verbessern</string>
 
-    <string name="use_this_channel">Diesen Kanal nutzen</string>
 
     <string name="use_this_profile">Dieses Profil nutzen</string>
 
@@ -1299,7 +1206,6 @@
     <string name="spotify">Spotify</string>
     <string name="spotify_connect_subtitle">Melde dich an, um deine Playlists zu laden. Die Wiedergabe nutzt YouTube Music.</string>
     <string name="spotify_disconnect">Trennen</string>
-    <string name="spotify_empty_playlists">Keine Playlists auf diesem Konto</string>
     <string name="spotify_empty_tracks">Diese Playlist enthält keine Titel</string>
     <string name="spotify_import_button">Importieren</string>
     <string name="spotify_import_description">Füge einen öffentlichen Playlist-Link ein. Titel werden auf YouTube Music abgeglichen.</string>
@@ -1318,7 +1224,6 @@
     <string name="spotify_library_subtitle">Deine Spotify-Playlists</string>
     <string name="spotify_sign_in">Bei Spotify anmelden</string>
     <string name="spotify_use_spdc_token">sp_dc-Token verwenden</string>
-    <string name="spotify_track_unavailable">Diesen Titel gab es nicht auf YouTube Music</string>
     <string name="artist_signatures">Künstlersignaturen</string>
     <string name="artist_signatures_subtitle">Zeigt eine handschriftliche Signatur, wenn Apple Music kein Titellogo hat</string>
     <string name="artist_signatures_url">Signatur-API-URL</string>

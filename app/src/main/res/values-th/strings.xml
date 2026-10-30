@@ -1,11 +1,8 @@
 <resources>
     <string name="app_name">BitChord</string>
     <string name="playback_channel_name">กำลังเล่น</string>
-    <string name="download_channel_name">การดาวน์โหลด</string>
-    <string name="download_channel_description">เพลงที่กำลังบันทึกลงในโฟลเดอร์เพลงของคุณ</string>
     <string name="download_notification_title">กำลังดาวน์โหลด</string>
     <string name="download_notification_starting">กำลังเริ่ม</string>
-    <string name="download_notification_queued">%1$s · อีก %2$d รายการในคิว</string>
     <string name="upload_channel_name">การอัปโหลด</string>
     <string name="upload_channel_description">เพลงที่กำลังส่งไปยังเซิร์ฟเวอร์ WebDAV ของคุณ</string>
     <string name="upload_notification_title">กำลังอัปโหลด</string>
@@ -46,23 +43,15 @@
     <string name="download_all">ดาวน์โหลดทั้งหมด</string>
     <string name="top_songs">เพลงยอดนิยม</string>
     <string name="suggested">แนะนำ</string>
-    <string name="song_count">%1$d เพลง</string>
     <plurals name="song_count_plural">
         <item quantity="other">%1$d เพลง</item>
     </plurals>
     <plurals name="track_count_plural">
         <item quantity="other">%1$d แทร็ก</item>
     </plurals>
-    <plurals name="artist_count">
-        <item quantity="other">%1$d ศิลปิน</item>
-    </plurals>
-    <plurals name="album_count">
-        <item quantity="other">%1$d อัลบั้ม</item>
-    </plurals>
     <string name="songs">เพลง</string>
     <string name="artists">ศิลปิน</string>
     <string name="albums">อัลบั้ม</string>
-    <string name="no_album_metadata">ไม่มีแทร็กใดระบุว่ามาจากอัลบั้มไหน</string>
     <string name="search_empty">ค้นหาเพลงหลายล้านเพลงบน YouTube Music</string>
     <string name="recent_searches">การค้นหาล่าสุด</string>
     <string name="clear">ล้าง</string>
@@ -71,17 +60,12 @@
     <string name="recent_search_remove">นำ “%1$s” ออกจากการค้นหาล่าสุด</string>
     <string name="storage_required_save">ต้องได้รับสิทธิ์เข้าถึงพื้นที่จัดเก็บเพื่อบันทึกเพลง</string>
     <string name="storage_required_read">ต้องได้รับสิทธิ์เข้าถึงพื้นที่จัดเก็บเพื่ออ่านไฟล์เสียงในเครื่อง</string>
-    <string name="sharing_coming_soon">ฟีเจอร์แชร์กำลังจะมาเร็ว ๆ นี้</string>
     <string name="already_downloaded">ดาวน์โหลดไว้แล้ว</string>
     <plurals name="downloading_song_count">
         <item quantity="other">กำลังดาวน์โหลด %1$d เพลง</item>
     </plurals>
     <string name="source">แหล่งข้อมูล</string>
-    <string name="lossless_audio">เสียงไม่สูญเสียคุณภาพ</string>
-    <string name="prefer_lossless">เลือกใช้ไฟล์ไม่สูญเสียคุณภาพก่อน</string>
-    <string name="lossless_source_subtitle">FLAC และ ALAC ตรงจากแหล่งที่มา</string>
     <string name="overridden">ถูกแทนที่</string>
-    <string name="add_module_source">เพิ่มแหล่งข้อมูลโมดูล</string>
     <string name="remove_source">นำแหล่งข้อมูลนี้ออก</string>
     <string name="test">ทดสอบ</string>
     <string name="testing">กำลังทดสอบ…</string>
@@ -100,8 +84,6 @@
     <string name="song_cache_cleared">ล้างแคชเพลงแล้ว</string>
     <string name="image_cache_cleared">ล้างแคชรูปภาพแล้ว</string>
     <string name="no_equalizer">อุปกรณ์นี้ไม่มีอีควอไลเซอร์ของระบบ</string>
-    <string name="no_dolby_atmos">อุปกรณ์นี้ไม่มีแผงควบคุม Dolby Atmos</string>
-    <string name="dolby_atmos_open_failed">เปิดการตั้งค่า Dolby Atmos ไม่ได้</string>
     <string name="update_available">มีอัปเดต: v%1$s</string>
     <string name="software_update">การอัปเดตซอฟต์แวร์</string>
     <string name="update_available_body">bitchord %1$s พร้อมให้ดาวน์โหลดแล้ว</string>
@@ -115,14 +97,7 @@
     <string name="try_again">ลองอีกครั้ง</string>
     <string name="open_releases_page">เปิดหน้าเวอร์ชันที่เผยแพร่</string>
     <string name="whats_new">มีอะไรใหม่</string>
-    <string name="log_copied">คัดลอกล็อกแล้ว · %1$d บรรทัด</string>
     <string name="sign_in_youtube_music">ลงชื่อเข้าใช้ YouTube Music</string>
-    <string name="choose_a_channel">เลือกช่อง</string>
-    <string name="channel_session_unavailable">ยังไม่มีเซสชันในหน้านี้ — เปิด YouTube Music ก่อน</string>
-    <string name="channel_switch_instructions">สลับด้วยรูปโปรไฟล์ แล้วแตะใช้ช่องนี้</string>
-    <string name="use_this_channel">ใช้ช่องนี้</string>
-    <string name="sign_in_discord">ลงชื่อเข้าใช้ Discord</string>
-    <string name="personalized_recommendations">รับคำแนะนำที่ปรับให้เหมาะกับคุณ</string>
     <string name="play_next">เล่นต่อไป</string>
     <string name="queue">คิว</string>
     <string name="source_setup_required">แตะเพื่อตั้งค่าให้เสร็จสมบูรณ์</string>
@@ -139,7 +114,6 @@
     <string name="widget_previous">ก่อนหน้า</string>
     <string name="widget_artwork">ปกอัลบั้ม</string>
     <string name="widget_nothing_played">ยังไม่มีการเล่นเพลง</string>
-    <string name="widget_open_bitchord">เปิด BitChord</string>
     <string name="widget_preview_title">ชื่อเพลง</string>
     <string name="widget_preview_artist">ศิลปิน</string>
     <string name="widget_pill_label">กำลังเล่น 4×1</string>
@@ -149,7 +123,6 @@
     <string name="download_wifi_only">ดาวน์โหลดผ่าน Wi-Fi เท่านั้น</string>
     <string name="convert_to_audio">แปลงเป็นเสียง</string>
     <string name="convert_to_video">แปลงเป็นวิดีโอ</string>
-    <string name="converting_to_audio">กำลังแปลงเป็นเสียง…</string>
     <string name="revert_to_original">กลับไปใช้ต้นฉบับ</string>
     <string name="spatial_audio">เสียงเชิงพื้นที่</string>
     <string name="spatial_audio_subtitle">ขยายแทร็กสเตอริโอให้ดื่มด่ำยิ่งขึ้น</string>
@@ -181,7 +154,6 @@
     <string name="hindi">ฮินดี</string>
     <string name="japanese">ญี่ปุ่น</string>
     <string name="russian">รัสเซีย</string>
-    <string name="chinese">จีน (ตัวย่อ)</string>
     <string name="chinese_simplified">จีน (ตัวย่อ)</string>
     <string name="chinese_traditional">จีน (ตัวเต็ม)</string>
     <string name="hebrew">ฮีบรู</string>
@@ -190,8 +162,6 @@
     <string name="thai">ไทย</string>
     <string name="korean">เกาหลี</string>
     <string name="show_all">แสดงทั้งหมด</string>
-    <string name="grid_view">กริด</string>
-    <string name="list_view">รายการ</string>
     <string name="switch_to_grid_view">สลับเป็นมุมมองกริด</string>
     <string name="switch_to_list_view">สลับเป็นมุมมองรายการ</string>
     <string name="audio_quality">คุณภาพเสียง</string>
@@ -200,7 +170,6 @@
     <string name="storage">พื้นที่จัดเก็บ</string>
     <string name="your_data">ข้อมูลของคุณ</string>
     <string name="miscellaneous">เบ็ดเตล็ด</string>
-    <string name="lossless_hq_audio">เสียงไม่สูญเสียคุณภาพ / คุณภาพสูง</string>
     <string name="on_wifi">เมื่อใช้ Wi-Fi</string>
     <string name="on_mobile_data">เมื่อใช้เน็ตมือถือ</string>
     <string name="in_use">กำลังใช้งาน</string>
@@ -372,7 +341,6 @@
     <string name="saved_to_bitchord_folder">บันทึกลง Music/BitChord แล้ว</string>
     <string name="nothing_downloading">ไม่มีการดาวน์โหลด</string>
     <string name="nothing_to_explore">ยังไม่มีอะไรให้สำรวจตอนนี้</string>
-    <string name="no_youtube_music_results">ไม่มีผลลัพธ์จาก YouTube Music</string>
     <string name="library_empty">ยังไม่มีอะไรในคลังเพลงของคุณ</string>
     <string name="history_sign_in_required">ลงชื่อเข้าใช้เพื่อดูสิ่งที่คุณเคยฟัง</string>
     <string name="history_empty">ยังไม่มีการเล่นเพลง</string>
@@ -405,12 +373,6 @@
     <string name="nothing_matches">ไม่มีอะไรตรงกับ “%1$s”</string>
     <string name="close_search">ปิดการค้นหา</string>
     <string name="less">น้อยลง</string>
-    <string name="song_count_with_minutes">%1$s, %2$d นาที</string>
-    <string name="song_count_with_duration">%1$s, %2$s</string>
-    <string name="song_count_with_hours_minutes">%1$s, %2$s %3$d นาที</string>
-    <plurals name="hour_count">
-        <item quantity="other">%1$d ชั่วโมง</item>
-    </plurals>
     <plurals name="songs_will_play_next">
         <item quantity="other">%1$d เพลงจะเล่นต่อไป</item>
     </plurals>
@@ -477,7 +439,6 @@
     <string name="scrobble_tracks_subtitle">บันทึกการเล่นลงไทม์ไลน์ Last.fm ของคุณ</string>
     <string name="scrobbling_footer">สโครบเบิลสิ่งที่คุณฟังไปยัง Last.fm และ ListenBrainz</string>
     <string name="scrobbling_paused_footer">Last.fm และ ListenBrainz ถูกหยุดไว้ชั่วคราวสำหรับเวอร์ชันนี้ และจะกลับมาในภายหลัง การเชื่อมต่อที่มีอยู่ยังคงถูกบันทึกไว้</string>
-    <string name="search_this_folder">ค้นหาในโฟลเดอร์นี้</string>
     <string name="search_this_list">ค้นหาในรายการนี้</string>
     <string name="second_button">ปุ่มที่สอง</string>
     <string name="share">แชร์</string>
@@ -576,11 +537,9 @@
     <string name="replay_intro_start">Replay ของคุณ</string>
     <string name="replay_minutes_end"> กับดนตรี</string>
     <string name="replay_minutes_start">คุณใช้เวลา </string>
-    <string name="replay_minutes_value">%1$s</string>
     <plurals name="replay_minutes_unit">
         <item quantity="other">%1$s นาที</item>
     </plurals>
-    <string name="replay_mostly_around"> ส่วนใหญ่ในช่วง %1$s</string>
     <string name="replay_private_counting">สร้างขึ้นแบบส่วนตัวจากประวัติการฟังบนอุปกรณ์นี้</string>
     <string name="replay_share_card_description">การ์ดสวยงามพร้อมไฮไลต์การฟังหลักของคุณ</string>
     <string name="replay_share_summary_description">ภาพรวมทั้งหมดพร้อมเพลง ศิลปิน อัลบั้ม แนวเพลง และพฤติกรรมการฟัง</string>
@@ -627,7 +586,6 @@
     <string name="webdav_not_configured">เชื่อมต่อเซิร์ฟเวอร์ในส่วนแหล่งข้อมูล</string>
     <string name="webdav_empty">ไม่พบไฟล์เสียงบนเซิร์ฟเวอร์ WebDAV ตรวจสอบ URL ในการตั้งค่า</string>
     <string name="webdav_description">เชื่อม BitChord กับโฟลเดอร์เพลง WebDAV — ไดเรกทอรีเพลงใน Nextcloud ของคุณหรือเซิร์ฟเวอร์ใดก็ได้ที่รองรับ WebDAV</string>
-    <string name="webdav_server_url">URL ของเซิร์ฟเวอร์</string>
     <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
     <string name="webdav_disconnect">ยกเลิกการเชื่อมต่อ</string>
     <string name="webdav_test_failed">เชื่อมต่อไม่ได้: %1$s</string>
@@ -662,15 +620,8 @@
     <string name="delete_playlist_confirmation">ลบ “%1$s” หรือไม่ แตะอีกครั้งเพื่อยืนยัน</string>
     <string name="delete_download_confirmation">นำ “%1$s” ออกจากอุปกรณ์นี้หรือไม่ แตะอีกครั้งเพื่อยืนยัน</string>
     <string name="running">กำลังทำงาน</string>
-    <string name="version_alignment_status">%1$s · %2$s</string>
-    <string name="version_cut_not_fetched">ยังไม่ได้ดึง</string>
-    <string name="version_cut_fetching">กำลังดึง</string>
-    <string name="version_cut_measuring">กำลังวิเคราะห์</string>
-    <string name="version_cut_aligned">จัดตำแหน่งแล้ว</string>
     <string name="automix_enabled_subtitle">กำหนดจังหวะและผสานทุกช่วงเปลี่ยนเพลงจากตัวแทร็กเอง ปิดหากเครื่องร้อนหรือการเล่นกระตุก</string>
     <string name="automix_disabled_subtitle">กำหนดจังหวะและผสานช่วงเปลี่ยนเพลงโดยอัตโนมัติ โดยไม่มีแถบเลื่อน ประสิทธิภาพอาจแตกต่างกันในอุปกรณ์ที่ช้ากว่า</string>
-    <string name="advanced_automix">Automix ขั้นสูง</string>
-    <string name="advanced_automix_subtitle">มิกซ์แบบดีเจ: รักษาจังหวะให้ตรงกัน เปลี่ยนเพลงตรงจังหวะ และตัดข้ามเพลงที่เข้ากันไม่ได้ ไม่มีการประมวลผลเพิ่ม</string>
     <string name="no_lyrics_sources_enabled">ไม่มี จะไม่มีการดึงเนื้อเพลง</string>
     <string name="song_cache_large_subtitle">เก็บเสียงที่ดาวน์โหลดไว้บนดิสก์สูงสุด %1$s ซึ่งอาจใช้พื้นที่ว่างของคุณไปมาก</string>
     <string name="song_cache_limit_subtitle">เก็บเสียงที่ดาวน์โหลดไว้บนดิสก์เพื่อการเลื่อนฟังและฟังซ้ำได้ทันที</string>
@@ -703,8 +654,6 @@
     <string name="brand_account">บัญชีแบรนด์</string>
     <string name="add_account">เพิ่มบัญชี</string>
     <string name="manage_accounts">จัดการบัญชี</string>
-    <string name="current_account">บัญชีปัจจุบัน</string>
-    <string name="current_profile">โปรไฟล์ปัจจุบัน</string>
     <string name="selected_account">บัญชีที่เลือก</string>
     <string name="listen_as">ฟังในฐานะ</string>
     <string name="default_youtube_profile">โปรไฟล์เริ่มต้นของ YouTube Music</string>
@@ -730,11 +679,7 @@
     <string name="listen_together_using_default">กำลังใช้เซิร์ฟเวอร์ที่มีมาให้</string>
     <string name="listen_together_remove_server">ลบเซิร์ฟเวอร์</string>
     <string name="listen_together_switched_to_default">เปลี่ยนเป็นเซิร์ฟเวอร์เริ่มต้นแล้ว</string>
-    <string name="listen_together_custom_server_saved">บันทึกเซิร์ฟเวอร์ที่กำหนดเองแล้ว</string>
     <string name="listen_together_create">สร้างปาร์ตี้</string>
-    <string name="listen_together_create_subtitle">รับรหัสไปแชร์กับเพื่อน</string>
-    <string name="listen_together_create_footer">คุณจะได้รหัสหกตัวอักษร ใครที่มีรหัสก็เข้าร่วมได้ สูงสุด %1$d เครื่องรวมเครื่องของคุณ</string>
-    <string name="listen_together_profile">โปรไฟล์ปาร์ตี้ของคุณ</string>
     <string name="listen_together_nickname_hint">ชื่อเล่นสำหรับปาร์ตี้นี้</string>
     <string name="listen_together_party_size">ขนาดปาร์ตี้</string>
     <string name="listen_together_party_size_subtitle">เลือกผู้ฟัง 2–10 คน</string>
@@ -742,18 +687,6 @@
     <string name="listen_together_remove">นำออก</string>
     <string name="listen_together_activity">กิจกรรมล่าสุด</string>
     <string name="listen_together_activity_footer">เฉพาะเซสชันนี้ · ล่าสุดก่อน · สูงสุด 100 รายการ</string>
-    <string name="listen_together_activity_played">เริ่มเล่น</string>
-    <string name="listen_together_activity_paused">หยุดเล่นชั่วคราว</string>
-    <string name="listen_together_activity_seeked">เลื่อนตำแหน่งในแทร็ก</string>
-    <string name="listen_together_activity_skipped">ข้ามไปข้างหน้า</string>
-    <string name="listen_together_activity_went_back">ย้อนกลับ</string>
-    <string name="listen_together_activity_added">เพิ่มลงในคิว</string>
-    <string name="listen_together_activity_removed_track">นำแทร็กออกจากคิว</string>
-    <string name="listen_together_activity_cleared">ล้างแทร็กที่จะเล่นถัดไป</string>
-    <string name="listen_together_activity_reordered">จัดลำดับคิวใหม่</string>
-    <string name="listen_together_activity_removed_member">นำผู้ฟังออก</string>
-    <string name="listen_together_activity_changed_size">เปลี่ยนขนาดปาร์ตี้</string>
-    <string name="listen_together_activity_updated">อัปเดตปาร์ตี้</string>
     <string name="listen_together_join">เข้าร่วมปาร์ตี้</string>
     <string name="listen_together_join_action">เข้าร่วม</string>
     <string name="listen_together_code_hint">ตัวอักษรหรือตัวเลขหกตัว</string>
@@ -784,7 +717,6 @@
     <string name="listen_together_share_link">แชร์ลิงก์</string>
     <string name="listen_together_scan_qr">สแกนคิวอาร์โค้ด</string>
     <string name="listen_together_scan_qr_subtitle">ให้เพื่อนสแกนเพื่อเข้าร่วม</string>
-    <string name="listen_together_invite">เชิญ</string>
     <string name="listen_together_host_only">ฉันควบคุมเพลงเพียงผู้เดียว</string>
     <string name="listen_together_host_only_subtitle">คนอื่นฟังไปด้วยกันและหยุดชั่วคราวบนอุปกรณ์ของตัวเองได้</string>
     <string name="listen_together_host_only_notice">เฉพาะโฮสต์เท่านั้นที่ควบคุมเพลงได้</string>
@@ -798,8 +730,6 @@
     <string name="listen_together_custom_server_switch_and_join">เปลี่ยนและเข้าร่วม</string>
     <string name="listen_together_official_server_dialog_title">เปลี่ยนเป็นเซิร์ฟเวอร์ทางการไหม</string>
     <string name="listen_together_official_server_dialog_message">ปาร์ตี้นี้โฮสต์อยู่บนเซิร์ฟเวอร์ทางการของ BitChord\n\nต้องการกลับไปใช้เซิร์ฟเวอร์ทางการและเข้าร่วมปาร์ตี้ %1$s หรือไม่</string>
-    <string name="listen_together_switch_failed_stayed_in_party">เข้าร่วมปาร์ตี้ไม่ได้: %1$s ยังอยู่ในปาร์ตี้ %2$s</string>
-    <string name="listen_together_switch_failed">เข้าร่วมปาร์ตี้ไม่ได้: %1$s</string>
     <string name="listen_together_ping">%1$d ms</string>
     <string name="listen_together_server_offline_dash">—</string>
     <string name="listen_together_invalid_server_url">URL ของเซิร์ฟเวอร์ไม่ถูกต้อง โปรดป้อนที่อยู่ที่ถูกต้อง (เช่น https://your-server.com)</string>
@@ -1087,7 +1017,6 @@
     <string name="vietnamese">Vietnamese</string>
 
 
-    <string name="miscellaneous_footer">When enabled, closing the app from the recent apps screen will also stop music playback.</string>
 
 
     <string name="export_compatible_downloads">Export compatible downloads</string>
@@ -1100,14 +1029,9 @@
     <string name="loudness_normalization">ปรับระดับความดังให้เท่ากัน</string>
     <string name="loudness_normalization_subtitle">ปรับทุกแทร็กให้ดังเท่ากัน</string>
     <string name="loudness_off_on_speaker">ปิดบนลำโพงโทรศัพท์</string>
-    <string name="loudness_target">ความดังเป้าหมาย</string>
-    <string name="loudness_target_subtitle">เบาลงเหมาะกับหูฟัง ดังขึ้นเหมาะกับในรถหรือลำโพงโทรศัพท์</string>
-    <string name="loudness_target_value">%1$s LUFS</string>
-    <string name="pipeline_loudness">ความดัง</string>
     <string name="pipeline_loudness_gain">เกน</string>
     <string name="pipeline_loudness_measured">วัดได้</string>
     <string name="pipeline_bit_exact">บิตตรงต้นฉบับ</string>
-    <string name="loudness_measuring">กำลังวัด…</string>
     <string name="loudness_gain_db">%1$s dB</string>
     <string name="loudness_lufs">%1$s LUFS</string>
 
@@ -1121,10 +1045,8 @@
     <string name="advanced_options">Advanced options</string>
 
 
-    <string name="lyrics_debug_logs">Lyrics debug logs</string>
 
 
-    <string name="lyrics_debug_logs_subtitle">Show live API queries and scraper activity in the lyrics panel</string>
 
 
     <string name="shelf_trending_community_playlists">Trending community playlists</string>
@@ -1166,40 +1088,28 @@
     <string name="shelf_for_you">For you</string>
 
 
-    <string name="shelf_energy_boosters">Energy boosters</string>
 
 
-    <string name="shelf_feel_good">Feel good</string>
 
 
-    <string name="shelf_commute">Commute</string>
 
 
-    <string name="shelf_workout">Workout</string>
 
 
-    <string name="shelf_focus">Focus</string>
 
 
-    <string name="shelf_relax">Relax</string>
 
 
-    <string name="shelf_sleep">Sleep</string>
 
 
-    <string name="shelf_party">Party</string>
 
 
-    <string name="shelf_romance">Romance</string>
 
 
-    <string name="shelf_sad">Sad</string>
 
 
-    <string name="shelf_100_on_repeat">100% on repeat</string>
 
 
-    <string name="shelf_new_albums_singles">New albums &amp; singles</string>
 
 
     <string name="shelf_hits_today">Hits today</string>
@@ -1282,7 +1192,6 @@
     <string name="spotify">Spotify</string>
     <string name="spotify_connect_subtitle">ลงชื่อเข้าใช้เพื่อโหลดเพลย์ลิสต์ของคุณ การเล่นใช้ YouTube Music</string>
     <string name="spotify_disconnect">ยกเลิกการเชื่อมต่อ</string>
-    <string name="spotify_empty_playlists">ไม่มีเพลย์ลิสต์ในบัญชีนี้</string>
     <string name="spotify_empty_tracks">เพลย์ลิสต์นี้ไม่มีเพลง</string>
     <string name="spotify_import_button">นำเข้า</string>
     <string name="spotify_import_description">วางลิงก์เพลย์ลิสต์สาธารณะ เพลงจะถูกจับคู่บน YouTube Music</string>
@@ -1301,7 +1210,6 @@
     <string name="spotify_library_subtitle">เพลย์ลิสต์ Spotify ของคุณ</string>
     <string name="spotify_sign_in">ลงชื่อเข้าใช้ด้วย Spotify</string>
     <string name="spotify_use_spdc_token">ใช้โทเค็น sp_dc</string>
-    <string name="spotify_track_unavailable">หาเพลงนั้นบน YouTube Music ไม่พบ</string>
     <string name="artist_signatures">ลายเซ็นศิลปิน</string>
     <string name="artist_signatures_subtitle">แสดงลายเซ็นลายมือเมื่อ Apple Music ไม่มีโลโก้ชื่อเรื่อง</string>
     <string name="artist_signatures_url">URL API ลายเซ็น</string>

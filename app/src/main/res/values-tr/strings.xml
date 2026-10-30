@@ -1,11 +1,8 @@
 <resources>
     <string name="app_name">BitChord</string>
     <string name="playback_channel_name">Şu an çalıyor</string>
-    <string name="download_channel_name">İndirmeler</string>
-    <string name="download_channel_description">Müzik klasörüne kaydedilen şarkılar</string>
     <string name="download_notification_title">İndiriliyor</string>
     <string name="download_notification_starting">Başlatılıyor</string>
-    <string name="download_notification_queued">%1$s · %2$d tane daha sırada</string>
     <string name="upload_channel_name">Yüklemeler</string>
     <string name="upload_channel_description">WebDAV sunucuna gönderilen şarkılar</string>
     <string name="upload_notification_title">Yükleniyor</string>
@@ -47,7 +44,6 @@
     <string name="download_all">Tümünü indir</string>
     <string name="top_songs">En çok dinlenen şarkılar</string>
     <string name="suggested">Önerilen</string>
-    <string name="song_count">%1$d şarkı</string>
     <plurals name="song_count_plural">
         <item quantity="one">%1$d şarkı</item>
         <item quantity="other">%1$d şarkı</item>
@@ -56,18 +52,9 @@
         <item quantity="one">%1$d parça</item>
         <item quantity="other">%1$d parça</item>
     </plurals>
-    <plurals name="artist_count">
-        <item quantity="one">%1$d sanatçı</item>
-        <item quantity="other">%1$d sanatçı</item>
-    </plurals>
-    <plurals name="album_count">
-        <item quantity="one">%1$d albüm</item>
-        <item quantity="other">%1$d albüm</item>
-    </plurals>
     <string name="songs">Şarkılar</string>
     <string name="artists">Sanatçılar</string>
     <string name="albums">Albümler</string>
-    <string name="no_album_metadata">Bu parçaların hiçbiri hangi albümden geldiğini belirtmiyor.</string>
     <string name="search_empty">YouTube Music\'te milyonlarca şarkı arayın.</string>
     <string name="recent_searches">Son aramalar</string>
     <string name="clear">Temizle</string>
@@ -76,18 +63,13 @@
     <string name="recent_search_remove">“%1$s” öğesini son aramalardan kaldır</string>
     <string name="storage_required_save">Şarkıları kaydetmek için depolama erişimi gerekiyor</string>
     <string name="storage_required_read">Yerel ses dosyalarını okumak için depolama izni gerekiyor</string>
-    <string name="sharing_coming_soon">Paylaşım yakında geliyor</string>
     <string name="already_downloaded">Zaten indirildi</string>
     <plurals name="downloading_song_count">
         <item quantity="one">%1$d şarkı indiriliyor</item>
         <item quantity="other">%1$d şarkı indiriliyor</item>
     </plurals>
     <string name="source">Kaynaklar</string>
-    <string name="lossless_audio">Kayıpsız ses</string>
-    <string name="prefer_lossless">Kayıpsızı tercih et</string>
-    <string name="lossless_source_subtitle">Doğrudan kaynaktan FLAC ve ALAC</string>
     <string name="overridden">Geçersiz kılındı</string>
-    <string name="add_module_source">Modül kaynağı ekle</string>
     <string name="remove_source">Bu kaynağı kaldır</string>
     <string name="test">Test et</string>
     <string name="testing">Test ediliyor…</string>
@@ -106,8 +88,6 @@
     <string name="song_cache_cleared">Şarkı önbelleği temizlendi</string>
     <string name="image_cache_cleared">Resim önbelleği temizlendi</string>
     <string name="no_equalizer">Bu cihazda sistem ekolayzırı yok</string>
-    <string name="no_dolby_atmos">Bu cihazda Dolby Atmos paneli yok</string>
-    <string name="dolby_atmos_open_failed">Dolby Atmos ayarları açılamadı</string>
     <string name="update_available">Güncelleme mevcut: v%1$s</string>
     <string name="software_update">Yazılım Güncellemesi</string>
     <string name="update_available_body">bitchord %1$s indirilmeye hazır.</string>
@@ -121,14 +101,7 @@
     <string name="try_again">Tekrar Dene</string>
     <string name="open_releases_page">Sürümler Sayfasını Aç</string>
     <string name="whats_new">Yenilikler</string>
-    <string name="log_copied">Günlük kopyalandı · %1$d satır</string>
     <string name="sign_in_youtube_music">YouTube Music\'e giriş yap</string>
-    <string name="choose_a_channel">Bir kanal seç</string>
-    <string name="channel_session_unavailable">Bu sayfada henüz oturum yok — önce YouTube Music\'i aç</string>
-    <string name="channel_switch_instructions">Avatarla değiştir, sonra Bu kanalı kullan\'a dokun</string>
-    <string name="use_this_channel">Bu kanalı kullan</string>
-    <string name="sign_in_discord">Discord\'a giriş yap</string>
-    <string name="personalized_recommendations">Size özel öneriler alın</string>
     <string name="play_next">Sonra çal</string>
     <string name="queue">Sıra</string>
     <string name="source_setup_required">Kurulumu tamamlamak için dokun</string>
@@ -145,7 +118,6 @@
     <string name="widget_previous">Önceki</string>
     <string name="widget_artwork">Albüm kapağı</string>
     <string name="widget_nothing_played">Henüz bir şey çalınmadı</string>
-    <string name="widget_open_bitchord">BitChord\'u Aç</string>
     <string name="widget_preview_title">Şarkı adı</string>
     <string name="widget_preview_artist">Sanatçı</string>
     <string name="widget_pill_label">Şu an çalıyor 4×1</string>
@@ -155,7 +127,6 @@
     <string name="download_wifi_only">Yalnızca Wi-Fi üzerinden indir</string>
     <string name="convert_to_audio">Sese dönüştür</string>
     <string name="convert_to_video">Videoya dönüştür</string>
-    <string name="converting_to_audio">Sese dönüştürülüyor…</string>
     <string name="revert_to_original">Orijinaline geri dön</string>
     <string name="spatial_audio">Uzamsal ses</string>
     <string name="spatial_audio_subtitle">Daha sürükleyici bir dinleme için stereo parçaları genişletir</string>
@@ -187,7 +158,6 @@
     <string name="hindi">Hintçe</string>
     <string name="japanese">Japonca</string>
     <string name="russian">Rusça</string>
-    <string name="chinese">Çince (Basitleştirilmiş)</string>
     <string name="chinese_simplified">Çince (Basitleştirilmiş)</string>
     <string name="chinese_traditional">Çince (Geleneksel)</string>
     <string name="hebrew">İbranice</string>
@@ -196,8 +166,6 @@
     <string name="thai">Tayca</string>
     <string name="korean">Korece</string>
     <string name="show_all">Tümünü göster</string>
-    <string name="grid_view">Izgara</string>
-    <string name="list_view">Liste</string>
     <string name="switch_to_grid_view">Izgara görünümüne geç</string>
     <string name="switch_to_list_view">Liste görünümüne geç</string>
     <string name="audio_quality">Ses kalitesi</string>
@@ -206,7 +174,6 @@
     <string name="storage">Depolama</string>
     <string name="your_data">Verileriniz</string>
     <string name="miscellaneous">Diğer</string>
-    <string name="lossless_hq_audio">Kayıpsız / Yüksek Kaliteli Ses</string>
     <string name="on_wifi">Wi-Fi\'de</string>
     <string name="on_mobile_data">Mobil veride</string>
     <string name="in_use">Kullanımda</string>
@@ -378,7 +345,6 @@
     <string name="saved_to_bitchord_folder">Müzik/BitChord klasörüne kaydedildi</string>
     <string name="nothing_downloading">İndirilen bir şey yok</string>
     <string name="nothing_to_explore">Şu anda keşfedilecek bir şey yok</string>
-    <string name="no_youtube_music_results">YouTube Music\'ten sonuç yok</string>
     <string name="library_empty">Kitaplığında henüz bir şey yok</string>
     <string name="history_sign_in_required">Ne dinlediğini görmek için giriş yap</string>
     <string name="history_empty">Henüz bir şey çalınmadı</string>
@@ -416,13 +382,6 @@
     <string name="nothing_matches">“%1$s” ile eşleşen bir şey yok</string>
     <string name="close_search">Aramayı kapat</string>
     <string name="less">Daha az</string>
-    <string name="song_count_with_minutes">%1$s, %2$d dakika</string>
-    <string name="song_count_with_duration">%1$s, %2$s</string>
-    <string name="song_count_with_hours_minutes">%1$s, %2$s %3$d dakika</string>
-    <plurals name="hour_count">
-        <item quantity="one">%1$d saat</item>
-        <item quantity="other">%1$d saat</item>
-    </plurals>
     <plurals name="songs_will_play_next">
         <item quantity="one">%1$d şarkı sonra çalacak</item>
         <item quantity="other">%1$d şarkı sonra çalacak</item>
@@ -492,7 +451,6 @@
     <string name="scrobble_tracks_subtitle">Çalmaları Last.fm zaman çizelgenize kaydet</string>
     <string name="scrobbling_footer">Dinlediklerini Last.fm ve ListenBrainz\'e scrobble et.</string>
     <string name="scrobbling_paused_footer">Last.fm ve ListenBrainz bu sürüm için duraklatıldı ve daha sonra geri dönecek. Mevcut bağlantılar kayıtlı kalır.</string>
-    <string name="search_this_folder">Bu klasörde ara</string>
     <string name="search_this_list">Bu listede ara</string>
     <string name="second_button">İkinci düğme</string>
     <string name="share">Paylaş</string>
@@ -592,12 +550,10 @@
     <string name="replay_intro_start">Senin </string>
     <string name="replay_minutes_end"> geçirdin.</string>
     <string name="replay_minutes_start">Müzikle </string>
-    <string name="replay_minutes_value">%1$s</string>
     <plurals name="replay_minutes_unit">
         <item quantity="one">%1$s dakika</item>
         <item quantity="other">%1$s dakika</item>
     </plurals>
-    <string name="replay_mostly_around">, çoğunlukla %1$s civarında.</string>
     <string name="replay_private_counting">Bu cihazdaki dinleme geçmişinden gizlice oluşturuldu</string>
     <string name="replay_share_card_description">Ana dinleme öne çıkanlarını içeren şık bir kart.</string>
     <string name="replay_share_summary_description">Şarkılar, sanatçılar, albümler, türler ve alışkanlıklarla dolu tam bir tablo.</string>
@@ -647,7 +603,6 @@
     <string name="webdav_not_configured">Kaynaklar bölümünden bir sunucu bağla</string>
     <string name="webdav_empty">WebDAV sunucusunda ses dosyası bulunamadı. Ayarlar\'daki URL\'yi kontrol et.</string>
     <string name="webdav_description">BitChord\'u bir WebDAV müzik klasörüne yönlendir — Nextcloud müzik dizinin ya da WebDAV destekleyen herhangi bir sunucu.</string>
-    <string name="webdav_server_url">Sunucu URL\'si</string>
     <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
     <string name="webdav_disconnect">Bağlantıyı kes</string>
     <string name="webdav_test_failed">Ulaşılamadı: %1$s</string>
@@ -682,15 +637,8 @@
     <string name="delete_playlist_confirmation">“%1$s” silinsin mi? Onaylamak için tekrar dokun.</string>
     <string name="delete_download_confirmation">“%1$s” bu cihazdan kaldırılsın mı? Onaylamak için tekrar dokun.</string>
     <string name="running">Çalışıyor</string>
-    <string name="version_alignment_status">%1$s · %2$s</string>
-    <string name="version_cut_not_fetched">getirilmedi</string>
-    <string name="version_cut_fetching">getiriliyor</string>
-    <string name="version_cut_measuring">analiz ediliyor</string>
-    <string name="version_cut_aligned">hizalandı</string>
     <string name="automix_enabled_subtitle">Her geçişin zamanlamasını ve karışımını parçaların kendisinden yapar. Telefon ısınırsa veya çalma takılırsa kapat.</string>
     <string name="automix_disabled_subtitle">Geçişlerin zamanlamasını ve karışımını kaydırıcı olmadan otomatik olarak yapar. Performans daha yavaş cihazlarda değişebilir.</string>
-    <string name="advanced_automix">Gelişmiş Automix</string>
-    <string name="advanced_automix_subtitle">Bir DJ gibi miksler: ritimleri senkron tutar, her geçişi vuruşta yapar ve uyuşmayan şarkılar arasında keser. Ek işlem yok.</string>
     <string name="no_lyrics_sources_enabled">Yok. Sözler alınmayacak.</string>
     <string name="song_cache_large_subtitle">Diskte %1$s\'a kadar indirilen sesi tutar. Bu, boş alanının önemli bir kısmını kaplayabilir.</string>
     <string name="song_cache_limit_subtitle">Anında atlama ve tekrar dinleme için indirilen sesi diskte tutar</string>
@@ -724,8 +672,6 @@
     <string name="brand_account">Marka hesabı</string>
     <string name="add_account">Hesap ekle</string>
     <string name="manage_accounts">Hesapları yönet</string>
-    <string name="current_account">Mevcut hesap</string>
-    <string name="current_profile">Mevcut profil</string>
     <string name="selected_account">Seçili hesap</string>
     <string name="listen_as">Şu şekilde dinle</string>
     <string name="default_youtube_profile">YouTube Music varsayılan profili</string>
@@ -751,11 +697,7 @@
     <string name="listen_together_using_default">Yerleşik sunucu kullanılıyor</string>
     <string name="listen_together_remove_server">Sunucuyu kaldır</string>
     <string name="listen_together_switched_to_default">Varsayılan sunucuya geçildi</string>
-    <string name="listen_together_custom_server_saved">Özel sunucu kaydedildi</string>
     <string name="listen_together_create">Parti oluştur</string>
-    <string name="listen_together_create_subtitle">Arkadaşlarınla paylaşacak bir kod al</string>
-    <string name="listen_together_create_footer">Altı karakterlik bir kod alırsın. Koda sahip olan herkes katılabilir; seninle birlikte en fazla %1$d cihaz.</string>
-    <string name="listen_together_profile">Parti profilin</string>
     <string name="listen_together_nickname_hint">Bu parti için takma ad</string>
     <string name="listen_together_party_size">Parti boyutu</string>
     <string name="listen_together_party_size_subtitle">2–10 dinleyici seç</string>
@@ -763,18 +705,6 @@
     <string name="listen_together_remove">Çıkar</string>
     <string name="listen_together_activity">Son etkinlikler</string>
     <string name="listen_together_activity_footer">Yalnızca bu oturum · en yeni önce · en fazla 100 işlem</string>
-    <string name="listen_together_activity_played">Çalmayı başlattı</string>
-    <string name="listen_together_activity_paused">Çalmayı duraklattı</string>
-    <string name="listen_together_activity_seeked">Parçada ileri/geri gitti</string>
-    <string name="listen_together_activity_skipped">İleri atladı</string>
-    <string name="listen_together_activity_went_back">Geri döndü</string>
-    <string name="listen_together_activity_added">Sıraya ekledi</string>
-    <string name="listen_together_activity_removed_track">Sıradan bir parça çıkardı</string>
-    <string name="listen_together_activity_cleared">Sıradaki parçaları temizledi</string>
-    <string name="listen_together_activity_reordered">Sırayı yeniden düzenledi</string>
-    <string name="listen_together_activity_removed_member">Bir dinleyiciyi çıkardı</string>
-    <string name="listen_together_activity_changed_size">Parti boyutunu değiştirdi</string>
-    <string name="listen_together_activity_updated">Partiyi güncelledi</string>
     <string name="listen_together_join">Partiye katıl</string>
     <string name="listen_together_join_action">Katıl</string>
     <string name="listen_together_code_hint">Altı harf veya rakam</string>
@@ -805,7 +735,6 @@
     <string name="listen_together_share_link">Bağlantıyı paylaş</string>
     <string name="listen_together_scan_qr">QR kodu tara</string>
     <string name="listen_together_scan_qr_subtitle">Arkadaşların katılmak için bunu tarasın.</string>
-    <string name="listen_together_invite">Davet et</string>
     <string name="listen_together_host_only">Müziği yalnızca ben kontrol ederim</string>
     <string name="listen_together_host_only_subtitle">Diğerleri birlikte dinler ve kendi cihazlarında duraklatabilir</string>
     <string name="listen_together_host_only_notice">Müziği yalnızca kurucu kontrol edebilir</string>
@@ -819,8 +748,6 @@
     <string name="listen_together_custom_server_switch_and_join">Değiştir ve katıl</string>
     <string name="listen_together_official_server_dialog_title">Resmi sunucuya geçilsin mi?</string>
     <string name="listen_together_official_server_dialog_message">Bu parti resmi BitChord sunucusunda barındırılıyor.\n\nResmi sunucuya geri dönüp %1$s partisine katılmak istiyor musun?</string>
-    <string name="listen_together_switch_failed_stayed_in_party">Partiye katılınamadı: %1$s. %2$s partisinde kalmaya devam ediyorsun.</string>
-    <string name="listen_together_switch_failed">Partiye katılınamadı: %1$s.</string>
     <string name="listen_together_ping">%1$d ms</string>
     <string name="listen_together_server_offline_dash">—</string>
     <string name="listen_together_invalid_server_url">Geçersiz sunucu URL\'si. Lütfen geçerli bir adres gir (ör. https://your-server.com)</string>
@@ -839,7 +766,6 @@
 
     <string name="vietnamese">Vietnamca</string>
 
-    <string name="miscellaneous_footer">Etkinleştirildiğinde, uygulamayı son kullanılanlar ekranından kapatmak müzik çalmayı da durdurur.</string>
 
 
     <string name="add_addon">Eklenti ekle</string>
@@ -872,9 +798,7 @@
 
     <string name="legacy_mesh_gradient_subtitle">v1.5\'teki oynatıcı arkasındaki akıcı renk geçişlerini geri getirir</string>
 
-    <string name="lyrics_debug_logs">Şarkı sözü hata ayıklama günlükleri</string>
 
-    <string name="lyrics_debug_logs_subtitle">Şarkı sözü panelinde canlı API sorgularını ve kazıyıcı etkinliğini gösterir</string>
 
     <string name="output_precision">Çıkış hassasiyeti</string>
 
@@ -882,18 +806,12 @@
     <string name="loudness_normalization">Ses yüksekliği normalleştirme</string>
     <string name="loudness_normalization_subtitle">Her parçayı aynı ses yüksekliğine getirir</string>
     <string name="loudness_off_on_speaker">Telefon hoparlöründe kapat</string>
-    <string name="loudness_target">Hedef ses yüksekliği</string>
-    <string name="loudness_target_subtitle">Daha düşük kulaklığa, daha yüksek araba veya telefon hoparlörüne uygundur</string>
-    <string name="loudness_target_value">%1$s LUFS</string>
-    <string name="pipeline_loudness">Ses yüksekliği</string>
     <string name="pipeline_loudness_gain">Kazanç</string>
     <string name="pipeline_loudness_measured">Ölçülen</string>
     <string name="pipeline_bit_exact">Bit düzeyinde birebir</string>
-    <string name="loudness_measuring">Ölçülüyor…</string>
     <string name="loudness_gain_db">%1$s dB</string>
     <string name="loudness_lufs">%1$s LUFS</string>
 
-    <string name="shelf_100_on_repeat">Sürekli tekrarda</string>
 
     <string name="shelf_artists_on_the_rise">Yükselen sanatçılar</string>
 
@@ -901,17 +819,13 @@
 
     <string name="shelf_charts">Listeler</string>
 
-    <string name="shelf_commute">Yolculuk</string>
 
     <string name="shelf_concerts">Konserler</string>
 
-    <string name="shelf_energy_boosters">Enerji verici</string>
 
     <string name="shelf_featured_playlists_for_you">Sizin için öne çıkan çalma listeleri</string>
 
-    <string name="shelf_feel_good">Keyifli</string>
 
-    <string name="shelf_focus">Odaklanma</string>
 
     <string name="shelf_for_you">Sizin için</string>
 
@@ -927,11 +841,9 @@
 
     <string name="shelf_mixed_for_you">Sizin için karışık</string>
 
-    <string name="shelf_new_albums_singles">Yeni albümler ve tekliler</string>
 
     <string name="shelf_new_releases">Yeni çıkanlar</string>
 
-    <string name="shelf_party">Parti</string>
 
     <string name="shelf_quick_picks">Hızlı seçimler</string>
 
@@ -939,11 +851,8 @@
 
     <string name="shelf_recommended_music_videos">Önerilen müzik videoları</string>
 
-    <string name="shelf_relax">Rahatlama</string>
 
-    <string name="shelf_romance">Romantik</string>
 
-    <string name="shelf_sad">Hüzünlü</string>
 
     <string name="shelf_shorts">Shorts</string>
 
@@ -951,7 +860,6 @@
 
     <string name="shelf_single">Tekli</string>
 
-    <string name="shelf_sleep">Uyku</string>
 
     <string name="shelf_song_item">Şarkı</string>
 
@@ -963,7 +871,6 @@
 
     <string name="shelf_trending_community_playlists">Popüler topluluk çalma listeleri</string>
 
-    <string name="shelf_workout">Antrenman</string>
 
     <string name="shelf_youtube_charts">YouTube Listeleri</string>
 
@@ -1256,7 +1163,6 @@
     <string name="spotify">Spotify</string>
     <string name="spotify_connect_subtitle">Çalma listelerini yüklemek için oturum açın. Oynatma YouTube Music kullanır.</string>
     <string name="spotify_disconnect">Bağlantıyı kes</string>
-    <string name="spotify_empty_playlists">Bu hesapta çalma listesi yok</string>
     <string name="spotify_empty_tracks">Bu çalma listesinde şarkı yok</string>
     <string name="spotify_import_button">İçe aktar</string>
     <string name="spotify_import_description">Herkese açık bir çalma listesi bağlantısı yapıştırın. Şarkılar YouTube Music’de eşleştirilir.</string>
@@ -1275,7 +1181,6 @@
     <string name="spotify_library_subtitle">Spotify çalma listeleriniz</string>
     <string name="spotify_sign_in">Spotify ile oturum aç</string>
     <string name="spotify_use_spdc_token">sp_dc token\'ı kullan</string>
-    <string name="spotify_track_unavailable">O şarkı YouTube Music’de bulunamadı</string>
     <string name="song_info">Şarkı Bilgisi</string>
     <string name="song_info_album">Albüm</string>
     <string name="song_info_release_date">Yayın tarihi</string>

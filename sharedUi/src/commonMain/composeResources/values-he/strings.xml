@@ -24,14 +24,11 @@
     <string name="choose_lyrics_provider">בחירת ספק מילים</string>
     <string name="clear">ניקוי</string>
     <string name="close_lyrics">סגור מילים</string>
-    <string name="data_saver">Data-Saver</string>
     <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
-    <string name="downgraded_from">↓ מ-%1$s</string>
     <string name="drag_to_reorder">גרור כדי לשנות סדר</string>
     <string name="failed">נכשל</string>
     <string name="hi_res_lossless">ללא אובדן נתונים ברזולוציה גבוהה</string>
     <string name="high_quality">איכות גבוהה</string>
-    <string name="high_quality_upgrading">איכות גבוהה, משדרג</string>
     <string name="increase_lyrics_offset">Increase lyrics offset</string>
     <string name="instrumental">אינסטרומנטלי</string>
     <string name="like">לייק</string>
@@ -93,7 +90,6 @@
     <string name="lyrics_share_pick_limit">הכרטיס מלא</string>
     <string name="lyrics_translated_to">תורגם ל%1$s</string>
     <string name="lyrics_translation_unavailable">התרגום אינו זמין כרגע</string>
-    <string name="medium_quality">Medium Quality</string>
     <string name="mono">מונו</string>
     <string name="more">עוד</string>
     <string name="next_from">הבא מתוך: %1$s</string>
@@ -143,7 +139,6 @@
     <string name="library_sign_in_description">היכנס לחשבון הגוגל שלך כדי לראות את השירים שאהבת, רשימות ההשמעה והיסטוריית ה-YouTube Music.</string>
     <string name="new_playlist">פלייליסט חדש</string>
     <string name="on_device">במכשיר</string>
-    <string name="personalized_recommendations">קבל המלצות מותאמות אישית עבורך</string>
     <string name="pinned">נעוץ</string>
     <string name="play_next">נגן הבא</string>
     <string name="playlist">רשימת השמעה</string>

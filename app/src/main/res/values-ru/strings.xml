@@ -1,11 +1,8 @@
 <resources>
     <string name="app_name">BitChord</string>
     <string name="playback_channel_name">Сейчас играет</string>
-    <string name="download_channel_name">Загрузки</string>
-    <string name="download_channel_description">Песни сохраняются в папку «Музыка»</string>
     <string name="download_notification_title">Загрузка</string>
     <string name="download_notification_starting">Начало</string>
-    <string name="download_notification_queued">%1$s · ещё %2$d в очереди</string>
     <string name="upload_channel_name">Загрузки на сервер</string>
     <string name="upload_channel_description">Песни, отправляемые на ваш сервер WebDAV</string>
     <string name="upload_notification_title">Отправка</string>
@@ -49,29 +46,15 @@
     <string name="download_all">Загрузить всё</string>
     <string name="top_songs">Топ песен</string>
     <string name="suggested">Рекомендации</string>
-    <string name="song_count">%1$d песня</string>
     <plurals name="song_count_plural">
         <item quantity="one">%1$d песня</item>
         <item quantity="few">%1$d песни</item>
         <item quantity="many">%1$d песен</item>
         <item quantity="other">%1$d песни</item>
     </plurals>
-    <plurals name="artist_count">
-        <item quantity="one">%1$d исполнитель</item>
-        <item quantity="few">%1$d исполнителя</item>
-        <item quantity="many">%1$d исполнителей</item>
-        <item quantity="other">%1$d исполнителя</item>
-    </plurals>
-    <plurals name="album_count">
-        <item quantity="one">%1$d альбом</item>
-        <item quantity="few">%1$d альбома</item>
-        <item quantity="many">%1$d альбомов</item>
-        <item quantity="other">%1$d альбома</item>
-    </plurals>
     <string name="songs">Песни</string>
     <string name="artists">Исполнители</string>
     <string name="albums">Альбомы</string>
-    <string name="no_album_metadata">Ни один из этих треков не указывает свой альбом.</string>
     <string name="search_empty">Ищите миллионы песен на YouTube Music.</string>
     <string name="recent_searches">Недавние запросы</string>
     <string name="clear">Очистить</string>
@@ -80,7 +63,6 @@
     <string name="recent_search_remove">Удалить «%1$s» из недавних запросов</string>
     <string name="storage_required_save">Для сохранения песен нужен доступ к хранилищу</string>
     <string name="storage_required_read">Для чтения локальных аудиофайлов нужно разрешение на доступ к хранилищу</string>
-    <string name="sharing_coming_soon">Функция «Поделиться» скоро появится</string>
     <string name="already_downloaded">Уже загружено</string>
     <plurals name="downloading_song_count">
         <item quantity="one">Загрузка %1$d песни</item>
@@ -89,11 +71,7 @@
         <item quantity="other">Загрузка %1$d песни</item>
     </plurals>
     <string name="source">Источники</string>
-    <string name="lossless_audio">Аудио без потерь</string>
-    <string name="prefer_lossless">Предпочитать без потерь</string>
-    <string name="lossless_source_subtitle">FLAC и ALAC прямо из источника</string>
     <string name="overridden">Переопределено</string>
-    <string name="add_module_source">Добавить источник-модуль</string>
     <string name="remove_source">Удалить этот источник</string>
     <string name="test">Проверить</string>
     <string name="testing">Проверка…</string>
@@ -111,8 +89,6 @@
     <string name="song_cache_cleared">Кэш песен очищен</string>
     <string name="image_cache_cleared">Кэш изображений очищен</string>
     <string name="no_equalizer">На этом устройстве нет системного эквалайзера</string>
-    <string name="no_dolby_atmos">На этом устройстве нет панели Dolby Atmos</string>
-    <string name="dolby_atmos_open_failed">Не удалось открыть настройки Dolby Atmos</string>
     <string name="update_available">Доступно обновление: v%1$s</string>
     <string name="software_update">Обновление ПО</string>
     <string name="update_available_body">bitchord %1$s доступен для загрузки.</string>
@@ -126,10 +102,7 @@
     <string name="try_again">Повторить попытку</string>
     <string name="open_releases_page">Открыть страницу релизов</string>
     <string name="whats_new">Что нового</string>
-    <string name="log_copied">Журнал скопирован · %1$d строк</string>
     <string name="sign_in_youtube_music">Войти в YouTube Music</string>
-    <string name="sign_in_discord">Войти в Discord</string>
-    <string name="personalized_recommendations">Получайте персональные рекомендации</string>
     <string name="play_next">Следующим</string>
     <string name="queue">Очередь</string>
     <string name="source_setup_required">Нажмите, чтобы завершить настройку</string>
@@ -146,7 +119,6 @@
     <string name="widget_previous">Назад</string>
     <string name="widget_artwork">Обложка альбома</string>
     <string name="widget_nothing_played">Пока ничего не воспроизводилось</string>
-    <string name="widget_open_bitchord">Открыть BitChord</string>
     <string name="widget_preview_title">Название песни</string>
     <string name="widget_preview_artist">Исполнитель</string>
     <string name="widget_pill_label">Сейчас играет 4×1</string>
@@ -184,7 +156,6 @@
     <string name="hindi">Хинди</string>
     <string name="japanese">Японский</string>
     <string name="russian">Русский</string>
-    <string name="chinese">Китайский (упрощённый)</string>
     <string name="chinese_simplified">Китайский (упрощённый)</string>
     <string name="chinese_traditional">Китайский (традиционный)</string>
     <string name="hebrew">Иврит</string>
@@ -193,8 +164,6 @@
     <string name="thai">Тайский</string>
     <string name="korean">Корейский</string>
     <string name="show_all">Показать все</string>
-    <string name="grid_view">Сетка</string>
-    <string name="list_view">Список</string>
     <string name="switch_to_grid_view">Переключить на сетку</string>
     <string name="switch_to_list_view">Переключить на список</string>
     <string name="audio_quality">Качество звука</string>
@@ -203,7 +172,6 @@
     <string name="storage">Хранилище</string>
     <string name="your_data">Ваши данные</string>
     <string name="miscellaneous">Разное</string>
-    <string name="lossless_hq_audio">Без потерь / HQ-аудио</string>
     <string name="on_wifi">По Wi-Fi</string>
     <string name="on_mobile_data">По мобильным данным</string>
     <string name="in_use">Используется</string>
@@ -361,7 +329,6 @@
     <string name="saved_to_bitchord_folder">Сохранено в Музыка/BitChord</string>
     <string name="nothing_downloading">Ничего не загружается</string>
     <string name="nothing_to_explore">Сейчас нечего смотреть в обзоре</string>
-    <string name="no_youtube_music_results">Нет результатов из YouTube Music</string>
     <string name="library_empty">В библиотеке пока ничего нет</string>
     <string name="history_sign_in_required">Войдите, чтобы увидеть, что вы слушали</string>
     <string name="history_empty">Пока ничего не воспроизводилось</string>
@@ -404,14 +371,6 @@
     <string name="nothing_matches">Здесь ничего не соответствует запросу «%1$s»</string>
     <string name="close_search">Закрыть поиск</string>
     <string name="less">Меньше</string>
-    <string name="song_count_with_minutes">%1$s, %2$d мин</string>
-    <string name="song_count_with_duration">%1$s, %2$s</string>
-    <string name="song_count_with_hours_minutes">%1$s, %2$s %3$d мин</string>
-    <plurals name="hour_count">
-        <item quantity="one">%1$d час</item>
-        <item quantity="few">%1$d часа</item>
-        <item quantity="many">%1$d часов</item>
-    </plurals>
     <plurals name="songs_will_play_next">
         <item quantity="one">%1$d песня будет сыграна следующей</item>
         <item quantity="few">%1$d песни будут сыграны следующими</item>
@@ -482,7 +441,6 @@
     <string name="scrobble_tracks_subtitle">Записывать прослушивания в вашу ленту Last.fm</string>
     <string name="scrobbling_footer">Отправляйте свои прослушивания в Last.fm и ListenBrainz.</string>
     <string name="scrobbling_paused_footer">Last.fm и ListenBrainz приостановлены для этого релиза и вернутся позже. Существующие подключения остаются сохранёнными.</string>
-    <string name="search_this_folder">Искать в этой папке</string>
     <string name="search_this_list">Искать в этом списке</string>
     <string name="second_button">Вторая кнопка</string>
     <string name="share">Поделиться</string>
@@ -583,14 +541,12 @@
     <string name="replay_intro_start">Ваш </string>
     <string name="replay_minutes_end"> с музыкой.</string>
     <string name="replay_minutes_start">Вы провели </string>
-    <string name="replay_minutes_value">%1$s</string>
     <plurals name="replay_minutes_unit">
         <item quantity="one">%1$s минуту</item>
         <item quantity="few">%1$s минуты</item>
         <item quantity="many">%1$s минут</item>
         <item quantity="other">%1$s минуты</item>
     </plurals>
-    <string name="replay_mostly_around">, в основном около %1$s.</string>
     <string name="replay_private_counting">Формируется приватно на основе истории прослушивания на этом устройстве</string>
     <string name="replay_share_card_description">Аккуратная карточка с главными моментами вашего прослушивания.</string>
     <string name="replay_share_summary_description">Полная картина: песни, исполнители, альбомы, жанры и привычки.</string>
@@ -643,7 +599,6 @@
     <string name="webdav_not_configured">Подключите сервер в разделе «Источники»</string>
     <string name="webdav_empty">На сервере WebDAV не найдено аудиофайлов. Проверьте URL в настройках.</string>
     <string name="webdav_description">Укажите BitChord музыкальную папку WebDAV — каталог «Музыка» в Nextcloud или любой сервер с поддержкой WebDAV.</string>
-    <string name="webdav_server_url">URL сервера</string>
     <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
     <string name="webdav_disconnect">Отключить</string>
     <string name="webdav_test_failed">Не удалось подключиться: %1$s</string>
@@ -677,15 +632,8 @@
     <string name="delete_playlist_confirmation">Удалить «%1$s»? Нажмите ещё раз для подтверждения.</string>
     <string name="delete_download_confirmation">Удалить «%1$s» с этого устройства? Нажмите ещё раз для подтверждения.</string>
     <string name="running">Выполняется</string>
-    <string name="version_alignment_status">%1$s · %2$s</string>
-    <string name="version_cut_not_fetched">не загружено</string>
-    <string name="version_cut_fetching">загрузка</string>
-    <string name="version_cut_measuring">анализ</string>
-    <string name="version_cut_aligned">выровнено</string>
     <string name="automix_enabled_subtitle">Рассчитывает время и смешивает каждый переход на основе самих треков. Отключите, если телефон нагревается или воспроизведение прерывается.</string>
     <string name="automix_disabled_subtitle">Автоматически рассчитывает время и смешивает переходы без ползунка. Производительность может отличаться на медленных устройствах.</string>
-    <string name="advanced_automix">Расширенный автомикс</string>
-    <string name="advanced_automix_subtitle">Сводит как диджей: держит биты синхронно, делает каждый переход в долю и режет между треками, которые не сочетаются. Без дополнительной обработки.</string>
     <string name="no_lyrics_sources_enabled">Ничего. Текст песен не будет загружаться.</string>
     <string name="song_cache_large_subtitle">Хранит на диске до %1$s загруженного аудио. Это может занять заметную часть свободного места.</string>
     <string name="song_cache_limit_subtitle">Хранит загруженное аудио на диске для мгновенной перемотки и повторного прослушивания</string>
@@ -730,11 +678,7 @@
     <string name="listen_together_using_default">Используется встроенный сервер</string>
     <string name="listen_together_remove_server">Удалить сервер</string>
     <string name="listen_together_switched_to_default">Переключено на сервер по умолчанию</string>
-    <string name="listen_together_custom_server_saved">Свой сервер сохранён</string>
     <string name="listen_together_create">Создать вечеринку</string>
-    <string name="listen_together_create_subtitle">Получите код, чтобы поделиться с друзьями</string>
-    <string name="listen_together_create_footer">Вы получите код из шести символов. Присоединиться может любой, у кого он есть, — до %1$d устройств, включая ваше.</string>
-    <string name="listen_together_profile">Ваш профиль на вечеринке</string>
     <string name="listen_together_nickname_hint">Никнейм для этой вечеринки</string>
     <string name="listen_together_party_size">Размер вечеринки</string>
     <string name="listen_together_party_size_subtitle">Выберите от 2 до 10 слушателей</string>
@@ -742,18 +686,6 @@
     <string name="listen_together_remove">Удалить</string>
     <string name="listen_together_activity">Недавние действия</string>
     <string name="listen_together_activity_footer">Только этот сеанс · сначала новые · до 100 действий</string>
-    <string name="listen_together_activity_played">Запустил воспроизведение</string>
-    <string name="listen_together_activity_paused">Поставил на паузу</string>
-    <string name="listen_together_activity_seeked">Перемотал трек</string>
-    <string name="listen_together_activity_skipped">Переключил вперёд</string>
-    <string name="listen_together_activity_went_back">Вернулся назад</string>
-    <string name="listen_together_activity_added">Добавил в очередь</string>
-    <string name="listen_together_activity_removed_track">Удалил трек из очереди</string>
-    <string name="listen_together_activity_cleared">Очистил следующие треки</string>
-    <string name="listen_together_activity_reordered">Изменил порядок очереди</string>
-    <string name="listen_together_activity_removed_member">Удалил слушателя</string>
-    <string name="listen_together_activity_changed_size">Изменил размер вечеринки</string>
-    <string name="listen_together_activity_updated">Обновил вечеринку</string>
     <string name="listen_together_join">Присоединиться к вечеринке</string>
     <string name="listen_together_join_action">Присоединиться</string>
     <string name="listen_together_code_hint">Шесть букв или цифр</string>
@@ -784,7 +716,6 @@
     <string name="listen_together_share_link">Поделиться ссылкой</string>
     <string name="listen_together_scan_qr">Сканировать QR-код</string>
     <string name="listen_together_scan_qr_subtitle">Друзья могут отсканировать его, чтобы присоединиться.</string>
-    <string name="listen_together_invite">Пригласить</string>
     <string name="listen_together_host_only">Только я управляю музыкой</string>
     <string name="listen_together_host_only_subtitle">Остальные слушают вместе и могут ставить паузу на своём устройстве</string>
     <string name="listen_together_host_only_notice">Только хозяин может управлять музыкой</string>
@@ -798,8 +729,6 @@
     <string name="listen_together_custom_server_switch_and_join">Сменить и войти</string>
     <string name="listen_together_official_server_dialog_title">Перейти на официальный сервер?</string>
     <string name="listen_together_official_server_dialog_message">Эта вечеринка размещена на официальном сервере BitChord.\n\nВернуться на официальный сервер и присоединиться к вечеринке %1$s?</string>
-    <string name="listen_together_switch_failed_stayed_in_party">Не удалось присоединиться: %1$s. Вы остаётесь на вечеринке %2$s.</string>
-    <string name="listen_together_switch_failed">Не удалось присоединиться: %1$s.</string>
     <string name="listen_together_ping">%1$d ms</string>
     <string name="listen_together_server_offline_dash">—</string>
     <string name="listen_together_invalid_server_url">Неверный URL сервера. Введите правильный адрес (например, https://your-server.com)</string>
@@ -818,7 +747,6 @@
 
     <string name="vietnamese">Вьетнамский</string>
 
-    <string name="miscellaneous_footer">При включении закрытие приложения из недавних также останавливает воспроизведение музыки.</string>
 
 
     <plurals name="track_count_plural">
@@ -873,22 +801,16 @@
 
     <string name="card_views_format">%1$s просмотров</string>
 
-    <string name="channel_session_unavailable">Сессия еще не найдена — сначала откройте YouTube Music</string>
 
-    <string name="channel_switch_instructions">Смените через аватар, затем нажмите \'Использовать этот канал\'</string>
 
-    <string name="choose_a_channel">Выберите канал</string>
 
     <string name="choose_profile">Выберите профиль</string>
 
     <string name="convert_to_audio">Конвертировать в аудио</string>
     <string name="convert_to_video">Преобразовать в видео</string>
 
-    <string name="converting_to_audio">Конвертация в аудио…</string>
 
-    <string name="current_account">Текущий аккаунт</string>
 
-    <string name="current_profile">Текущий профиль</string>
 
     <string name="default_youtube_profile">Стандартный профиль YouTube Music</string>
 
@@ -912,9 +834,7 @@
 
     <string name="listen_as">Слушать как</string>
 
-    <string name="lyrics_debug_logs">Отладка текстов песен</string>
 
-    <string name="lyrics_debug_logs_subtitle">Показывать запросы API в панели текстов песен</string>
 
     <string name="manage_accounts">Управление аккаунтами</string>
 
@@ -929,14 +849,9 @@
     <string name="loudness_normalization">Нормализация громкости</string>
     <string name="loudness_normalization_subtitle">Выравнивает громкость всех треков</string>
     <string name="loudness_off_on_speaker">Отключить на динамике телефона</string>
-    <string name="loudness_target">Целевая громкость</string>
-    <string name="loudness_target_subtitle">Тише — для наушников; громче — для машины или динамика телефона</string>
-    <string name="loudness_target_value">%1$s LUFS</string>
-    <string name="pipeline_loudness">Громкость</string>
     <string name="pipeline_loudness_gain">Усиление</string>
     <string name="pipeline_loudness_measured">Измерено</string>
     <string name="pipeline_bit_exact">Бит в бит</string>
-    <string name="loudness_measuring">Измерение…</string>
     <string name="loudness_gain_db">%1$s dB</string>
     <string name="loudness_lufs">%1$s LUFS</string>
 
@@ -956,7 +871,6 @@
 
     <string name="selected_account">Выбранный аккаунт</string>
 
-    <string name="shelf_100_on_repeat">На повторе</string>
 
     <string name="shelf_artists_on_the_rise">Набирающие популярность</string>
 
@@ -964,17 +878,13 @@
 
     <string name="shelf_charts">Чарты</string>
 
-    <string name="shelf_commute">В дороге</string>
 
     <string name="shelf_concerts">Концерты</string>
 
-    <string name="shelf_energy_boosters">Заряд энергии</string>
 
     <string name="shelf_featured_playlists_for_you">Рекомендуемые плейлисты</string>
 
-    <string name="shelf_feel_good">Хорошее настроение</string>
 
-    <string name="shelf_focus">Концентрация</string>
 
     <string name="shelf_for_you">Для вас</string>
 
@@ -990,11 +900,9 @@
 
     <string name="shelf_mixed_for_you">Миксы для вас</string>
 
-    <string name="shelf_new_albums_singles">Новые альбомы и синглы</string>
 
     <string name="shelf_new_releases">Новинки</string>
 
-    <string name="shelf_party">Вечеринка</string>
 
     <string name="shelf_quick_picks">Быстрый выбор</string>
 
@@ -1002,11 +910,8 @@
 
     <string name="shelf_recommended_music_videos">Рекомендуемые клипы</string>
 
-    <string name="shelf_relax">Релакс</string>
 
-    <string name="shelf_romance">Романтика</string>
 
-    <string name="shelf_sad">Грусть</string>
 
     <string name="shelf_shorts">Shorts</string>
 
@@ -1014,7 +919,6 @@
 
     <string name="shelf_single">Сингл</string>
 
-    <string name="shelf_sleep">Сон</string>
 
     <string name="shelf_song_item">Трек</string>
 
@@ -1026,7 +930,6 @@
 
     <string name="shelf_trending_community_playlists">Популярные плейлисты сообщества</string>
 
-    <string name="shelf_workout">Тренировка</string>
 
     <string name="shelf_youtube_charts">Чарты YouTube</string>
 
@@ -1060,7 +963,6 @@
 
     <string name="upgrade_quality">Улучшить качество</string>
 
-    <string name="use_this_channel">Использовать этот канал</string>
 
     <string name="use_this_profile">Использовать этот профиль</string>
 
@@ -1331,7 +1233,6 @@
     <string name="spotify">Spotify</string>
     <string name="spotify_connect_subtitle">Войдите, чтобы загрузить свои плейлисты. Воспроизведение идёт через YouTube Music.</string>
     <string name="spotify_disconnect">Отключить</string>
-    <string name="spotify_empty_playlists">В этом аккаунте нет плейлистов</string>
     <string name="spotify_empty_tracks">В этом плейлисте нет треков</string>
     <string name="spotify_import_button">Импорт</string>
     <string name="spotify_import_description">Вставьте ссылку на публичный плейлист. Треки сопоставляются на YouTube Music.</string>
@@ -1350,7 +1251,6 @@
     <string name="spotify_library_subtitle">Ваши плейлисты Spotify</string>
     <string name="spotify_sign_in">Войти через Spotify</string>
     <string name="spotify_use_spdc_token">Использовать токен sp_dc</string>
-    <string name="spotify_track_unavailable">Не удалось найти этот трек на YouTube Music</string>
     <string name="artist_signatures">Подписи исполнителей</string>
     <string name="artist_signatures_subtitle">Показывает подпись от руки, если в Apple Music нет заголовочного логотипа</string>
     <string name="artist_signatures_url">URL API подписей</string>

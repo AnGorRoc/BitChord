@@ -24,14 +24,11 @@
     <string name="choose_lyrics_provider">Chọn nguồn lời bài hát</string>
     <string name="clear">Xóa</string>
     <string name="close_lyrics">Đóng lời bài hát</string>
-    <string name="data_saver">Data-Saver</string>
     <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
-    <string name="downgraded_from">↓ từ %1$s</string>
     <string name="drag_to_reorder">Kéo để sắp xếp lại</string>
     <string name="failed">Thất bại</string>
     <string name="hi_res_lossless">Hi-Res Lossless</string>
     <string name="high_quality">Chất lượng cao</string>
-    <string name="high_quality_upgrading">Chất lượng cao, đang nâng cấp</string>
     <string name="increase_lyrics_offset">Increase lyrics offset</string>
     <string name="instrumental">Nhạc không lời</string>
     <string name="like">Thích</string>
@@ -93,7 +90,6 @@
     <string name="lyrics_share_pick_limit">Thẻ đã đầy</string>
     <string name="lyrics_translated_to">Translated to %1$s</string>
     <string name="lyrics_translation_unavailable">Translation is unavailable right now</string>
-    <string name="medium_quality">Medium Quality</string>
     <string name="mono">Mono</string>
     <string name="more">Thêm</string>
     <string name="next_from">Tiếp theo từ: %1$s</string>
@@ -143,7 +139,6 @@
     <string name="library_sign_in_description">Đăng nhập vào tài khoản Google của bạn để xem các bài hát đã thích, danh sách phát và lịch sử YouTube Music.</string>
     <string name="new_playlist">Danh sách phát mới</string>
     <string name="on_device">Trên thiết bị</string>
-    <string name="personalized_recommendations">Nhận các đề xuất dành riêng cho bạn</string>
     <string name="pinned">Đã ghim</string>
     <string name="play_next">Phát tiếp theo</string>
     <string name="playlist">danh sách phát</string>

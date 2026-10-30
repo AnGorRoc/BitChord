@@ -24,14 +24,11 @@
     <string name="choose_lyrics_provider">Выбрать источник текстов</string>
     <string name="clear">Очистить</string>
     <string name="close_lyrics">Закрыть текст песни</string>
-    <string name="data_saver">Data-Saver</string>
     <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
-    <string name="downgraded_from">↓ с %1$s</string>
     <string name="drag_to_reorder">Перетащите, чтобы изменить порядок</string>
     <string name="failed">Ошибка</string>
     <string name="hi_res_lossless">Hi-Res Lossless</string>
     <string name="high_quality">Высокое качество</string>
-    <string name="high_quality_upgrading">Высокое качество, улучшение</string>
     <string name="increase_lyrics_offset">Increase lyrics offset</string>
     <string name="instrumental">Инструментал</string>
     <string name="like">Нравится</string>
@@ -93,7 +90,6 @@
     <string name="lyrics_share_pick_limit">Карточка заполнена</string>
     <string name="lyrics_translated_to">Переведено на %1$s</string>
     <string name="lyrics_translation_unavailable">Перевод сейчас недоступен</string>
-    <string name="medium_quality">Medium Quality</string>
     <string name="mono">Моно</string>
     <string name="more">Ещё</string>
     <string name="next_from">Далее из: %1$s</string>
@@ -143,7 +139,6 @@
     <string name="library_sign_in_description">Войдите в свой аккаунт Google, чтобы видеть понравившиеся песни, плейлисты и историю YouTube Music.</string>
     <string name="new_playlist">Новый плейлист</string>
     <string name="on_device">На устройстве</string>
-    <string name="personalized_recommendations">Получайте персональные рекомендации</string>
     <string name="pinned">Закреплено</string>
     <string name="play_next">Следующим</string>
     <string name="playlist">плейлист</string>

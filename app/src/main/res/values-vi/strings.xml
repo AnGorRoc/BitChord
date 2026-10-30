@@ -2,11 +2,8 @@
 <resources>
     <string name="app_name">BitChord</string>
     <string name="playback_channel_name">Đang phát</string>
-    <string name="download_channel_name">Tải xuống</string>
-    <string name="download_channel_description">Các bài hát đang được lưu vào thư mục Nhạc của bạn</string>
     <string name="download_notification_title">Đang tải xuống</string>
     <string name="download_notification_starting">Đang bắt đầu</string>
-    <string name="download_notification_queued">%1$s · %2$d bài khác đang chờ</string>
     <string name="upload_channel_name">Tải lên</string>
     <string name="upload_channel_description">Các bài hát đang được gửi tới máy chủ WebDAV của bạn</string>
     <string name="upload_notification_title">Đang tải lên</string>
@@ -49,23 +46,15 @@
     <string name="download_all">Tải xuống tất cả</string>
     <string name="top_songs">Bài hát hàng đầu</string>
     <string name="suggested">Gợi ý</string>
-    <string name="song_count">%1$d bài hát</string>
     <plurals name="song_count_plural">
         <item quantity="other">%1$d bài hát</item>
     </plurals>
     <plurals name="track_count_plural">
         <item quantity="other">%1$d bản nhạc</item>
     </plurals>
-    <plurals name="artist_count">
-        <item quantity="other">%1$d nghệ sĩ</item>
-    </plurals>
-    <plurals name="album_count">
-        <item quantity="other">%1$d album</item>
-    </plurals>
     <string name="songs">Bài hát</string>
     <string name="artists">Nghệ sĩ</string>
     <string name="albums">Album</string>
-    <string name="no_album_metadata">Không có thông tin album cho các bản nhạc này.</string>
     <string name="search_empty">Tìm kiếm hàng triệu bài hát trên YouTube Music.</string>
     <string name="recent_searches">Tìm kiếm gần đây</string>
     <string name="clear">Xóa</string>
@@ -74,17 +63,12 @@
     <string name="recent_search_remove">Xóa “%1$s” khỏi tìm kiếm gần đây</string>
     <string name="storage_required_save">Cần quyền truy cập bộ nhớ để lưu bài hát</string>
     <string name="storage_required_read">Cần quyền bộ nhớ để đọc các tệp âm thanh trên thiết bị</string>
-    <string name="sharing_coming_soon">Tính năng chia sẻ sắp ra mắt</string>
     <string name="already_downloaded">Đã tải xuống</string>
     <plurals name="downloading_song_count">
         <item quantity="other">Đang tải xuống %1$d bài hát</item>
     </plurals>
     <string name="source">Nguồn nhạc</string>
-    <string name="lossless_audio">Âm thanh Lossless</string>
-    <string name="prefer_lossless">Ưu tiên Lossless</string>
-    <string name="lossless_source_subtitle">FLAC và ALAC trực tiếp từ nguồn gốc</string>
     <string name="overridden">Đã ghi đè</string>
-    <string name="add_module_source">Thêm nguồn module</string>
     <string name="remove_source">Xóa nguồn này</string>
     <string name="test">Kiểm tra</string>
     <string name="testing">Đang kiểm tra…</string>
@@ -103,8 +87,6 @@
     <string name="song_cache_cleared">Đã xóa bộ nhớ đệm bài hát</string>
     <string name="image_cache_cleared">Đã xóa bộ nhớ đệm hình ảnh</string>
     <string name="no_equalizer">Thiết bị này không có bộ chỉnh âm hệ thống</string>
-    <string name="no_dolby_atmos">Thiết bị này không có bảng điều khiển Dolby Atmos</string>
-    <string name="dolby_atmos_open_failed">Không thể mở cài đặt Dolby Atmos</string>
     <string name="update_available">Có bản cập nhật mới: v%1$s</string>
     <string name="software_update">Cập nhật phần mềm</string>
     <string name="update_available_body">BitChord %1$s đã sẵn sàng để tải xuống.</string>
@@ -118,14 +100,7 @@
     <string name="try_again">Thử lại</string>
     <string name="open_releases_page">Mở trang Bản phát hành</string>
     <string name="whats_new">Có gì mới</string>
-    <string name="log_copied">Đã sao chép nhật ký · %1$d dòng</string>
     <string name="sign_in_youtube_music">Đăng nhập vào YouTube Music</string>
-    <string name="choose_a_channel">Chọn một kênh</string>
-    <string name="channel_session_unavailable">Chưa có phiên nào trên trang này — hãy mở YouTube Music trước</string>
-    <string name="channel_switch_instructions">Chuyển bằng ảnh đại diện, sau đó nhấn Sử dụng kênh này</string>
-    <string name="use_this_channel">Sử dụng kênh này</string>
-    <string name="sign_in_discord">Đăng nhập vào Discord</string>
-    <string name="personalized_recommendations">Nhận các đề xuất dành riêng cho bạn</string>
     <string name="play_next">Phát tiếp theo</string>
     <string name="queue">Hàng đợi</string>
     <string name="source_unrecognised">BitChord không nhận dạng được liên kết đó</string>
@@ -145,7 +120,6 @@
     <string name="widget_previous">Trước</string>
     <string name="widget_artwork">Ảnh bìa album</string>
     <string name="widget_nothing_played">Chưa phát bài nào</string>
-    <string name="widget_open_bitchord">Mở BitChord</string>
     <string name="widget_preview_title">Tên bài hát</string>
     <string name="widget_preview_artist">Nghệ sĩ</string>
     <string name="widget_pill_label">Đang phát 4×1</string>
@@ -155,7 +129,6 @@
     <string name="download_wifi_only">Chỉ tải xuống qua Wi-Fi</string>
     <string name="convert_to_audio">Chuyển đổi thành âm thanh</string>
     <string name="convert_to_video">Chuyển đổi thành video</string>
-    <string name="converting_to_audio">Đang chuyển đổi thành âm thanh…</string>
     <string name="revert_to_original">Khôi phục về bản gốc</string>
     <string name="upgrade_quality">Nâng cấp chất lượng</string>
     <string name="dolby_atmos">Dolby Atmos</string>
@@ -191,7 +164,6 @@
     <string name="hindi">Tiếng Hindi</string>
     <string name="japanese">Tiếng Nhật</string>
     <string name="russian">Tiếng Nga</string>
-    <string name="chinese">Tiếng Trung (Giản thể)</string>
     <string name="chinese_simplified">Tiếng Trung (Giản thể)</string>
     <string name="chinese_traditional">Tiếng Trung (Phồn thể)</string>
     <string name="hebrew">Tiếng Do Thái</string>
@@ -200,8 +172,6 @@
     <string name="korean">Tiếng Hàn</string>
     <string name="vietnamese">Tiếng Việt</string>
     <string name="show_all">Xem tất cả</string>
-    <string name="grid_view">Lưới</string>
-    <string name="list_view">Danh sách</string>
     <string name="switch_to_grid_view">Chuyển sang dạng lưới</string>
     <string name="switch_to_list_view">Chuyển sang dạng danh sách</string>
     <string name="audio_quality">Chất lượng âm thanh</string>
@@ -210,7 +180,6 @@
     <string name="storage">Bộ nhớ</string>
     <string name="your_data">Dữ liệu của bạn</string>
     <string name="miscellaneous">Khác</string>
-    <string name="lossless_hq_audio">Âm thanh Lossless / HQ</string>
     <string name="on_wifi">Khi dùng Wi-Fi</string>
     <string name="on_mobile_data">Khi dùng dữ liệu di động</string>
     <string name="in_use">Đang dùng</string>
@@ -292,7 +261,6 @@
     <string name="dark">Tối</string>
     <string name="full_screen_cover_art_subtitle">Mở rộng ảnh bìa ra các cạnh của trình phát thay vì khung vuông</string>
     <string name="animated_cover_art_subtitle">Phát video vòng lặp mà một số bản phát hành cung cấp thay vì ảnh tĩnh</string>
-    <string name="miscellaneous_footer">Khi bật, việc đóng ứng dụng khỏi màn hình ứng dụng gần đây cũng sẽ dừng phát nhạc.</string>
     <string name="dont_repeat_songs_subtitle">Tự động phát sẽ không gợi ý bài hát đã phát hoặc đã được gợi ý trong phiên này</string>
     <string name="download_quality_subtitle">%1$s mỗi bài, bất kể loại kết nối</string>
     <string name="filter_non_music_audio">Lọc âm thanh không phải nhạc</string>
@@ -387,7 +355,6 @@
     <string name="saved_to_bitchord_folder">Đã lưu vào Music/BitChord</string>
     <string name="nothing_downloading">Không có nội dung đang tải</string>
     <string name="nothing_to_explore">Hiện không có gì để khám phá</string>
-    <string name="no_youtube_music_results">Không có kết quả nào từ YouTube Music</string>
     <string name="library_empty">Chưa có gì trong thư viện của bạn</string>
     <string name="history_sign_in_required">Đăng nhập để xem những gì bạn đã nghe gần đây</string>
     <string name="history_empty">Chưa phát bài nào</string>
@@ -420,12 +387,6 @@
     <string name="nothing_matches">Không có nội dung nào khớp với “%1$s”</string>
     <string name="close_search">Đóng tìm kiếm</string>
     <string name="less">Thu gọn</string>
-    <string name="song_count_with_minutes">%1$s, %2$d phút</string>
-    <string name="song_count_with_duration">%1$s, %2$s</string>
-    <string name="song_count_with_hours_minutes">%1$s, %2$s %3$d phút</string>
-    <plurals name="hour_count">
-        <item quantity="other">%1$d giờ</item>
-    </plurals>
     <plurals name="songs_will_play_next">
         <item quantity="other">%1$d bài hát sẽ phát tiếp theo</item>
     </plurals>
@@ -493,7 +454,6 @@
     <string name="scrobble_tracks_subtitle">Ghi lại lượt phát vào dòng thời gian Last.fm của bạn</string>
     <string name="scrobbling_footer">Scrobble các lượt nghe của bạn lên Last.fm và ListenBrainz.</string>
     <string name="scrobbling_paused_footer">Last.fm và ListenBrainz tạm dừng trong bản phát hành này và sẽ trở lại sau. Các kết nối hiện tại vẫn được lưu.</string>
-    <string name="search_this_folder">Tìm kiếm thư mục này</string>
     <string name="search_this_list">Tìm kiếm danh sách này</string>
     <string name="second_button">Nút thứ hai</string>
     <string name="share">Chia sẻ</string>
@@ -585,11 +545,9 @@
     <string name="replay_intro_start">Bản tóm tắt </string>
     <string name="replay_minutes_end"> cho âm nhạc.</string>
     <string name="replay_minutes_start">Bạn đã dành </string>
-    <string name="replay_minutes_value">%1$s</string>
     <plurals name="replay_minutes_unit">
         <item quantity="other">%1$s phút</item>
     </plurals>
-    <string name="replay_mostly_around">, chủ yếu vào khoảng %1$s.</string>
     <string name="replay_private_counting">Được tạo riêng tư từ lịch sử nghe nhạc trên thiết bị này</string>
     <string name="replay_share_card_description">Một tấm thẻ tinh tế với những điểm nổi bật trong gu nghe nhạc của bạn.</string>
     <string name="replay_share_summary_description">Một bức tranh toàn cảnh gồm bài hát, nghệ sĩ, album, thể loại và thói quen nghe.</string>
@@ -641,7 +599,6 @@
     <string name="webdav_not_configured">Kết nối máy chủ trong mục Nguồn</string>
     <string name="webdav_empty">Không tìm thấy tệp âm thanh nào trên máy chủ WebDAV. Kiểm tra URL trong Cài đặt.</string>
     <string name="webdav_description">Trỏ BitChord tới thư mục nhạc WebDAV — thư mục Music trên Nextcloud của bạn hoặc bất kỳ máy chủ nào hỗ trợ WebDAV.</string>
-    <string name="webdav_server_url">URL máy chủ</string>
     <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
     <string name="webdav_disconnect">Ngắt kết nối</string>
     <string name="webdav_test_failed">Không thể kết nối: %1$s</string>
@@ -676,15 +633,8 @@
     <string name="delete_playlist_confirmation">Xóa “%1$s”? Nhấn lần nữa để xác nhận.</string>
     <string name="delete_download_confirmation">Xóa “%1$s” khỏi thiết bị này? Nhấn lần nữa để xác nhận.</string>
     <string name="running">Đang chạy</string>
-    <string name="version_alignment_status">%1$s · %2$s</string>
-    <string name="version_cut_not_fetched">chưa tải</string>
-    <string name="version_cut_fetching">đang tải</string>
-    <string name="version_cut_measuring">đang phân tích</string>
-    <string name="version_cut_aligned">đã khớp</string>
     <string name="automix_enabled_subtitle">Tự động căn thời gian và hòa âm từng đoạn chuyển bài dựa trên bản nhạc. Tắt đi nếu điện thoại nóng lên hoặc nhạc bị giật lag.</string>
     <string name="automix_disabled_subtitle">Tự động căn thời gian và hòa âm đoạn chuyển bài mà không cần thanh trượt. Hiệu năng có thể khác nhau trên các thiết bị yếu hơn.</string>
-    <string name="advanced_automix">Automix nâng cao</string>
-    <string name="advanced_automix_subtitle">Trộn nhạc như DJ: giữ nhịp khớp nhau, chuyển bài đúng phách và cắt giữa những bài không hòa hợp. Không xử lý thêm.</string>
     <string name="no_lyrics_sources_enabled">Không có. Sẽ không tải lời bài hát.</string>
     <string name="song_cache_large_subtitle">Lưu tối đa %1$s âm thanh đã tải trên ổ đĩa. Tùy chọn này có thể chiếm dung lượng đáng kể trong bộ nhớ trống của bạn.</string>
     <string name="song_cache_limit_subtitle">Lưu trữ âm thanh đã tải trên đĩa để tua nhanh và phát lại tức thì</string>
@@ -717,8 +667,6 @@
     <string name="brand_account">Tài khoản thương hiệu</string>
     <string name="add_account">Thêm tài khoản</string>
     <string name="manage_accounts">Quản lý tài khoản</string>
-    <string name="current_account">Tài khoản hiện tại</string>
-    <string name="current_profile">Hồ sơ hiện tại</string>
     <string name="selected_account">Tài khoản đã chọn</string>
     <string name="listen_as">Nghe dưới danh nghĩa</string>
     <string name="default_youtube_profile">Hồ sơ mặc định của YouTube Music</string>
@@ -733,17 +681,11 @@
     <string name="loudness_normalization">Chuẩn hóa âm lượng</string>
     <string name="loudness_normalization_subtitle">Cân bằng âm lượng giữa các bài hát</string>
     <string name="loudness_off_on_speaker">Tắt trên loa điện thoại</string>
-    <string name="loudness_target">Âm lượng mục tiêu</string>
-    <string name="loudness_target_subtitle">Nhỏ hơn hợp với tai nghe; lớn hơn hợp với ô tô hoặc loa điện thoại</string>
-    <string name="loudness_target_value">%1$s LUFS</string>
-    <string name="loudness_measuring">Đang đo…</string>
     <string name="loudness_gain_db">%1$s dB</string>
     <string name="loudness_lufs">%1$s LUFS</string>
     <string name="blur_unfocused_lyrics">Làm mờ lời không tập trung</string>
     <string name="blur_unfocused_lyrics_subtitle">Tập trung vào câu hát hiện tại</string>
     <string name="advanced_options">Tùy chọn nâng cao</string>
-    <string name="lyrics_debug_logs">Nhật ký gỡ lỗi lời bài hát</string>
-    <string name="lyrics_debug_logs_subtitle">Hiển thị truy vấn API và hoạt động lấy dữ liệu trên bảng lời bài hát</string>
     <string name="shelf_trending_community_playlists">Danh sách phát cộng đồng thịnh hành</string>
     <string name="shelf_featured_playlists_for_you">Danh sách phát đề xuất cho bạn</string>
     <string name="shelf_quick_picks">Lựa chọn nhanh</string>
@@ -757,18 +699,6 @@
     <string name="shelf_new_releases">Bản phát hành mới</string>
     <string name="shelf_top_music_videos">Video âm nhạc hàng đầu</string>
     <string name="shelf_for_you">Dành cho bạn</string>
-    <string name="shelf_energy_boosters">Tiếp thêm năng lượng</string>
-    <string name="shelf_feel_good">Cảm xúc tích cực</string>
-    <string name="shelf_commute">Trên đường đi</string>
-    <string name="shelf_workout">Tập luyện</string>
-    <string name="shelf_focus">Tập trung</string>
-    <string name="shelf_relax">Thư giãn</string>
-    <string name="shelf_sleep">Giấc ngủ</string>
-    <string name="shelf_party">Tiệc tùng</string>
-    <string name="shelf_romance">Lãng mạn</string>
-    <string name="shelf_sad">Tâm trạng buồn</string>
-    <string name="shelf_100_on_repeat">Nghe đi nghe lại</string>
-    <string name="shelf_new_albums_singles">Album &amp; đĩa đơn mới</string>
     <string name="shelf_hits_today">Bản hit hôm nay</string>
     <string name="shelf_artists_on_the_rise">Nghệ sĩ đang lên</string>
     <string name="shelf_top_tunes_right_now">Giai điệu hàng đầu hiện nay</string>
@@ -982,7 +912,6 @@
 
     <string name="pipeline_pcm_format">PCM Format</string>
 
-    <string name="pipeline_loudness">Loudness</string>
 
     <string name="pipeline_loudness_gain">Gain</string>
 
@@ -1049,13 +978,10 @@
     <string name="listen_together_using_default">Đang sử dụng máy chủ mặc định</string>
     <string name="listen_together_remove_server">Xóa máy chủ</string>
     <string name="listen_together_switched_to_default">Đã chuyển sang máy chủ mặc định</string>
-    <string name="listen_together_custom_server_saved">Đã lưu máy chủ tùy chỉnh</string>
 
     <string name="listen_together_create">Create a party</string>
 
-    <string name="listen_together_create_subtitle">Get a code to share with friends</string>
 
-    <string name="listen_together_create_footer">Bạn sẽ nhận được mã gồm sáu ký tự. Ai có mã đều có thể tham gia, tối đa %1$d thiết bị kể cả của bạn.</string>
 
     <string name="listen_together_join">Join a party</string>
 
@@ -1089,7 +1015,6 @@
     <string name="listen_together_create_sheet_subtitle">Chọn cách bạn xuất hiện và số người có thể tham gia.</string>
     <string name="listen_together_creating">Đang tạo…</string>
     <string name="listen_together_full">Bữa tiệc đã đầy</string>
-    <string name="listen_together_invite">Mời</string>
     <string name="listen_together_invite_title">Mời bạn bè vào bữa tiệc</string>
     <string name="listen_together_join_existing">Tham gia bữa tiệc có sẵn</string>
     <string name="listen_together_join_question">Tham gia bữa tiệc của %1$s?</string>
@@ -1120,7 +1045,6 @@
 
 
     <string name="party_queue_full">Queue is full (maximum %d songs in party)</string>
-    <string name="listen_together_profile">Your party profile</string>
     <string name="listen_together_nickname_hint">Nickname for this party</string>
     <string name="listen_together_party_size">Party size</string>
     <string name="listen_together_party_size_subtitle">Choose 2–10 listeners</string>
@@ -1128,25 +1052,11 @@
     <string name="listen_together_remove">Remove</string>
     <string name="listen_together_activity">Recent activity</string>
     <string name="listen_together_activity_footer">This session only · latest first · up to 100 actions</string>
-    <string name="listen_together_activity_played">Started playback</string>
-    <string name="listen_together_activity_paused">Paused playback</string>
-    <string name="listen_together_activity_seeked">Sought in the track</string>
-    <string name="listen_together_activity_skipped">Skipped ahead</string>
-    <string name="listen_together_activity_went_back">Went back</string>
-    <string name="listen_together_activity_added">Added to the queue</string>
-    <string name="listen_together_activity_removed_track">Removed a queued track</string>
-    <string name="listen_together_activity_cleared">Cleared upcoming tracks</string>
-    <string name="listen_together_activity_reordered">Reordered the queue</string>
-    <string name="listen_together_activity_removed_member">Removed a listener</string>
-    <string name="listen_together_activity_changed_size">Changed party size</string>
-    <string name="listen_together_activity_updated">Updated the party</string>
     <string name="listen_together_custom_server_dialog_title">Join party on custom server?</string>
     <string name="listen_together_custom_server_dialog_message">This party is hosted on an external server:\n\n%1$s\n\nDo you want to switch your party server and join party %2$s?</string>
     <string name="listen_together_custom_server_switch_and_join">Switch &amp; Join</string>
     <string name="listen_together_official_server_dialog_title">Switch to official server?</string>
     <string name="listen_together_official_server_dialog_message">This party is hosted on the official BitChord server.\n\nDo you want to switch back to the official server and join party %1$s?</string>
-    <string name="listen_together_switch_failed_stayed_in_party">Couldn’t join party: %1$s. Remaining in party %2$s.</string>
-    <string name="listen_together_switch_failed">Couldn’t join party: %1$s.</string>
     <string name="cast_dialog_title">Cast</string>
     <string name="cast_dialog_subtitle">Play on a Chromecast or Google Cast speaker</string>
     <string name="cast_searching">Looking for devices…</string>
@@ -1216,7 +1126,6 @@
     <string name="spotify">Spotify</string>
     <string name="spotify_connect_subtitle">Đăng nhập để tải danh sách phát của bạn. Phát nhạc dùng YouTube Music.</string>
     <string name="spotify_disconnect">Ngắt kết nối</string>
-    <string name="spotify_empty_playlists">Không có danh sách phát nào trên tài khoản này</string>
     <string name="spotify_empty_tracks">Danh sách phát này không có bài hát</string>
     <string name="spotify_import_button">Nhập</string>
     <string name="spotify_import_description">Dán liên kết danh sách phát công khai. Bài hát được đối chiếu trên YouTube Music.</string>
@@ -1235,7 +1144,6 @@
     <string name="spotify_library_subtitle">Danh sách phát Spotify của bạn</string>
     <string name="spotify_sign_in">Đăng nhập bằng Spotify</string>
     <string name="spotify_use_spdc_token">Dùng token sp_dc</string>
-    <string name="spotify_track_unavailable">Không tìm thấy bài hát đó trên YouTube Music</string>
     <string name="artist_signatures">Chữ ký nghệ sĩ</string>
     <string name="artist_signatures_subtitle">Hiển thị chữ ký tay khi Apple Music không có logo tiêu đề</string>
     <string name="artist_signatures_url">URL API chữ ký</string>

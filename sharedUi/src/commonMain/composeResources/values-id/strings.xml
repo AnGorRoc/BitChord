@@ -24,14 +24,11 @@
     <string name="choose_lyrics_provider">Pilih penyedia lirik</string>
     <string name="clear">Hapus</string>
     <string name="close_lyrics">Tutup lirik</string>
-    <string name="data_saver">Data-Saver</string>
     <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
-    <string name="downgraded_from">↓ dari %1$s</string>
     <string name="drag_to_reorder">Seret untuk mengatur ulang urutan</string>
     <string name="failed">Gagal</string>
     <string name="hi_res_lossless">Hi-Res Lossless</string>
     <string name="high_quality">Kualitas tinggi</string>
-    <string name="high_quality_upgrading">Kualitas tinggi, meningkatkan</string>
     <string name="increase_lyrics_offset">Increase lyrics offset</string>
     <string name="instrumental">Instrumental</string>
     <string name="like">Suka</string>
@@ -93,7 +90,6 @@
     <string name="lyrics_share_pick_limit">Kartu sudah penuh</string>
     <string name="lyrics_translated_to">Diterjemahkan ke %1$s</string>
     <string name="lyrics_translation_unavailable">Terjemahan tidak tersedia saat ini</string>
-    <string name="medium_quality">Medium Quality</string>
     <string name="mono">Mono</string>
     <string name="more">Lainnya</string>
     <string name="next_from">Berikutnya dari: %1$s</string>
@@ -143,7 +139,6 @@
     <string name="library_sign_in_description">Masuk ke akun Google Anda untuk melihat lagu yang disukai, playlist, dan riwayat YouTube Music Anda.</string>
     <string name="new_playlist">Playlist baru</string>
     <string name="on_device">Di Perangkat</string>
-    <string name="personalized_recommendations">Dapatkan rekomendasi yang dipersonalisasi</string>
     <string name="pinned">Disematkan</string>
     <string name="play_next">Putar berikutnya</string>
     <string name="playlist">playlist</string>

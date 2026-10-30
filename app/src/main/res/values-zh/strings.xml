@@ -1,11 +1,8 @@
 <resources>
     <string name="app_name">BitChord</string>
     <string name="playback_channel_name">正在播放</string>
-    <string name="download_channel_name">下载</string>
-    <string name="download_channel_description">正在保存到你的音乐文件夹的歌曲</string>
     <string name="download_notification_title">正在下载</string>
     <string name="download_notification_starting">正在开始</string>
-    <string name="download_notification_queued">%1$s · 还有%2$d首排队中</string>
     <string name="upload_channel_name">上传</string>
     <string name="upload_channel_description">正在发送到你的 WebDAV 服务器的歌曲</string>
     <string name="upload_notification_title">正在上传</string>
@@ -46,20 +43,12 @@
     <string name="download_all">全部下载</string>
     <string name="top_songs">热门歌曲</string>
     <string name="suggested">推荐内容</string>
-    <string name="song_count">%1$d 首歌曲</string>
     <plurals name="song_count_plural">
         <item quantity="other">%1$d 首歌曲</item>
-    </plurals>
-    <plurals name="artist_count">
-        <item quantity="other">%1$d 位艺人</item>
-    </plurals>
-    <plurals name="album_count">
-        <item quantity="other">%1$d 张专辑</item>
     </plurals>
     <string name="songs">歌曲</string>
     <string name="artists">艺人</string>
     <string name="albums">专辑</string>
-    <string name="no_album_metadata">这些曲目均未标明所属专辑。</string>
     <string name="search_empty">在 YouTube Music 上搜索数百万首歌曲。</string>
     <string name="recent_searches">最近搜索</string>
     <string name="clear">清除</string>
@@ -68,17 +57,12 @@
     <string name="recent_search_remove">从最近搜索中移除“%1$s”</string>
     <string name="storage_required_save">需要存储访问权限才能保存歌曲</string>
     <string name="storage_required_read">需要存储权限才能读取本地音频文件</string>
-    <string name="sharing_coming_soon">分享功能即将推出</string>
     <string name="already_downloaded">已下载</string>
     <plurals name="downloading_song_count">
         <item quantity="other">正在下载 %1$d 首歌曲</item>
     </plurals>
     <string name="source">来源</string>
-    <string name="lossless_audio">无损音频</string>
-    <string name="prefer_lossless">优先使用无损</string>
-    <string name="lossless_source_subtitle">直接从来源获取 FLAC 和 ALAC</string>
     <string name="overridden">已覆盖</string>
-    <string name="add_module_source">添加模块来源</string>
     <string name="remove_source">移除此来源</string>
     <string name="test">测试</string>
     <string name="testing">测试中…</string>
@@ -96,8 +80,6 @@
     <string name="song_cache_cleared">歌曲缓存已清除</string>
     <string name="image_cache_cleared">图片缓存已清除</string>
     <string name="no_equalizer">此设备没有系统均衡器</string>
-    <string name="no_dolby_atmos">此设备没有杜比全景声面板</string>
-    <string name="dolby_atmos_open_failed">无法打开杜比全景声设置</string>
     <string name="update_available">有可用更新：v%1$s</string>
     <string name="software_update">软件更新</string>
     <string name="update_available_body">bitchord %1$s 现已可供下载。</string>
@@ -111,10 +93,7 @@
     <string name="try_again">重试</string>
     <string name="open_releases_page">打开发布页面</string>
     <string name="whats_new">新版本说明</string>
-    <string name="log_copied">日志已复制 · %1$d 行</string>
     <string name="sign_in_youtube_music">登录 YouTube Music</string>
-    <string name="sign_in_discord">登录 Discord</string>
-    <string name="personalized_recommendations">获取个性化推荐</string>
     <string name="play_next">下一首播放</string>
     <string name="queue">播放队列</string>
     <string name="source_setup_required">点按以完成设置</string>
@@ -131,7 +110,6 @@
     <string name="widget_previous">上一首</string>
     <string name="widget_artwork">专辑封面</string>
     <string name="widget_nothing_played">尚未播放任何内容</string>
-    <string name="widget_open_bitchord">打开 BitChord</string>
     <string name="widget_preview_title">歌曲标题</string>
     <string name="widget_preview_artist">艺人</string>
     <string name="widget_pill_label">正在播放 4×1</string>
@@ -171,15 +149,12 @@
     <string name="russian">俄语</string>
     <string name="chinese_simplified">中文（简体）</string>
     <string name="chinese_traditional">中文（繁体）</string>
-    <string name="chinese">中文（简体）</string>
     <string name="hebrew">希伯来语</string>
     <string name="italian">意大利语</string>
     <string name="turkish">土耳其语</string>
     <string name="thai">泰语</string>
     <string name="korean">韩语</string>
     <string name="show_all">查看全部</string>
-    <string name="grid_view">网格</string>
-    <string name="list_view">列表</string>
     <string name="switch_to_grid_view">切换到网格视图</string>
     <string name="switch_to_list_view">切换到列表视图</string>
     <string name="audio_quality">音频质量</string>
@@ -188,7 +163,6 @@
     <string name="storage">存储空间</string>
     <string name="your_data">你的数据</string>
     <string name="miscellaneous">其他</string>
-    <string name="lossless_hq_audio">无损 / 高品质音频</string>
     <string name="on_wifi">使用 Wi-Fi 时</string>
     <string name="on_mobile_data">使用移动数据时</string>
     <string name="in_use">使用中</string>
@@ -346,7 +320,6 @@
     <string name="saved_to_bitchord_folder">已保存到 Music/BitChord</string>
     <string name="nothing_downloading">当前没有下载任务</string>
     <string name="nothing_to_explore">目前没有可探索的内容</string>
-    <string name="no_youtube_music_results">YouTube Music 没有搜索结果</string>
     <string name="library_empty">你的资料库还是空的</string>
     <string name="history_sign_in_required">登录后即可查看你的收听记录</string>
     <string name="history_empty">尚未播放过任何内容</string>
@@ -379,12 +352,6 @@
     <string name="nothing_matches">这里没有与“%1$s”匹配的内容</string>
     <string name="close_search">关闭搜索</string>
     <string name="less">收起</string>
-    <string name="song_count_with_minutes">%1$s，%2$d 分钟</string>
-    <string name="song_count_with_duration">%1$s，%2$s</string>
-    <string name="song_count_with_hours_minutes">%1$s，%2$s %3$d 分钟</string>
-    <plurals name="hour_count">
-        <item quantity="other">%1$d 小时</item>
-    </plurals>
     <plurals name="songs_will_play_next">
         <item quantity="other">将有 %1$d 首歌曲接下来播放</item>
     </plurals>
@@ -449,7 +416,6 @@
     <string name="scrobble_tracks_subtitle">将播放记录同步到你的 Last.fm 时间线</string>
     <string name="scrobbling_footer">将你的收听记录 Scrobble 到 Last.fm 和 ListenBrainz。</string>
     <string name="scrobbling_paused_footer">Last.fm 和 ListenBrainz 在此版本中已暂停，稍后会恢复。已有的连接仍会保留。</string>
-    <string name="search_this_folder">搜索此文件夹</string>
     <string name="search_this_list">搜索此列表</string>
     <string name="second_button">第二个按钮</string>
     <string name="share">分享</string>
@@ -548,11 +514,9 @@
     <string name="replay_intro_start">你的 </string>
     <string name="replay_minutes_end"> 的时间聆听音乐。</string>
     <string name="replay_minutes_start">你花了 </string>
-    <string name="replay_minutes_value">%1$s</string>
     <plurals name="replay_minutes_unit">
         <item quantity="other">%1$s 分钟</item>
     </plurals>
-    <string name="replay_mostly_around">，主要集中在%1$s左右。</string>
     <string name="replay_private_counting">根据你在此设备上的收听记录私密生成</string>
     <string name="replay_share_card_description">一张精美的卡片，展示你的主要收听亮点。</string>
     <string name="replay_share_summary_description">完整呈现歌曲、艺人、专辑、流派和收听习惯。</string>
@@ -599,7 +563,6 @@
     <string name="webdav_not_configured">请在“来源”中连接服务器</string>
     <string name="webdav_empty">WebDAV 服务器上没有找到音频文件。请在设置中检查 URL。</string>
     <string name="webdav_description">将 BitChord 指向一个 WebDAV 音乐文件夹 — 你的 Nextcloud 音乐目录或任何支持 WebDAV 的服务器。</string>
-    <string name="webdav_server_url">服务器 URL</string>
     <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
     <string name="webdav_disconnect">断开连接</string>
     <string name="webdav_test_failed">无法连接：%1$s</string>
@@ -633,15 +596,8 @@
     <string name="delete_playlist_confirmation">删除“%1$s”？再次点按以确认。</string>
     <string name="delete_download_confirmation">从此设备中移除“%1$s”？再次点按以确认。</string>
     <string name="running">运行中</string>
-    <string name="version_alignment_status">%1$s · %2$s</string>
-    <string name="version_cut_not_fetched">未获取</string>
-    <string name="version_cut_fetching">获取中</string>
-    <string name="version_cut_measuring">分析中</string>
-    <string name="version_cut_aligned">已对齐</string>
     <string name="automix_enabled_subtitle">根据曲目本身自动把控每次过渡的时机与混合效果。如果手机发热或播放卡顿，请将其关闭。</string>
     <string name="automix_disabled_subtitle">自动把控过渡的时机与混合效果，无需手动调节。在性能较弱的设备上效果可能有所不同。</string>
-    <string name="advanced_automix">高级自动混音</string>
-    <string name="advanced_automix_subtitle">像 DJ 一样混音：保持节拍同步，每次切换都踩在拍子上，并在不搭的歌曲之间直接切换。无需额外处理。</string>
     <string name="no_lyrics_sources_enabled">无。将不会获取歌词。</string>
     <string name="song_cache_large_subtitle">最多在磁盘上保留 %1$s 的已下载音频，这可能会占用较多可用空间。</string>
     <string name="song_cache_limit_subtitle">将已下载的音频保留在磁盘上，以便即时跳转和重播</string>
@@ -684,11 +640,7 @@
     <string name="listen_together_using_default">正在使用内置服务器</string>
     <string name="listen_together_remove_server">移除服务器</string>
     <string name="listen_together_switched_to_default">已切换到默认服务器</string>
-    <string name="listen_together_custom_server_saved">自定义服务器已保存</string>
     <string name="listen_together_create">创建派对</string>
-    <string name="listen_together_create_subtitle">获取代码，分享给朋友</string>
-    <string name="listen_together_create_footer">你会得到一个六位代码。拿到代码的人都能加入，包括你自己最多 %1$d 台设备。</string>
-    <string name="listen_together_profile">你的派对资料</string>
     <string name="listen_together_nickname_hint">此派对中的昵称</string>
     <string name="listen_together_party_size">派对人数</string>
     <string name="listen_together_party_size_subtitle">选择 2–10 位听众</string>
@@ -696,18 +648,6 @@
     <string name="listen_together_remove">移除</string>
     <string name="listen_together_activity">最近活动</string>
     <string name="listen_together_activity_footer">仅本次会话 · 最新在前 · 最多 100 条</string>
-    <string name="listen_together_activity_played">开始播放</string>
-    <string name="listen_together_activity_paused">暂停播放</string>
-    <string name="listen_together_activity_seeked">调整了播放进度</string>
-    <string name="listen_together_activity_skipped">跳到下一首</string>
-    <string name="listen_together_activity_went_back">返回上一首</string>
-    <string name="listen_together_activity_added">添加到队列</string>
-    <string name="listen_together_activity_removed_track">从队列中移除了一首</string>
-    <string name="listen_together_activity_cleared">清空了待播曲目</string>
-    <string name="listen_together_activity_reordered">重新排列了队列</string>
-    <string name="listen_together_activity_removed_member">移除了一位听众</string>
-    <string name="listen_together_activity_changed_size">更改了派对人数</string>
-    <string name="listen_together_activity_updated">更新了派对</string>
     <string name="listen_together_join">加入派对</string>
     <string name="listen_together_join_action">加入</string>
     <string name="listen_together_code_hint">六位字母或数字</string>
@@ -738,7 +678,6 @@
     <string name="listen_together_share_link">分享链接</string>
     <string name="listen_together_scan_qr">扫描二维码</string>
     <string name="listen_together_scan_qr_subtitle">让朋友扫描此码即可加入。</string>
-    <string name="listen_together_invite">邀请</string>
     <string name="listen_together_host_only">只有我能控制音乐</string>
     <string name="listen_together_host_only_subtitle">其他人一起收听，并可在自己的设备上暂停</string>
     <string name="listen_together_host_only_notice">只有主持人可以控制音乐</string>
@@ -752,8 +691,6 @@
     <string name="listen_together_custom_server_switch_and_join">切换并加入</string>
     <string name="listen_together_official_server_dialog_title">切换到官方服务器？</string>
     <string name="listen_together_official_server_dialog_message">此派对托管在 BitChord 官方服务器上。\n\n要切换回官方服务器并加入派对 %1$s 吗？</string>
-    <string name="listen_together_switch_failed_stayed_in_party">无法加入派对：%1$s。仍留在派对 %2$s 中。</string>
-    <string name="listen_together_switch_failed">无法加入派对：%1$s。</string>
     <string name="listen_together_ping">%1$d ms</string>
     <string name="listen_together_server_offline_dash">—</string>
     <string name="listen_together_invalid_server_url">服务器 URL 无效。请输入有效地址（例如 https://your-server.com）</string>
@@ -772,7 +709,6 @@
 
     <string name="vietnamese">越南语</string>
 
-    <string name="miscellaneous_footer">启用后，从最近任务界面关闭应用也会停止音乐播放。</string>
 
 
     <plurals name="track_count_plural">
@@ -824,22 +760,16 @@
 
     <string name="card_views_format">%1$s 次观看</string>
 
-    <string name="channel_session_unavailable">该页面暂无会话 — 请先打开 YouTube Music</string>
 
-    <string name="channel_switch_instructions">通过头像切换，然后点击使用此频道</string>
 
-    <string name="choose_a_channel">选择频道</string>
 
     <string name="choose_profile">选择个人资料</string>
 
     <string name="convert_to_audio">转换为音频</string>
     <string name="convert_to_video">转换为视频</string>
 
-    <string name="converting_to_audio">正在转换为音频…</string>
 
-    <string name="current_account">当前账号</string>
 
-    <string name="current_profile">当前个人资料</string>
 
     <string name="default_youtube_profile">YouTube Music 默认个人资料</string>
 
@@ -863,9 +793,7 @@
 
     <string name="listen_as">以该身份收听</string>
 
-    <string name="lyrics_debug_logs">歌词调试日志</string>
 
-    <string name="lyrics_debug_logs_subtitle">在歌词面板显示实时 API 查询与抓取动态</string>
 
     <string name="manage_accounts">管理账号</string>
 
@@ -880,14 +808,9 @@
     <string name="loudness_normalization">响度标准化</string>
     <string name="loudness_normalization_subtitle">将每首曲目调整到相同响度</string>
     <string name="loudness_off_on_speaker">在手机扬声器上停用</string>
-    <string name="loudness_target">目标响度</string>
-    <string name="loudness_target_subtitle">较低适合耳机；较高适合车载或手机扬声器</string>
-    <string name="loudness_target_value">%1$s LUFS</string>
-    <string name="pipeline_loudness">响度</string>
     <string name="pipeline_loudness_gain">增益</string>
     <string name="pipeline_loudness_measured">测量值</string>
     <string name="pipeline_bit_exact">比特精确</string>
-    <string name="loudness_measuring">正在测量…</string>
     <string name="loudness_gain_db">%1$s dB</string>
     <string name="loudness_lufs">%1$s LUFS</string>
 
@@ -907,7 +830,6 @@
 
     <string name="selected_account">已选账号</string>
 
-    <string name="shelf_100_on_repeat">循环播放</string>
 
     <string name="shelf_artists_on_the_rise">新星艺人</string>
 
@@ -915,17 +837,13 @@
 
     <string name="shelf_charts">排行榜</string>
 
-    <string name="shelf_commute">通勤路上</string>
 
     <string name="shelf_concerts">演唱会</string>
 
-    <string name="shelf_energy_boosters">活力满满</string>
 
     <string name="shelf_featured_playlists_for_you">为你推荐的播放列表</string>
 
-    <string name="shelf_feel_good">心情愉悦</string>
 
-    <string name="shelf_focus">专注工作</string>
 
     <string name="shelf_for_you">为你推荐</string>
 
@@ -941,11 +859,9 @@
 
     <string name="shelf_mixed_for_you">为你精选</string>
 
-    <string name="shelf_new_albums_singles">最新专辑与单曲</string>
 
     <string name="shelf_new_releases">最新发行</string>
 
-    <string name="shelf_party">聚会狂欢</string>
 
     <string name="shelf_quick_picks">快速选择</string>
 
@@ -953,11 +869,8 @@
 
     <string name="shelf_recommended_music_videos">推荐音乐视频</string>
 
-    <string name="shelf_relax">放松身心</string>
 
-    <string name="shelf_romance">浪漫时刻</string>
 
-    <string name="shelf_sad">悲伤情绪</string>
 
     <string name="shelf_shorts">Shorts 精彩短视频</string>
 
@@ -965,7 +878,6 @@
 
     <string name="shelf_single">单曲</string>
 
-    <string name="shelf_sleep">伴你入眠</string>
 
     <string name="shelf_song_item">歌曲</string>
 
@@ -977,7 +889,6 @@
 
     <string name="shelf_trending_community_playlists">热门社区播放列表</string>
 
-    <string name="shelf_workout">健身运动</string>
 
     <string name="shelf_youtube_charts">YouTube 排行榜</string>
 
@@ -1011,7 +922,6 @@
 
     <string name="upgrade_quality">提升音质</string>
 
-    <string name="use_this_channel">使用此频道</string>
 
     <string name="use_this_profile">使用此资料</string>
 
@@ -1276,7 +1186,6 @@
     <string name="spotify">Spotify</string>
     <string name="spotify_connect_subtitle">登录以载入你的播放列表。播放使用 YouTube Music。</string>
     <string name="spotify_disconnect">断开连接</string>
-    <string name="spotify_empty_playlists">此账号没有播放列表</string>
     <string name="spotify_empty_tracks">此播放列表没有歌曲</string>
     <string name="spotify_import_button">导入</string>
     <string name="spotify_import_description">粘贴公开播放列表链接。歌曲将在 YouTube Music 上匹配。</string>
@@ -1295,7 +1204,6 @@
     <string name="spotify_library_subtitle">你的 Spotify 播放列表</string>
     <string name="spotify_sign_in">使用 Spotify 登录</string>
     <string name="spotify_use_spdc_token">使用 sp_dc 令牌</string>
-    <string name="spotify_track_unavailable">在 YouTube Music 上找不到该歌曲</string>
     <string name="search_source_addons">插件</string>
     <string name="search_addons_none">未启用任何插件。请在“设置 → 音源”中添加。</string>
     <string name="app_icon">应用图标</string>

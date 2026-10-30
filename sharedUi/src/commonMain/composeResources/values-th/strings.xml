@@ -24,14 +24,11 @@
     <string name="choose_lyrics_provider">เลือกผู้ให้บริการเนื้อเพลง</string>
     <string name="clear">ล้าง</string>
     <string name="close_lyrics">ปิดเนื้อเพลง</string>
-    <string name="data_saver">Data-Saver</string>
     <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
-    <string name="downgraded_from">↓ จาก %1$s</string>
     <string name="drag_to_reorder">ลากเพื่อจัดลำดับใหม่</string>
     <string name="failed">ล้มเหลว</string>
     <string name="hi_res_lossless">Hi-Res ไม่สูญเสียคุณภาพ</string>
     <string name="high_quality">คุณภาพสูง</string>
-    <string name="high_quality_upgrading">คุณภาพสูง กำลังอัปเกรด</string>
     <string name="increase_lyrics_offset">Increase lyrics offset</string>
     <string name="instrumental">บรรเลง</string>
     <string name="like">ถูกใจ</string>
@@ -93,7 +90,6 @@
     <string name="lyrics_share_pick_limit">การ์ดเต็มแล้ว</string>
     <string name="lyrics_translated_to">แปลเป็น %1$s แล้ว</string>
     <string name="lyrics_translation_unavailable">ใช้งานการแปลไม่ได้ในขณะนี้</string>
-    <string name="medium_quality">Medium Quality</string>
     <string name="mono">โมโน</string>
     <string name="more">เพิ่มเติม</string>
     <string name="next_from">ถัดไปจาก: %1$s</string>
@@ -143,7 +139,6 @@
     <string name="library_sign_in_description">ลงชื่อเข้าใช้บัญชี Google เพื่อดูเพลงที่ถูกใจ เพลย์ลิสต์ และประวัติ YouTube Music ของคุณ</string>
     <string name="new_playlist">เพลย์ลิสต์ใหม่</string>
     <string name="on_device">ในอุปกรณ์</string>
-    <string name="personalized_recommendations">รับคำแนะนำที่ปรับให้เหมาะกับคุณ</string>
     <string name="pinned">ปักหมุดแล้ว</string>
     <string name="play_next">เล่นต่อไป</string>
     <string name="playlist">เพลย์ลิสต์</string>

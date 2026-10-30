@@ -24,14 +24,11 @@
     <string name="choose_lyrics_provider">Elegir proveedor de letras</string>
     <string name="clear">Borrar</string>
     <string name="close_lyrics">Cerrar letra</string>
-    <string name="data_saver">Data-Saver</string>
     <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
-    <string name="downgraded_from">↓ desde %1$s</string>
     <string name="drag_to_reorder">Arrastrar para reordenar</string>
     <string name="failed">Error</string>
     <string name="hi_res_lossless">Audio sin pérdida de alta resolución</string>
     <string name="high_quality">Alta calidad</string>
-    <string name="high_quality_upgrading">Alta calidad, mejorando</string>
     <string name="increase_lyrics_offset">Increase lyrics offset</string>
     <string name="instrumental">Instrumental</string>
     <string name="like">Me gusta</string>
@@ -93,7 +90,6 @@
     <string name="lyrics_share_pick_limit">La tarjeta está llena</string>
     <string name="lyrics_translated_to">Traducida al %1$s</string>
     <string name="lyrics_translation_unavailable">La traducción no está disponible ahora</string>
-    <string name="medium_quality">Medium Quality</string>
     <string name="mono">Mono</string>
     <string name="more">Más</string>
     <string name="next_from">A continuación de: %1$s</string>
@@ -143,7 +139,6 @@
     <string name="library_sign_in_description">Inicia sesión en tu cuenta de Google para ver tus canciones favoritas, playlists e historial de YouTube Music.</string>
     <string name="new_playlist">Nueva lista</string>
     <string name="on_device">En el dispositivo</string>
-    <string name="personalized_recommendations">Recibe recomendaciones personalizadas</string>
     <string name="pinned">Fijado</string>
     <string name="play_next">Reproducir después</string>
     <string name="playlist">playlist</string>

@@ -24,14 +24,11 @@
     <string name="choose_lyrics_provider">Söz sağlayıcısını seç</string>
     <string name="clear">Temizle</string>
     <string name="close_lyrics">Sözleri kapat</string>
-    <string name="data_saver">Data-Saver</string>
     <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
-    <string name="downgraded_from">↓ %1$s kaynağından</string>
     <string name="drag_to_reorder">Yeniden sıralamak için sürükleyin</string>
     <string name="failed">Başarısız</string>
     <string name="hi_res_lossless">Hi-Res Kayıpsız</string>
     <string name="high_quality">Yüksek kalite</string>
-    <string name="high_quality_upgrading">Yüksek kalite, yükseltiliyor</string>
     <string name="increase_lyrics_offset">Increase lyrics offset</string>
     <string name="instrumental">Enstrümantal</string>
     <string name="like">Beğen</string>
@@ -93,7 +90,6 @@
     <string name="lyrics_share_pick_limit">Kart dolu</string>
     <string name="lyrics_translated_to">%1$s diline çevrildi</string>
     <string name="lyrics_translation_unavailable">Çeviri şu anda kullanılamıyor</string>
-    <string name="medium_quality">Medium Quality</string>
     <string name="mono">Mono</string>
     <string name="more">Daha fazla</string>
     <string name="next_from">Sıradaki: %1$s</string>
@@ -143,7 +139,6 @@
     <string name="library_sign_in_description">Beğendiğin şarkıları, çalma listelerini ve YouTube Music geçmişini görmek için Google hesabınla giriş yap.</string>
     <string name="new_playlist">Yeni çalma listesi</string>
     <string name="on_device">Cihazda</string>
-    <string name="personalized_recommendations">Size özel öneriler alın</string>
     <string name="pinned">Sabitlendi</string>
     <string name="play_next">Sonra çal</string>
     <string name="playlist">çalma listesi</string>

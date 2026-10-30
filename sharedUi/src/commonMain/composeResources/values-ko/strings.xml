@@ -26,14 +26,11 @@
     <string name="choose_lyrics_provider">가사 제공자 선택</string>
     <string name="clear">지우기</string>
     <string name="close_lyrics">가사 닫기</string>
-    <string name="data_saver">데이터 절약</string>
     <string name="decrease_lyrics_offset">가사 오프셋 줄이기</string>
-    <string name="downgraded_from">%1$s에서 ↓</string>
     <string name="drag_to_reorder">드래그하여 순서 변경</string>
     <string name="failed">실패</string>
     <string name="hi_res_lossless">고해상도 무손실</string>
     <string name="high_quality">고음질</string>
-    <string name="high_quality_upgrading">고음질, 업그레이드 중</string>
     <string name="increase_lyrics_offset">가사 오프셋 늘리기</string>
     <string name="instrumental">반주</string>
     <string name="like">좋아요</string>
@@ -95,7 +92,6 @@
     <string name="lyrics_share_pick_limit">카드가 꽉 찼습니다</string>
     <string name="lyrics_translated_to">%1$s 번역 완료</string>
     <string name="lyrics_translation_unavailable">지금은 번역을 사용할 수 없습니다</string>
-    <string name="medium_quality">중간 음질</string>
     <string name="mono">모노</string>
     <string name="more">더보기</string>
     <string name="next_from">다음 출처: %1$s</string>
@@ -147,7 +143,6 @@
         확인하세요.</string>
     <string name="new_playlist">새 재생목록</string>
     <string name="on_device">기기에 저장됨</string>
-    <string name="personalized_recommendations">맞춤 추천 받기</string>
     <string name="pinned">고정됨</string>
     <string name="play_next">다음에 재생</string>
     <string name="playlist">재생목록</string>
