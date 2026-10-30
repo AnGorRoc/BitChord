@@ -45,10 +45,14 @@ class TidalSource(
     }
 
     override suspend fun health(): SourceHealth {
-        val base = TidalApi.normalize(config.baseUrl)
-            ?: return SourceHealth.Rejected("That is not a usable instance address")
+        val endpoints = TidalInstances.endpoints(config.baseUrl)
+        if (endpoints.isEmpty()) return SourceHealth.Unreachable("No lossless provider configured")
+        val fastest = endpoints.firstOrNull() ?: return SourceHealth.Unreachable("No lossless provider answered")
         return try {
-            if (TidalApi.isLive(base)) SourceHealth.Ok(null) else {
+            if (TidalApi.isLive(fastest)) {
+                val label = fastest.substringAfter("://").substringBefore('/')
+                SourceHealth.Ok("FLAC lossless ready ($label)")
+            } else {
                 SourceHealth.Rejected("Lossless source unreachable")
             }
         } catch (e: Exception) {

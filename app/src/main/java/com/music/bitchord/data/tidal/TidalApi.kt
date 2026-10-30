@@ -31,6 +31,7 @@ import okhttp3.Request
 object TidalApi {
 
     private const val TAG = "BitChord"
+    private const val BROWSER_UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
 
     const val HI_RES = "HI_RES_LOSSLESS"
     const val LOSSLESS = "LOSSLESS"
@@ -140,7 +141,7 @@ object TidalApi {
         runCatching {
             val request = Request.Builder().url(url)
                 .header("Range", "bytes=0-0")
-                .header("User-Agent", "BitChord/v${BuildConfig.VERSION_NAME}")
+                .header("User-Agent", BROWSER_UA).header("Accept-Language", "en-US,en;q=0.9")
                 .build()
             probeClient.newCall(request).execute().use { response ->
                 val total = response.header("Content-Range")
@@ -391,7 +392,7 @@ object TidalApi {
     private fun getWithCode(url: String, client: okhttp3.OkHttpClient): Body {
         val request = Request.Builder().url(url)
             .header("Accept", "application/json")
-            .header("User-Agent", "BitChord/v${BuildConfig.VERSION_NAME}")
+            .header("User-Agent", BROWSER_UA).header("Accept-Language", "en-US,en;q=0.9")
             .build()
         client.newCall(request).execute().use { response ->
             val text = runCatching { response.body?.string().orEmpty() }.getOrDefault("")
