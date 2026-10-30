@@ -735,12 +735,12 @@
     <string name="listen_together_server_unknown">Toca para comprobar</string>
     <string name="listen_together_custom_server">Usar tu propio servidor</string>
     <string name="listen_together_custom_server_footer">Déjalo vacío para usar el servidor integrado. Si tienes tu propia copia, todos en la fiesta deben apuntar al mismo.</string>
-    <string name="listen_together_share_app_header">Compartir BitChord</string>
-    <string name="listen_together_share_app_footer">Envía el instalador de la app directamente por Quick Share, WhatsApp o cualquier otra app para que otros se unan fácilmente.</string>
-    <string name="listen_together_share_apk">Compartir archivo de la app (APK)</string>
-    <string name="listen_together_share_apk_subtitle">Versión %1$s · Instalador directo</string>
-    <string name="listen_together_sharing_apk">Preparando instalador…</string>
-    <string name="listen_together_share_apk_error">No se pudo extraer el APK para compartir</string>
+    <string name="listen_together_share_app_header">Invitar amigos</string>
+    <string name="listen_together_share_app_footer">Envía la aplicación a tus amigos por WhatsApp, Quick Share o cualquier chat para que puedan instalarla y unirse a tu fiesta de inmediato.</string>
+    <string name="listen_together_share_apk">Enviar aplicación a amigos</string>
+    <string name="listen_together_share_apk_subtitle">Envía el archivo para instalar BitChord</string>
+    <string name="listen_together_sharing_apk">Preparando para enviar…</string>
+    <string name="listen_together_share_apk_error">No se pudo preparar la aplicación para compartir</string>
     <string name="listen_together_using_default">Usando el servidor integrado</string>
     <string name="listen_together_remove_server">Quitar servidor</string>
     <string name="listen_together_switched_to_default">Se cambió al servidor predeterminado</string>
@@ -1488,4 +1488,6 @@
 
     <string name="replaygain_scan_no_tracks">No se encontraron pistas locales accesibles.</string>
     <string name="replaygain_scan_failed">No se pudo iniciar el análisis. Verifica el acceso al almacenamiento.</string>
+    <string name="tidal_servers_status">Proveedores Lossless y latencia</string>
+    <string name="server_unreachable">No disponible</string>
 </resources>

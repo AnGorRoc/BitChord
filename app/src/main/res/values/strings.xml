@@ -946,12 +946,12 @@
     <string name="listen_together_server_unknown">Tap to check</string>
     <string name="listen_together_custom_server">Use your own server</string>
     <string name="listen_together_custom_server_footer">Leave this empty to use the default server. If you run your own copy, everyone in the party has to be pointed at the same one.</string>
-    <string name="listen_together_share_app_header">Share BitChord</string>
-    <string name="listen_together_share_app_footer">Send the app installer directly via Quick Share, WhatsApp, or any app so others can join without searching.</string>
-    <string name="listen_together_share_apk">Share app file (APK)</string>
-    <string name="listen_together_share_apk_subtitle">Version %1$s · Direct installer</string>
-    <string name="listen_together_sharing_apk">Preparing installer…</string>
-    <string name="listen_together_share_apk_error">Could not extract APK for sharing</string>
+    <string name="listen_together_share_app_header">Invite friends</string>
+    <string name="listen_together_share_app_footer">Send the app directly to your friends via WhatsApp, Quick Share, or any chat so they can install it and join your party right away.</string>
+    <string name="listen_together_share_apk">Send app to friends</string>
+    <string name="listen_together_share_apk_subtitle">Send the file to install BitChord</string>
+    <string name="listen_together_sharing_apk">Preparing to send…</string>
+    <string name="listen_together_share_apk_error">Could not prepare the app to share</string>
     <string name="listen_together_using_default">Using default server</string>
     <string name="listen_together_remove_server">Remove server</string>
     <string name="listen_together_switched_to_default">Switched to default server</string>
@@ -1387,4 +1387,6 @@
     <string name="replaygain_prevent_clipping">Prevent clipping</string>
     <string name="track_gain">Track gain</string>
     <string name="album_gain">Album gain</string>
+    <string name="tidal_servers_status">Lossless providers &amp; latency</string>
+    <string name="server_unreachable">Unreachable</string>
 </resources>
