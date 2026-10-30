@@ -318,8 +318,6 @@ object Downloads {
      * has just been shown to be false is not worth keeping to be shown false
      * again on the next play.
      */
-    fun savedFormat(videoId: String): String? = _savedMetadata.value[videoId]?.downloadFormat
-
     fun verifiedSavedUri(videoId: String): String? {
         val recorded = _saved.value[videoId] ?: return null
         if (!isMissingLocalFile(recorded)) return recorded
@@ -327,6 +325,9 @@ object Downloads {
         forget(videoId)
         return null
     }
+
+    /** The format label recorded when [videoId] was downloaded, if any. */
+    fun savedFormat(videoId: String): String? = _savedMetadata.value[videoId]?.downloadFormat
 
     /** Delete the file saved for [videoId] and forget it. */
     suspend fun delete(context: Context, videoId: String): Boolean = withContext(Dispatchers.IO) {
