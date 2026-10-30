@@ -335,7 +335,7 @@ class DownloadScheduler(
         val id = view.current.videoId
         val uri = view.currentUri
         val cacheable = uri != null && AudioCache.isPinnedRead(uri)
-        val missing = if (cacheable) AudioCache.missingBytes(uri!!, AudioCache.claimedKeyOf(id)) else 0L
+        val missing = if (cacheable) AudioCache.missingBytes(uri, AudioCache.claimedKeyOf(id)) else 0L
         val speed = view.speed.coerceAtLeast(0.1f)
         // A runtime not reported yet — the first moments of a track — is not
         // "nothing left": read that way it would make every track look urgent
@@ -357,7 +357,7 @@ class DownloadScheduler(
         val ceiling = AudioCache.cacheCeilingBytes()
         // The playing track stays on disk while it plays, so what it holds is
         // not room for anything else.
-        val keptByCurrent = if (cacheable) AudioCache.contentLengthOf(uri!!) else 0L
+        val keptByCurrent = if (cacheable) AudioCache.contentLengthOf(uri) else 0L
         return DownloadPlan.Snapshot(
             prepared = view.playbackState == Player.STATE_READY || view.playbackState == Player.STATE_BUFFERING,
             offline = AudioCache.isOffline(),
@@ -386,17 +386,17 @@ class DownloadScheduler(
         val allowed = uri != null && AudioCache.readAheadAllowed(id)
         val settled = id in prepared || !SourceResolver.canSubstituteForYouTube() ||
             StreamChoice.peek(id) != null || uri == null
-        val full = !allowed || AudioCache.isFullyCached(uri!!)
+        val full = !allowed || AudioCache.isFullyCached(uri)
         return DownloadPlan.Upcoming(
             mediaId = id,
             durationMs = (TrackMatcher.secondsOf(song.durationText) ?: 0) * 1000L,
             prepared = settled,
             // Resting after an opening that fell short counts as done for now.
-            headCached = full || AudioCache.headReady(uri!!) || !due(headKey(id), now),
+            headCached = full || AudioCache.headReady(uri) || !due(headKey(id), now),
             fullyCached = full,
             fillDue = allowed && !full && due(id, now),
             warmed = id in warmed || uri == null,
-            sizeBytes = if (allowed) AudioCache.contentLengthOf(uri!!).takeIf { it > 0 } ?: -1L else -1L,
+            sizeBytes = if (allowed) AudioCache.contentLengthOf(uri).takeIf { it > 0 } ?: -1L else -1L,
         )
     }
 

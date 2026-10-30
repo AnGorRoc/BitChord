@@ -641,15 +641,6 @@ class PlaybackService : MediaLibraryService() {
     private val singProcessorB = VocalCutProcessor()
     private val replayGainA = ReplayGainAudioProcessor()
     private val replayGainB = ReplayGainAudioProcessor()
-    private var replayGainLookupJob: Job? = null
-    private var spareReplayGainJob: Job? = null
-    private var replayGainConfigToken: String? = null
-
-    private fun activeReplayGain(): ReplayGainAudioProcessor =
-        if (activeFilter === transitionFilterA) replayGainA else replayGainB
-
-    private fun spareReplayGain(): ReplayGainAudioProcessor =
-        if (activeFilter === transitionFilterA) replayGainB else replayGainA
 
     /**
      * Loudness normalization, one per player like the other stages — see

@@ -76,8 +76,6 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-private val PIPELINE_ICON_TINT = Color.White.copy(alpha = 0.6f)
-
 /**
  * Whether decoded samples are reaching the output unaltered, and what is
  * altering them when they aren't.

@@ -298,13 +298,6 @@ private val DISMISS_STRIP_HEIGHT = 32.dp
 /** The breathing room above the sleeve, needed twice: once to apply, once to measure past. */
 private val ART_BOX_TOP_PAD = 8.dp
 /**
- * How far below the sleeve's top edge the video/audio pill floats.
- *
- * Far enough to clear the artwork's rounded corners, so the pill reads as
- * something laid on the cover rather than something clipped by it.
- */
-private val VERSION_PILL_ART_INSET = 12.dp
-/**
  * Share of the motion-artwork banner's height given over to its dissolve.
  *
  * Generous on purpose: the banner has no card edge to stop at, so anything
