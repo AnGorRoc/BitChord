@@ -608,6 +608,18 @@ class SourcesTest {
     }
 
     @Test
+    fun `every source starts switched off except YouTube`() {
+        SourceKind.values()
+            .filter { it != SourceKind.YOUTUBE }
+            .forEach { kind -> assertFalse("$kind should start off", SourceConfig(kind = kind).enabled) }
+        assertTrue(SourceConfig(kind = SourceKind.YOUTUBE).enabled)
+
+        val fresh = SourceRegistry.sourcesForInit(emptyList(), forceJioSaavnOff = false)
+        assertTrue(fresh.single { it.kind == SourceKind.YOUTUBE }.enabled)
+        assertFalse(fresh.single { it.kind == SourceKind.TIDAL }.enabled)
+    }
+
+    @Test
     fun `the opt-in migration disables JioSaavn once for existing installs`() {
         val previouslyEnabled = SourceConfig(kind = SourceKind.JIOSAAVN, enabled = true)
 

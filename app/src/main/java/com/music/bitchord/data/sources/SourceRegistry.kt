@@ -25,7 +25,10 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import java.util.UUID
 
-/** The built-in kinds that start switched off and need the user's explicit yes. */
+/**
+ * The built-in kinds whose switch-on asks for a warning first. Every source
+ * starts switched off, so this is about what the user is told, not the default.
+ */
 val OPT_IN_KINDS: Set<SourceKind> = setOf(SourceKind.JIOSAAVN, SourceKind.MONOCHROME)
 
 /**
@@ -43,11 +46,10 @@ data class SourceConfig(
     val label: String = "",
     val baseUrl: String = "",
     /**
-     * JioSaavn is opt-in because catalogue matches can select the wrong
-     * recording; Monochrome because every song played is named to an
-     * unofficial third-party service to find its lossless copy.
+     * Every source starts switched off. YouTube is the exception: it cannot be
+     * switched off, so it is always on (see [SourceRegistry.setEnabled]).
      */
-    val enabled: Boolean = kind !in OPT_IN_KINDS,
+    val enabled: Boolean = kind == SourceKind.YOUTUBE,
     /**
      * The addon's `allowDownloads`, as its manifest last said. Stored rather
      * than asked each time so the answer is there without a request — see
@@ -98,7 +100,8 @@ data class SourceConfig(
  * itself. Addons are entirely optional: with none configured, YouTube is the
  * only active source on a fresh install. Monochrome (FLAC, from an unofficial
  * service) and JioSaavn (catalogue matches that can pick the wrong recording)
- * are present but off until the user accepts what each one costs.
+ * are present but off until the user accepts what each one costs. Every other
+ * source, Hi-Res Lossless included, also starts off until the user turns it on.
  */
 object SourceRegistry {
 
@@ -167,7 +170,7 @@ object SourceRegistry {
     ): List<SourceConfig> {
         // Seeded rather than persisted-on-first-write, so a build adding a new
         // built-in kind picks it up for existing installs too. SourceConfig's
-        // default is the policy: JioSaavn and Monochrome off, YouTube on.
+        // default is the policy: everything off except YouTube.
         val seeded = stored + BUILT_IN_KINDS
             .filter { kind -> stored.none { it.kind == kind } }
             .map { SourceConfig(kind = it) }
