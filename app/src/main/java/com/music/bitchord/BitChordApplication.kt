@@ -36,6 +36,7 @@ import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.data.sources.SourceRegistry
+import com.music.bitchord.data.tidal.TidalInstances
 import com.music.bitchord.data.stats.ArtistFacts
 import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.download.Downloads
@@ -88,6 +89,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         // nothing that runs after startup can see any of them half open.
         val backgroundInit = thread(name = "startup-init") {
             SourceRegistry.init(this)
+            // The manual providers and the auto-update switch live here; without
+            // this they are neither read at launch nor ever written.
+            TidalInstances.init(this)
             AndroidStreamHooks.initInnerTubeX(this)
             // Its own directory: canvas clips are looping video, not audio, and
             // belong in a cache AudioCache's own limit and eviction policy were
@@ -129,6 +133,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
                 ?.let { Innertube.selectChannel(it.pageId, it.dataSyncId, it.authUser) }
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
         }
+        com.music.bitchord.playback.SourceResolutionTracker.init(this)
         AppSettings.init(this, authStore)
         // Before anything resolves a track: an addon with `checkValidLossless`
         // is gated on this, and the gate reads "no" until it has looked.
