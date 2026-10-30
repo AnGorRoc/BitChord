@@ -35,6 +35,6 @@ Este fork parte del proyecto original [kushagrasinghx/BitChord](https://github.c
 ### Actualizaciones
 - La comprobación de versión consulta las **releases de este fork**, no las de upstream.
 
-## Dónde está el detalle técnico
+## Otros documentos
 
-El análisis completo de la rama Monochrome (decisiones de diseño, clases y glosario) está en [DIFERENCIAS_FEAT_MONOCHROME.md](DIFERENCIAS_FEAT_MONOCHROME.md). Ese documento describe una rama anterior, así que tómalo como referencia de diseño y no como lista exacta de funciones.
+Para el servidor de Listen Together y la traducción de letras, mira [ADDITIONAL.md](ADDITIONAL.md).
