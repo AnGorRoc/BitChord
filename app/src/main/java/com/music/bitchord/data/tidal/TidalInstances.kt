@@ -13,26 +13,21 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
-import okhttp3.Request
 
 /**
- * The pool of hifi-api instances behind the single Tidal source: the
- * primary URL from settings first, then live community instances.
+ * The pool of providers behind the single Hi-Res Lossless source: the one
+ * bundled with the app, then any the listener typed in.
  *
- * Instances are volunteers' servers and rot constantly (Tidal bans
- * aggressively), so nothing here is trusted until probed from *this*
- * device: [endpoints] health-checks on a short memory and the source walks
- * whatever answered. The public list refreshes from [REMOTE_URL] at most
- * daily while [autoUpdate] is on — off, and the app never fetches anything
- * except the instances it actually streams from.
+ * Providers are volunteers' servers and rot constantly, so nothing here is
+ * trusted until probed from *this* device: [endpoints] health-checks on a
+ * short memory and the source walks whatever answered. The pool is only ever
+ * what ships in [BUNDLED] plus what the listener added — there is no remote
+ * list, so no third party can decide which servers this app streams from, and
+ * the app fetches nothing except from the providers it actually streams from.
  */
 object TidalInstances {
 
     private const val TAG = "BitChord"
-
-    /** Curated list, refreshed without an app release by editing this file on main. */
-    const val REMOTE_URL =
-        "https://raw.githubusercontent.com/OreoMuncher45/BitChord/main/tidal-instances.json"
 
     @Serializable
     data class Entry(val url: String, val label: String = "", val verified: Boolean = false)
@@ -44,24 +39,17 @@ object TidalInstances {
         val isHealthy: Boolean,
     )
 
-    @Serializable
-    private data class RemoteList(val instances: List<Entry> = emptyList())
-
     /**
-     * Bundled fallback. tracks.monochrome.st is live-verified (real search
-     * rows + `fLaC` stream bytes + artwork).
+     * The provider that ships with the app. tracks.monochrome.st is
+     * live-verified (real search rows + `fLaC` stream bytes + artwork).
      */
     val BUNDLED = listOf(
         Entry("https://tracks.monochrome.st", "Monochrome Tracks", verified = true),
     )
 
     private const val FILE = "bitchord_tidal"
-    private const val KEY_PUBLIC_JSON = "tidal_public_json"
-    private const val KEY_LAST_FETCH = "tidal_last_fetch"
-    private const val KEY_AUTO_UPDATE = "tidal_auto_update"
     private const val KEY_MANUAL_JSON = "tidal_manual_json"
 
-    private const val FETCH_INTERVAL_MS = 24 * 60 * 60 * 1000L
     // Half an hour: probes are network, and a pool that was alive minutes
     // ago is alive now. Every search/stream would otherwise pay the slow
     // volunteer's timeout on each new track.
@@ -71,16 +59,9 @@ object TidalInstances {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    private val _autoUpdate = MutableStateFlow(true)
-    val autoUpdate: StateFlow<Boolean> = _autoUpdate.asStateFlow()
-
-    /** Providers the user typed in. Probed and ranked alongside the public pool. */
+    /** Providers the user typed in. Probed and ranked alongside the bundled one. */
     private val _manual = MutableStateFlow<List<Entry>>(emptyList())
     val manual: StateFlow<List<Entry>> = _manual.asStateFlow()
-
-    /** Last known reachability per instance URL; null means never probed. */
-    private val _health = MutableStateFlow<Map<String, Boolean>>(emptyMap())
-    val health: StateFlow<Map<String, Boolean>> = _health.asStateFlow()
 
     /** Rated instances ordered by latency / health. */
     private val _ratings = MutableStateFlow<List<RatedInstance>>(emptyList())
@@ -92,13 +73,7 @@ object TidalInstances {
     fun init(context: Context) {
         if (this::prefs.isInitialized) return
         prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-        _autoUpdate.value = prefs.getBoolean(KEY_AUTO_UPDATE, true)
         _manual.value = readManual()
-    }
-
-    fun setAutoUpdate(value: Boolean) {
-        _autoUpdate.value = value
-        if (this::prefs.isInitialized) prefs.edit().putBoolean(KEY_AUTO_UPDATE, value).apply()
     }
 
     private fun readManual(): List<Entry> {
@@ -139,47 +114,13 @@ object TidalInstances {
         }
     }
 
-    /** Manual providers first, then the public pool, each address once. */
+    /** Manual providers first, then the bundled one, each address once. */
     private fun candidates(): List<Entry> =
-        (_manual.value + public()).distinctBy { TidalApi.normalize(it.url) ?: it.url }
-
-    /** The public pool: fetched list when fresh, else the bundled candidates. */
-    fun public(): List<Entry> {
-        if (!this::prefs.isInitialized) return BUNDLED
-        val raw = prefs.getString(KEY_PUBLIC_JSON, null) ?: return BUNDLED
-        val list = runCatching { json.decodeFromString(RemoteList.serializer(), raw).instances }
-            .getOrNull()?.filterNot { it.url.contains("qqdl.site") }
-        return if (list.isNullOrEmpty()) BUNDLED else list
-    }
-
-    /** Refreshes the public pool from [REMOTE_URL]; keeps the old list on any failure. */
-    suspend fun refresh(force: Boolean = false): List<Entry> = withContext(Dispatchers.IO) {
-        val now = System.currentTimeMillis()
-        if (!force && now - lastFetch() < FETCH_INTERVAL_MS) return@withContext public()
-        if (!_autoUpdate.value) return@withContext public()
-        val fetched = runCatching { fetchRemote() }.getOrNull()
-        if (fetched.isNullOrEmpty()) {
-            TrackLog.d(TAG, "tidal instance list refresh failed, keeping ${public().size} known")
-            return@withContext public()
-        }
-        // this@ required: withContext's scope is the implicit receiver here,
-        // and this::prefs would resolve against it instead of this object.
-        val ready = this@TidalInstances::prefs.isInitialized
-        synchronized(lock) {
-            if (ready) {
-                prefs.edit()
-                    .putString(KEY_PUBLIC_JSON, json.encodeToString(RemoteList.serializer(), RemoteList(fetched)))
-                    .putLong(KEY_LAST_FETCH, now)
-                    .apply()
-            }
-        }
-        TrackLog.d(TAG, "tidal instance list refreshed: ${fetched.size} entries")
-        fetched
-    }
+        (_manual.value + BUNDLED).distinctBy { TidalApi.normalize(it.url) ?: it.url }
 
     /**
-     * Endpoints to try, in order: the primary URL first, then the public
-     * pool minus the primary. Unreachable instances are filtered by a cached
+     * Endpoints to try, in order: the primary URL first, then the bundled
+     * and manual providers. Unreachable instances are filtered by a cached
      * health pass so a dead volunteer doesn't cost a timeout per track.
      */
     suspend fun endpoints(primaryRaw: String): List<String> {
@@ -201,8 +142,13 @@ object TidalInstances {
         withContext(Dispatchers.IO) {
             val now = System.currentTimeMillis()
             synchronized(lock) {
-                if (!force && now - healthAt < HEALTH_TTL_MS && _ratings.value.isNotEmpty()) {
-                    return@withContext _ratings.value
+                // Only while it still covers every address asked about: a provider
+                // added since the last pass has to be probed, not assumed.
+                val rated = _ratings.value
+                if (!force && now - healthAt < HEALTH_TTL_MS &&
+                    urls.all { url -> rated.any { it.url == url } }
+                ) {
+                    return@withContext rated
                 }
             }
             val known = candidates()
@@ -223,27 +169,10 @@ object TidalInstances {
             )
 
             synchronized(lock) {
-                _health.value = sorted.associate { it.url to it.isHealthy }
                 _ratings.value = sorted
                 healthAt = now
             }
             TrackLog.d(TAG, "tidal ratings updated: ${sorted.filter { it.isHealthy }.map { "${it.label} (${it.pingMs}ms)" }}")
             sorted
         }
-
-    private fun lastFetch(): Long =
-        if (this::prefs.isInitialized) prefs.getLong(KEY_LAST_FETCH, 0L) else 0L
-
-    private fun fetchRemote(): List<Entry> {
-        val request = Request.Builder().url(REMOTE_URL)
-            .header("Accept", "application/json")
-            .build()
-        com.music.bitchord.data.Http.client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) error("HTTP ${response.code}")
-            val body = response.body?.string().orEmpty()
-            if (body.isBlank()) error("empty list")
-            return json.decodeFromString(RemoteList.serializer(), body).instances
-                .filter { it.url.isNotBlank() }
-        }
-    }
 }
