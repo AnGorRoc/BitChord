@@ -349,11 +349,15 @@ private fun RecentShelf(
         val isCurrentItem = shelf.items.playingItemMatcher(currentSong)
         BoxWithConstraints {
             val columnWidth = trackColumnWidth(maxWidth)
+            val chunkedColumns = remember(shelf.items) { shelf.items.chunked(RECENT_TRACKS_PER_COLUMN) }
             ShelfRow(
                 contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(shelf.items.chunked(RECENT_TRACKS_PER_COLUMN)) { column ->
+                items(
+                    chunkedColumns,
+                    key = { col -> col.firstOrNull()?.let { it.videoId ?: it.browseId ?: it.title } ?: col.hashCode() },
+                ) { column ->
                     Column(Modifier.width(columnWidth)) {
                         column.forEach { item ->
                             RecentTrackRow(
@@ -749,13 +753,16 @@ private fun HeroShelf(
         // into a height, so the card keeps its shape however it was arrived at.
         BoxWithConstraints {
             val cardWidth = heroCardWidth(maxWidth)
+            val artworkList = remember(shelf.items) {
+                shelf.items.map { it.thumbnailUrl.artworkAt(HEADER_ART_PX) }
+            }
             ShelfRow(
                 state = rememberLazyListState(),
                 contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
-                artwork = shelf.items.map { it.thumbnailUrl.artworkAt(HEADER_ART_PX) },
+                artwork = artworkList,
             ) {
-                items(shelf.items) { item ->
+                items(shelf.items, key = { it.videoId ?: it.browseId ?: it.title }) { item ->
                     HeroCard(
                         item = item,
                         onClick = { onItemClick(item) },
@@ -852,13 +859,15 @@ internal fun Shelf(
         ShelfRow(
             contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
-            artwork = List(if (leadingCard != null) 1 else 0) { null } + shelf.items.map { item ->
-                // Video cards load the raw thumbnail; the rest load it sized.
-                if (shelf.layout == ShelfLayout.VIDEO) item.thumbnailUrl else item.thumbnailUrl.artworkAt(CARD_ART_PX)
+            artwork = remember(shelf.items, shelf.layout, leadingCard) {
+                List(if (leadingCard != null) 1 else 0) { null } + shelf.items.map { item ->
+                    // Video cards load the raw thumbnail; the rest load it sized.
+                    if (shelf.layout == ShelfLayout.VIDEO) item.thumbnailUrl else item.thumbnailUrl.artworkAt(CARD_ART_PX)
+                }
             },
         ) {
             leadingCard?.let { card -> item(key = "leading") { card() } }
-            items(shelf.items) { item ->
+            items(shelf.items, key = { it.videoId ?: it.browseId ?: it.title }) { item ->
                 if (shelf.layout == ShelfLayout.VIDEO) {
                     VideoShelfCard(
                         item = item,

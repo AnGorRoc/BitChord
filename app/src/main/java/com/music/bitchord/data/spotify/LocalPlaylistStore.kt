@@ -3,8 +3,13 @@ package com.music.bitchord.data.spotify
 import android.content.Context
 import android.content.SharedPreferences
 import com.music.bitchord.data.model.Song
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import com.music.bitchord.data.TrackLog
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -195,34 +200,40 @@ object LocalPlaylistStore {
         return _playlists.value.firstOrNull { it.id == cleanId || it.id == id || it.browseId == id }
     }
 
+    private val persistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+
     private fun persist(list: List<LocalPlaylist>) {
         if (!this::prefs.isInitialized) return
-        runCatching {
-            val jsonArray = JSONArray()
-            for (playlist in list) {
-                val pObj = JSONObject()
-                pObj.put("id", playlist.id)
-                pObj.put("title", playlist.title)
-                val songsArray = JSONArray()
-                for (song in playlist.songs) {
-                    val sObj = JSONObject()
-                    sObj.put("videoId", song.videoId)
-                    sObj.put("title", song.title)
-                    sObj.put("artist", song.artist)
-                    sObj.put("thumbnailUrl", song.thumbnailUrl)
-                    sObj.put("durationText", song.durationText)
-                    sObj.put("artistId", song.artistId)
-                    sObj.put("albumId", song.albumId)
-                    sObj.put("albumName", song.albumName)
-                    sObj.put("isVideo", song.isVideo)
-                    songsArray.put(sObj)
+        persistScope.launch {
+            runCatching {
+                val jsonArray = JSONArray()
+                for (playlist in list) {
+                    val pObj = JSONObject()
+                    pObj.put("id", playlist.id)
+                    pObj.put("title", playlist.title)
+                    val songsArray = JSONArray()
+                    for (song in playlist.songs) {
+                        val sObj = JSONObject()
+                        sObj.put("videoId", song.videoId)
+                        sObj.put("title", song.title)
+                        sObj.put("artist", song.artist)
+                        sObj.put("thumbnailUrl", song.thumbnailUrl)
+                        sObj.put("durationText", song.durationText)
+                        sObj.put("artistId", song.artistId)
+                        sObj.put("albumId", song.albumId)
+                        sObj.put("albumName", song.albumName)
+                        sObj.put("isVideo", song.isVideo)
+                        songsArray.put(sObj)
+                    }
+                    pObj.put("songs", songsArray)
+                    playlist.spotifyId?.let { pObj.put("spotifyId", it) }
+                    pObj.put("spotifyTrackIds", JSONArray(playlist.spotifyTrackIds))
+                    jsonArray.put(pObj)
                 }
-                pObj.put("songs", songsArray)
-                playlist.spotifyId?.let { pObj.put("spotifyId", it) }
-                pObj.put("spotifyTrackIds", JSONArray(playlist.spotifyTrackIds))
-                jsonArray.put(pObj)
+                prefs.edit().putString(KEY_PLAYLISTS, jsonArray.toString()).commit()
+            }.onFailure {
+                TrackLog.w("LocalPlaylistStore", "Failed to persist playlists: ${it.message}")
             }
-            prefs.edit().putString(KEY_PLAYLISTS, jsonArray.toString()).apply()
         }
     }
 }
