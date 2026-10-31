@@ -1493,4 +1493,7 @@
     <string name="pipeline_status_audition_rejected">Ditolak saat pengujian (%1$s)</string>
     <string name="tidal_no_answer">Tidak ada jawaban</string>
     <string name="tidal_providers_refresh">Segarkan</string>
+    <string name="spotify_sync_unmatched_view">Lihat dilewati (%1$d)</string>
+    <string name="spotify_sync_unmatched_title">Lagu dilewati</string>
+    <string name="spotify_sync_unmatched_hint">Lagu-lagu ini tidak ditemukan di YouTube Music:</string>
 </resources>

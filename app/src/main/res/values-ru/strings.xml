@@ -1540,4 +1540,7 @@
     <string name="pipeline_status_audition_rejected">Отклонено при тестировании (%1$s)</string>
     <string name="tidal_no_answer">Нет ответа</string>
     <string name="tidal_providers_refresh">Обновить</string>
+    <string name="spotify_sync_unmatched_view">Пропущенные (%1$d)</string>
+    <string name="spotify_sync_unmatched_title">Пропущенные треки</string>
+    <string name="spotify_sync_unmatched_hint">Эти треки не удалось найти в YouTube Music:</string>
 </resources>

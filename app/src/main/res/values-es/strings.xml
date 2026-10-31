@@ -1226,6 +1226,9 @@
     <string name="spotify_sync_done">Playlists al día: %1$d · Canciones nuevas: %2$d · Sin encontrar en YouTube Music: %3$d</string>
     <string name="spotify_sync_some_failed">Playlists que no se pudieron importar: %1$d</string>
     <string name="spotify_sync_retry">Reintentar</string>
+    <string name="spotify_sync_unmatched_view">Ver omitidas (%1$d)</string>
+    <string name="spotify_sync_unmatched_title">Canciones omitidas</string>
+    <string name="spotify_sync_unmatched_hint">Estas canciones no se pudieron emparejar en YouTube Music:</string>
     <string name="spotify_sync_error_signed_out">Tu sesión de Spotify caducó. Inicia sesión de nuevo para continuar.</string>
     <string name="spotify_sync_error_network">Sin conexión. Revisa tu internet e inténtalo de nuevo.</string>
     <string name="spotify_sync_error_other">Algo salió mal: %1$s</string>

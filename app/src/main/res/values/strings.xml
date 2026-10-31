@@ -1193,6 +1193,9 @@
     <string name="spotify_sync_done">Playlists up to date: %1$d · New songs: %2$d · Not found on YouTube Music: %3$d</string>
     <string name="spotify_sync_some_failed">Playlists that couldn\'t be imported: %1$d</string>
     <string name="spotify_sync_retry">Try again</string>
+    <string name="spotify_sync_unmatched_view">View skipped (%1$d)</string>
+    <string name="spotify_sync_unmatched_title">Skipped tracks</string>
+    <string name="spotify_sync_unmatched_hint">These songs could not be matched on YouTube Music:</string>
     <string name="spotify_sync_error_signed_out">Your Spotify sign-in expired. Sign in again to continue.</string>
     <string name="spotify_sync_error_network">No connection. Check your internet and try again.</string>
     <string name="spotify_sync_error_other">Something went wrong: %1$s</string>

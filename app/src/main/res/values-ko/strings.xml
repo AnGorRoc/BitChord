@@ -1349,4 +1349,7 @@
     <string name="pipeline_status_audition_rejected">테스트에서 제외됨(%1$s)</string>
     <string name="tidal_no_answer">응답 없음</string>
     <string name="tidal_providers_refresh">새로고침</string>
+    <string name="spotify_sync_unmatched_view">건너뛴 항목 보기 (%1$d)</string>
+    <string name="spotify_sync_unmatched_title">건너뛴 트랙</string>
+    <string name="spotify_sync_unmatched_hint">이 곡들을 YouTube Music에서 찾을 수 없습니다:</string>
 </resources>

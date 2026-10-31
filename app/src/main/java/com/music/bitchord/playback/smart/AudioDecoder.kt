@@ -165,6 +165,8 @@ object AudioDecoder {
 
     /** Concatenates the decoded chunks into one contiguous buffer. */
     private fun flatten(chunks: List<FloatArray>): FloatArray {
+        if (chunks.isEmpty()) return FloatArray(0)
+        if (chunks.size == 1) return chunks[0]
         val samples = FloatArray(chunks.sumOf { it.size })
         var offset = 0
         for (chunk in chunks) {
@@ -380,16 +382,42 @@ object AudioDecoder {
                 val bytesPerFrame = 3 * safeChannels
                 val frames = dup.remaining() / bytesPerFrame
                 val mono = FloatArray(frames)
-                for (index in 0 until frames) {
-                    var sum = 0.0
-                    for (c in 0 until safeChannels) {
+                if (safeChannels == 2) {
+                    val inv = 1.0 / (2.0 * 8388608.0)
+                    for (index in 0 until frames) {
                         val b0 = dup.get().toInt() and 0xFF
                         val b1 = dup.get().toInt() and 0xFF
                         val b2 = dup.get().toInt() // signed high byte
-                        val sample = (b2 shl 16) or (b1 shl 8) or b0
-                        sum += sample / 8388608.0
+                        val left = (b2 shl 16) or (b1 shl 8) or b0
+
+                        val b3 = dup.get().toInt() and 0xFF
+                        val b4 = dup.get().toInt() and 0xFF
+                        val b5 = dup.get().toInt() // signed high byte
+                        val right = (b5 shl 16) or (b4 shl 8) or b3
+
+                        mono[index] = ((left + right) * inv).toFloat().coerceIn(-1f, 1f)
                     }
-                    mono[index] = (sum / safeChannels).toFloat().coerceIn(-1f, 1f)
+                } else if (safeChannels == 1) {
+                    val inv = 1.0 / 8388608.0
+                    for (index in 0 until frames) {
+                        val b0 = dup.get().toInt() and 0xFF
+                        val b1 = dup.get().toInt() and 0xFF
+                        val b2 = dup.get().toInt()
+                        val sample = (b2 shl 16) or (b1 shl 8) or b0
+                        mono[index] = (sample * inv).toFloat().coerceIn(-1f, 1f)
+                    }
+                } else {
+                    for (index in 0 until frames) {
+                        var sum = 0.0
+                        for (c in 0 until safeChannels) {
+                            val b0 = dup.get().toInt() and 0xFF
+                            val b1 = dup.get().toInt() and 0xFF
+                            val b2 = dup.get().toInt() // signed high byte
+                            val sample = (b2 shl 16) or (b1 shl 8) or b0
+                            sum += sample / 8388608.0
+                        }
+                        mono[index] = (sum / safeChannels).toFloat().coerceIn(-1f, 1f)
+                    }
                 }
                 mono
             }
@@ -397,12 +425,26 @@ object AudioDecoder {
                 val ints = dup.asIntBuffer()
                 val frames = ints.remaining() / safeChannels
                 val mono = FloatArray(frames)
-                val frame = IntArray(safeChannels)
-                for (index in 0 until frames) {
-                    ints.get(frame, 0, safeChannels)
-                    var sum = 0.0
-                    for (value in frame) sum += value / 2147483648.0
-                    mono[index] = (sum / safeChannels).toFloat().coerceIn(-1f, 1f)
+                if (safeChannels == 2) {
+                    val inv = 1.0 / (2.0 * 2147483648.0)
+                    for (index in 0 until frames) {
+                        val left = ints.get().toLong()
+                        val right = ints.get().toLong()
+                        mono[index] = ((left + right) * inv).toFloat().coerceIn(-1f, 1f)
+                    }
+                } else if (safeChannels == 1) {
+                    val inv = 1.0 / 2147483648.0
+                    for (index in 0 until frames) {
+                        mono[index] = (ints.get() * inv).toFloat().coerceIn(-1f, 1f)
+                    }
+                } else {
+                    val frame = IntArray(safeChannels)
+                    for (index in 0 until frames) {
+                        ints.get(frame, 0, safeChannels)
+                        var sum = 0.0
+                        for (value in frame) sum += value / 2147483648.0
+                        mono[index] = (sum / safeChannels).toFloat().coerceIn(-1f, 1f)
+                    }
                 }
                 mono
             }
@@ -485,16 +527,40 @@ object AudioDecoder {
                 val frames = dup.remaining() / bytesPerFrame
                 val leftChunk = FloatArray(frames)
                 val rightChunk = FloatArray(frames)
-                for (index in 0 until frames) {
-                    for (c in 0 until safeChannels) {
+                if (safeChannels == 2) {
+                    val inv = 1.0f / 8388608.0f
+                    for (index in 0 until frames) {
                         val b0 = dup.get().toInt() and 0xFF
                         val b1 = dup.get().toInt() and 0xFF
                         val b2 = dup.get().toInt()
-                        val sample = (((b2 shl 16) or (b1 shl 8) or b0) / 8388608.0f).coerceIn(-1f, 1f)
-                        if (c == 0) leftChunk[index] = sample
-                        if (c == 1) rightChunk[index] = sample
+                        leftChunk[index] = (((b2 shl 16) or (b1 shl 8) or b0) * inv).coerceIn(-1f, 1f)
+
+                        val b3 = dup.get().toInt() and 0xFF
+                        val b4 = dup.get().toInt() and 0xFF
+                        val b5 = dup.get().toInt()
+                        rightChunk[index] = (((b5 shl 16) or (b4 shl 8) or b3) * inv).coerceIn(-1f, 1f)
                     }
-                    if (safeChannels == 1) rightChunk[index] = leftChunk[index]
+                } else if (safeChannels == 1) {
+                    val inv = 1.0f / 8388608.0f
+                    for (index in 0 until frames) {
+                        val b0 = dup.get().toInt() and 0xFF
+                        val b1 = dup.get().toInt() and 0xFF
+                        val b2 = dup.get().toInt()
+                        val sample = (((b2 shl 16) or (b1 shl 8) or b0) * inv).coerceIn(-1f, 1f)
+                        leftChunk[index] = sample
+                        rightChunk[index] = sample
+                    }
+                } else {
+                    for (index in 0 until frames) {
+                        for (c in 0 until safeChannels) {
+                            val b0 = dup.get().toInt() and 0xFF
+                            val b1 = dup.get().toInt() and 0xFF
+                            val b2 = dup.get().toInt()
+                            val sample = (((b2 shl 16) or (b1 shl 8) or b0) / 8388608.0f).coerceIn(-1f, 1f)
+                            if (c == 0) leftChunk[index] = sample
+                            if (c == 1) rightChunk[index] = sample
+                        }
+                    }
                 }
                 left += leftChunk
                 right += rightChunk
@@ -504,11 +570,26 @@ object AudioDecoder {
                 val frames = ints.remaining() / safeChannels
                 val leftChunk = FloatArray(frames)
                 val rightChunk = FloatArray(frames)
-                val frame = IntArray(safeChannels)
-                for (index in 0 until frames) {
-                    ints.get(frame, 0, safeChannels)
-                    leftChunk[index] = (frame[0] / 2147483648.0f).coerceIn(-1f, 1f)
-                    rightChunk[index] = ((if (safeChannels > 1) frame[1] else frame[0]) / 2147483648.0f).coerceIn(-1f, 1f)
+                if (safeChannels == 2) {
+                    val inv = 1.0f / 2147483648.0f
+                    for (index in 0 until frames) {
+                        leftChunk[index] = (ints.get() * inv).coerceIn(-1f, 1f)
+                        rightChunk[index] = (ints.get() * inv).coerceIn(-1f, 1f)
+                    }
+                } else if (safeChannels == 1) {
+                    val inv = 1.0f / 2147483648.0f
+                    for (index in 0 until frames) {
+                        val sample = (ints.get() * inv).coerceIn(-1f, 1f)
+                        leftChunk[index] = sample
+                        rightChunk[index] = sample
+                    }
+                } else {
+                    val frame = IntArray(safeChannels)
+                    for (index in 0 until frames) {
+                        ints.get(frame, 0, safeChannels)
+                        leftChunk[index] = (frame[0] / 2147483648.0f).coerceIn(-1f, 1f)
+                        rightChunk[index] = ((if (safeChannels > 1) frame[1] else frame[0]) / 2147483648.0f).coerceIn(-1f, 1f)
+                    }
                 }
                 left += leftChunk
                 right += rightChunk

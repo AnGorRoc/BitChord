@@ -1470,4 +1470,7 @@
     <string name="pipeline_status_audition_rejected">Test sırasında reddedildi (%1$s)</string>
     <string name="tidal_no_answer">Yanıt yok</string>
     <string name="tidal_providers_refresh">Yenile</string>
+    <string name="spotify_sync_unmatched_view">Atlananları gör (%1$d)</string>
+    <string name="spotify_sync_unmatched_title">Atlanan parçalar</string>
+    <string name="spotify_sync_unmatched_hint">Bu şarkılar YouTube Music\'te bulunamadı:</string>
 </resources>

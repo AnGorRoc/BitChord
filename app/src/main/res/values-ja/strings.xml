@@ -1494,4 +1494,7 @@
     <string name="pipeline_status_audition_rejected">テストで不採用（%1$s）</string>
     <string name="tidal_no_answer">応答なし</string>
     <string name="tidal_providers_refresh">更新</string>
+    <string name="spotify_sync_unmatched_view">スキップされた曲を表示 (%1$d)</string>
+    <string name="spotify_sync_unmatched_title">スキップされた曲</string>
+    <string name="spotify_sync_unmatched_hint">これらの曲はYouTube Musicで見つかりませんでした:</string>
 </resources>

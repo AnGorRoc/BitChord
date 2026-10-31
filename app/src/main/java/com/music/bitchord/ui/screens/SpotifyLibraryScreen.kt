@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -79,6 +80,7 @@ import com.music.bitchord.data.spotify.LocalPlaylistStore
 import com.music.bitchord.data.spotify.SpotifyCache
 import com.music.bitchord.data.spotify.SpotifyLibrary
 import com.music.bitchord.data.spotify.SpotifyPlaylist
+import com.music.bitchord.data.spotify.SpotifyTrack
 import com.music.bitchord.data.spotify.SpotifySync
 import com.music.bitchord.data.spotify.SpotifySyncState
 import com.music.bitchord.data.spotify.SyncErrorKind
@@ -228,6 +230,7 @@ fun SpotifyLibraryScreen(
         }.associateBy { it.playlist.id }
     }
     val activeId = (sync as? SpotifySyncState.Running)?.playlist?.id
+    var unmatchedDialogTracks by remember { mutableStateOf<List<SpotifyTrack>?>(null) }
 
     BackHandler(enabled = state.selecting) { state.clear() }
 
@@ -342,9 +345,17 @@ fun SpotifyLibraryScreen(
             SyncBar(
                 sync = sync,
                 onSignIn = onOpenLogin,
+                onViewUnmatched = { unmatchedDialogTracks = it },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = topBarContentPadding(), start = PAGE_GUTTER, end = PAGE_GUTTER),
+            )
+        }
+
+        unmatchedDialogTracks?.let { tracks ->
+            UnmatchedTracksDialog(
+                tracks = tracks,
+                onDismiss = { unmatchedDialogTracks = null },
             )
         }
 
@@ -559,7 +570,12 @@ private fun BarPill(
  * and a hairline of progress while it runs, then how it ended.
  */
 @Composable
-private fun SyncBar(sync: SpotifySyncState, onSignIn: () -> Unit, modifier: Modifier) {
+private fun SyncBar(
+    sync: SpotifySyncState,
+    onSignIn: () -> Unit,
+    onViewUnmatched: (List<SpotifyTrack>) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     when (sync) {
         is SpotifySyncState.Running -> FloatingBar(
             modifier = modifier,
@@ -593,6 +609,11 @@ private fun SyncBar(sync: SpotifySyncState, onSignIn: () -> Unit, modifier: Modi
                 },
                 subtitleIsError = true,
             )
+            if (sync.unmatchedTracks.isNotEmpty()) {
+                TextButton(onClick = { onViewUnmatched(sync.unmatchedTracks) }) {
+                    Text(stringResource(R.string.spotify_sync_unmatched_view, sync.unmatchedTracks.size))
+                }
+            }
             if (sync.failures.isNotEmpty()) {
                 TextButton(onClick = SpotifySync::retryFailed) {
                     Text(stringResource(R.string.spotify_sync_retry))
@@ -614,6 +635,61 @@ private fun SyncBar(sync: SpotifySyncState, onSignIn: () -> Unit, modifier: Modi
         }
         SpotifySyncState.Idle -> Unit
     }
+}
+
+@Composable
+private fun UnmatchedTracksDialog(
+    tracks: List<SpotifyTrack>,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.spotify_sync_unmatched_title),
+                style = MaterialTheme.typography.titleLarge,
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = stringResource(R.string.spotify_sync_unmatched_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 280.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(tracks) { track ->
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = track.title,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            if (track.artist.isNotBlank()) {
+                                Text(
+                                    text = track.artist,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.close))
+            }
+        },
+    )
 }
 
 @Composable

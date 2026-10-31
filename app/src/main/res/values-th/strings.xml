@@ -1499,4 +1499,7 @@
     <string name="pipeline_status_audition_rejected">ถูกปฏิเสธในการทดสอบ (%1$s)</string>
     <string name="tidal_no_answer">ไม่มีคำตอบ</string>
     <string name="tidal_providers_refresh">รีเฟรช</string>
+    <string name="spotify_sync_unmatched_view">ดูที่ข้าม (%1$d)</string>
+    <string name="spotify_sync_unmatched_title">แทร็กที่ข้าม</string>
+    <string name="spotify_sync_unmatched_hint">ไม่พบเพลงเหล่านี้ใน YouTube Music:</string>
 </resources>

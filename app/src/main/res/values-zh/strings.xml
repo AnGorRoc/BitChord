@@ -1493,4 +1493,7 @@
     <string name="pipeline_status_audition_rejected">在测试中被拒绝（%1$s）</string>
     <string name="tidal_no_answer">无响应</string>
     <string name="tidal_providers_refresh">刷新</string>
+    <string name="spotify_sync_unmatched_view">查看已跳过 (%1$d)</string>
+    <string name="spotify_sync_unmatched_title">已跳过曲目</string>
+    <string name="spotify_sync_unmatched_hint">在 YouTube Music 上未找到以下曲目：</string>
 </resources>

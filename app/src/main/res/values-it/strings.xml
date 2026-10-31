@@ -1452,4 +1452,7 @@
     <string name="pipeline_status_audition_rejected">Respinto durante il test (%1$s)</string>
     <string name="tidal_no_answer">Nessuna risposta</string>
     <string name="tidal_providers_refresh">Aggiorna</string>
+    <string name="spotify_sync_unmatched_view">Visualizza ignorati (%1$d)</string>
+    <string name="spotify_sync_unmatched_title">Brani ignorati</string>
+    <string name="spotify_sync_unmatched_hint">Questi brani non sono stati trovati su YouTube Music:</string>
 </resources>

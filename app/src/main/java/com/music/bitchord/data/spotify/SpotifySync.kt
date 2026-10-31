@@ -77,6 +77,7 @@ sealed interface SpotifySyncState {
         val unmatched: Int,
         val failures: List<SyncFailure>,
         val cancelled: Boolean,
+        val unmatchedTracks: List<SpotifyTrack> = emptyList(),
     ) : SpotifySyncState
 
     /** The run could not go on at all, as when the sign-in has expired. */
@@ -136,6 +137,7 @@ object SpotifySync {
         var added = 0
         var unmatched = 0
         val failures = mutableListOf<SyncFailure>()
+        val allUnmatched = mutableListOf<SpotifyTrack>()
         try {
             playlists.forEachIndexed { index, playlist ->
                 _state.value = SpotifySyncState.Running(
@@ -151,6 +153,7 @@ object SpotifySync {
                     imported++
                     added += result.added
                     unmatched += result.unmatched
+                    allUnmatched += result.unmatchedTracks
                     if (result.lookupFailures > 0) {
                         failures += SyncFailure(
                             playlist,
@@ -169,14 +172,33 @@ object SpotifySync {
                     failures += SyncFailure(playlist, kind, e.message.orEmpty())
                 }
             }
-            _state.value = SpotifySyncState.Finished(imported, added, unmatched, failures.toList(), cancelled = false)
+            _state.value = SpotifySyncState.Finished(
+                imported = imported,
+                added = added,
+                unmatched = unmatched,
+                failures = failures.toList(),
+                cancelled = false,
+                unmatchedTracks = allUnmatched.toList(),
+            )
         } catch (e: CancellationException) {
-            _state.value = SpotifySyncState.Finished(imported, added, unmatched, failures.toList(), cancelled = true)
+            _state.value = SpotifySyncState.Finished(
+                imported = imported,
+                added = added,
+                unmatched = unmatched,
+                failures = failures.toList(),
+                cancelled = true,
+                unmatchedTracks = allUnmatched.toList(),
+            )
             throw e
         }
     }
 
-    private class Result(val added: Int, val unmatched: Int, val lookupFailures: Int)
+    private class Result(
+        val added: Int,
+        val unmatched: Int,
+        val lookupFailures: Int,
+        val unmatchedTracks: List<SpotifyTrack>,
+    )
 
     private const val MAX_CONCURRENT_MATCHES = 5
 
@@ -204,6 +226,9 @@ object SpotifySync {
         }
         val kept = tracks.indices.filter { outcomes[it] is TrackMatch.Found }
         val failed = outcomes.count { it is TrackMatch.Failed }
+        val unmatchedTracks = tracks.indices
+            .filter { outcomes[it] is TrackMatch.NotFound }
+            .map { tracks[it] }
         // A song whose lookup failed is not kept out for good: it is simply not
         // saved yet, and the playlist is reported as incomplete so a retry
         // looks those up again.
@@ -217,6 +242,7 @@ object SpotifySync {
             added = kept.count { tracks[it].id !in known },
             unmatched = outcomes.count { it is TrackMatch.NotFound },
             lookupFailures = failed,
+            unmatchedTracks = unmatchedTracks,
         )
     }
 

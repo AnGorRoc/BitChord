@@ -1513,4 +1513,7 @@
     <string name="pipeline_status_audition_rejected">परीक्षण में अस्वीकृत (%1$s)</string>
     <string name="tidal_no_answer">कोई जवाब नहीं</string>
     <string name="tidal_providers_refresh">ताज़ा करें</string>
+    <string name="spotify_sync_unmatched_view">छूटे हुए देखें (%1$d)</string>
+    <string name="spotify_sync_unmatched_title">छूटे हुए गाने</string>
+    <string name="spotify_sync_unmatched_hint">ये गाने YouTube Music पर नहीं मिले:</string>
 </resources>

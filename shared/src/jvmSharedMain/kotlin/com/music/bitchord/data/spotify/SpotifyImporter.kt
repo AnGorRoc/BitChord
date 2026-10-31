@@ -175,19 +175,63 @@ object SpotifyImporter {
      * apart.
      */
     suspend fun lookUp(track: SpotifyTrack): Song? {
-        val query = listOf(track.title, track.artist).filter { it.isNotBlank() }.joinToString(" ")
-        val candidates = YtMusicRepository.search(query, SearchFilter.SONGS).getOrThrow()
-            .filterIsInstance<SearchResult.Track>()
-            .map { it.song }
-        return TrackMatcher.best(
-            candidates,
-            TrackMatcher.Target(
-                title = track.title,
-                artist = track.artist,
-                durationSec = track.durationMs.takeIf { it > 0 }?.div(1000),
-                album = track.album,
-            ),
-        ) ?: candidates.firstOrNull()
+        val target = TrackMatcher.Target(
+            title = track.title,
+            artist = track.artist,
+            durationSec = track.durationMs.takeIf { it > 0 }?.div(1000),
+            album = track.album,
+        )
+
+        val directQuery = listOf(track.title, track.artist).filter { it.isNotBlank() }.joinToString(" ")
+        val queries = (TrackMatcher.queries(target) + directQuery).filter { it.isNotBlank() }.distinct()
+
+        // Primary search using SONGS filter (must throw on network failure)
+        val firstQuery = queries.firstOrNull() ?: directQuery
+        val firstCandidates = YtMusicRepository.search(firstQuery, SearchFilter.SONGS).getOrThrow()
+            .mapNotNull {
+                when (it) {
+                    is SearchResult.Track -> it.song
+                    is SearchResult.TopTrack -> it.song
+                    else -> null
+                }
+            }
+        if (firstCandidates.isNotEmpty()) {
+            val best = TrackMatcher.best(firstCandidates, target) ?: firstCandidates.firstOrNull()
+            if (best != null) return best
+        }
+
+        // Try clean/alternative queries if primary search didn't yield a match
+        for (query in queries.drop(1)) {
+            val candidates = runCatching {
+                YtMusicRepository.search(query, SearchFilter.SONGS).getOrThrow()
+            }.getOrNull().orEmpty().mapNotNull {
+                when (it) {
+                    is SearchResult.Track -> it.song
+                    is SearchResult.TopTrack -> it.song
+                    else -> null
+                }
+            }
+            if (candidates.isNotEmpty()) {
+                val best = TrackMatcher.best(candidates, target) ?: candidates.firstOrNull()
+                if (best != null) return best
+            }
+        }
+
+        // Fallback: search ALL without restrictions in case it's categorized as music video / top result
+        val allCandidates = runCatching {
+            YtMusicRepository.search(firstQuery, SearchFilter.ALL).getOrThrow()
+        }.getOrNull().orEmpty().mapNotNull {
+            when (it) {
+                is SearchResult.Track -> it.song
+                is SearchResult.TopTrack -> it.song
+                else -> null
+            }
+        }
+        if (allCandidates.isNotEmpty()) {
+            return TrackMatcher.best(allCandidates, target) ?: allCandidates.firstOrNull()
+        }
+
+        return null
     }
 
     /** Tracks the embed page lists before it cuts off. */
