@@ -220,11 +220,13 @@ fun SpotifyLibraryScreen(
     val sync by SpotifySync.state.collectAsStateWithLifecycle()
     val local by LocalPlaylistStore.playlists.collectAsStateWithLifecycle()
     val importedIds = remember(local) { local.mapNotNull { it.spotifyId }.toSet() }
-    val failures = when (val s = sync) {
-        is SpotifySyncState.Running -> s.failures
-        is SpotifySyncState.Finished -> s.failures
-        else -> emptyList()
-    }.associateBy { it.playlist.id }
+    val failures = remember(sync) {
+        when (val s = sync) {
+            is SpotifySyncState.Running -> s.failures
+            is SpotifySyncState.Finished -> s.failures
+            else -> emptyList()
+        }.associateBy { it.playlist.id }
+    }
     val activeId = (sync as? SpotifySyncState.Running)?.playlist?.id
 
     BackHandler(enabled = state.selecting) { state.clear() }

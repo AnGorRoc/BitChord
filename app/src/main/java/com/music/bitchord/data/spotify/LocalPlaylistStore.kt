@@ -26,8 +26,11 @@ data class LocalPlaylist(
      * a partly unreadable save: pairing them anyway would attach tracks to the
      * wrong songs.
      */
-    fun matchedSongs(): Map<String, Song> =
+    private val cachedMatches: Map<String, Song> by lazy {
         if (spotifyTrackIds.size == songs.size) spotifyTrackIds.zip(songs).toMap() else emptyMap()
+    }
+
+    fun matchedSongs(): Map<String, Song> = cachedMatches
 }
 
 object LocalPlaylistStore {

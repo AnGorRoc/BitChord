@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 /** Why a playlist, or the whole run, could not be imported. */
 enum class SyncErrorKind { SIGNED_OUT, NETWORK, OTHER }
@@ -176,6 +178,8 @@ object SpotifySync {
 
     private class Result(val added: Int, val unmatched: Int, val lookupFailures: Int)
 
+    private const val MAX_CONCURRENT_MATCHES = 5
+
     private val matcher = SpotifyTrackMatcher(SpotifyImporter::lookUp)
 
     private suspend fun syncPlaylist(playlist: SpotifyPlaylist): Result {
@@ -183,12 +187,13 @@ object SpotifySync {
         val known = LocalPlaylistStore.findBySpotifyId(playlist.id)?.matchedSongs().orEmpty()
         publishProgress(playlist, 0, tracks.size)
         val done = AtomicInteger(0)
+        val semaphore = Semaphore(MAX_CONCURRENT_MATCHES)
         val outcomes: List<TrackMatch> = coroutineScope {
             tracks.map { track ->
                 async {
                     val outcome = (known[track.id] ?: SpotifyCache.getMatch(track.id))
                         ?.let { TrackMatch.Found(it) }
-                        ?: matcher.match(track)
+                        ?: semaphore.withPermit { matcher.match(track) }
                     if (outcome is TrackMatch.Found && !outcome.song.isUnresolvedSpotify) {
                         SpotifyCache.putMatch(track.id, outcome.song)
                     }

@@ -322,18 +322,20 @@ object AudioDecoder {
      * 232 ms per buffer. Measuring the shift between two copies on a timeline
      * the player never hears would put the error back in through the side door.
      */
-    private fun createDecoder(mime: String): MediaCodec? = runCatching {
-        val named = if (mime == FLAC_MIME) {
+    private val flacDecoderName: String? by lazy {
+        runCatching {
             val usable = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
                 .filter { info ->
                     !info.isEncoder &&
-                        info.supportedTypes.any { it.equals(mime, ignoreCase = true) } &&
+                        info.supportedTypes.any { it.equals(FLAC_MIME, ignoreCase = true) } &&
                         !AudioOutputPolicy.isUnsafeFloatFlacDecoder(info.name)
                 }
             (usable.firstOrNull { it.name.startsWith("c2.android.") } ?: usable.firstOrNull())?.name
-        } else {
-            null
-        }
+        }.getOrNull()
+    }
+
+    private fun createDecoder(mime: String): MediaCodec? = runCatching {
+        val named = if (mime == FLAC_MIME) flacDecoderName else null
         if (named != null) MediaCodec.createByCodecName(named) else MediaCodec.createDecoderByType(mime)
     }.onFailure { TrackLog.w(TAG, "No decoder for $mime", it) }.getOrNull()
 
@@ -355,12 +357,22 @@ object AudioDecoder {
                 val floats = dup.asFloatBuffer()
                 val frames = floats.remaining() / safeChannels
                 val mono = FloatArray(frames)
-                val frame = FloatArray(safeChannels)
-                for (index in 0 until frames) {
-                    floats.get(frame, 0, safeChannels)
-                    var sum = 0f
-                    for (value in frame) sum += value
-                    mono[index] = (sum / safeChannels).coerceIn(-1f, 1f)
+                if (safeChannels == 2) {
+                    for (index in 0 until frames) {
+                        mono[index] = ((floats.get() + floats.get()) * 0.5f).coerceIn(-1f, 1f)
+                    }
+                } else if (safeChannels == 1) {
+                    for (index in 0 until frames) {
+                        mono[index] = floats.get().coerceIn(-1f, 1f)
+                    }
+                } else {
+                    val frame = FloatArray(safeChannels)
+                    for (index in 0 until frames) {
+                        floats.get(frame, 0, safeChannels)
+                        var sum = 0f
+                        for (value in frame) sum += value
+                        mono[index] = (sum / safeChannels).coerceIn(-1f, 1f)
+                    }
                 }
                 mono
             }
@@ -398,12 +410,24 @@ object AudioDecoder {
                 val shorts = dup.asShortBuffer()
                 val frames = shorts.remaining() / safeChannels
                 val mono = FloatArray(frames)
-                val frame = ShortArray(safeChannels)
-                for (index in 0 until frames) {
-                    shorts.get(frame, 0, safeChannels)
-                    var sum = 0
-                    for (value in frame) sum += value
-                    mono[index] = (sum / safeChannels.toFloat()) / 32768f
+                if (safeChannels == 2) {
+                    for (index in 0 until frames) {
+                        val left = shorts.get().toInt()
+                        val right = shorts.get().toInt()
+                        mono[index] = ((left + right) * 0.5f) / 32768f
+                    }
+                } else if (safeChannels == 1) {
+                    for (index in 0 until frames) {
+                        mono[index] = shorts.get() / 32768f
+                    }
+                } else {
+                    val frame = ShortArray(safeChannels)
+                    for (index in 0 until frames) {
+                        shorts.get(frame, 0, safeChannels)
+                        var sum = 0
+                        for (value in frame) sum += value
+                        mono[index] = (sum / safeChannels.toFloat()) / 32768f
+                    }
                 }
                 mono
             }
@@ -434,11 +458,24 @@ object AudioDecoder {
                 val frames = floats.remaining() / safeChannels
                 val leftChunk = FloatArray(frames)
                 val rightChunk = FloatArray(frames)
-                val frame = FloatArray(safeChannels)
-                for (index in 0 until frames) {
-                    floats.get(frame, 0, safeChannels)
-                    leftChunk[index] = frame[0].coerceIn(-1f, 1f)
-                    rightChunk[index] = (if (safeChannels > 1) frame[1] else frame[0]).coerceIn(-1f, 1f)
+                if (safeChannels == 2) {
+                    for (index in 0 until frames) {
+                        leftChunk[index] = floats.get().coerceIn(-1f, 1f)
+                        rightChunk[index] = floats.get().coerceIn(-1f, 1f)
+                    }
+                } else if (safeChannels == 1) {
+                    for (index in 0 until frames) {
+                        val s = floats.get().coerceIn(-1f, 1f)
+                        leftChunk[index] = s
+                        rightChunk[index] = s
+                    }
+                } else {
+                    val frame = FloatArray(safeChannels)
+                    for (index in 0 until frames) {
+                        floats.get(frame, 0, safeChannels)
+                        leftChunk[index] = frame[0].coerceIn(-1f, 1f)
+                        rightChunk[index] = (if (safeChannels > 1) frame[1] else frame[0]).coerceIn(-1f, 1f)
+                    }
                 }
                 left += leftChunk
                 right += rightChunk
@@ -481,11 +518,24 @@ object AudioDecoder {
                 val frames = shorts.remaining() / safeChannels
                 val leftChunk = FloatArray(frames)
                 val rightChunk = FloatArray(frames)
-                val frame = ShortArray(safeChannels)
-                for (index in 0 until frames) {
-                    shorts.get(frame, 0, safeChannels)
-                    leftChunk[index] = frame[0] / 32768f
-                    rightChunk[index] = (if (safeChannels > 1) frame[1] else frame[0]) / 32768f
+                if (safeChannels == 2) {
+                    for (index in 0 until frames) {
+                        leftChunk[index] = shorts.get() / 32768f
+                        rightChunk[index] = shorts.get() / 32768f
+                    }
+                } else if (safeChannels == 1) {
+                    for (index in 0 until frames) {
+                        val s = shorts.get() / 32768f
+                        leftChunk[index] = s
+                        rightChunk[index] = s
+                    }
+                } else {
+                    val frame = ShortArray(safeChannels)
+                    for (index in 0 until frames) {
+                        shorts.get(frame, 0, safeChannels)
+                        leftChunk[index] = frame[0] / 32768f
+                        rightChunk[index] = (if (safeChannels > 1) frame[1] else frame[0]) / 32768f
+                    }
                 }
                 left += leftChunk
                 right += rightChunk

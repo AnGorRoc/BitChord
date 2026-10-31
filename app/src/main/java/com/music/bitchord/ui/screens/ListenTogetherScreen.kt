@@ -994,9 +994,12 @@ private fun NowPlayingInTheParty(state: ListenTogether.State) {
     var positionMs by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(state.playback.seq, state.playback.isPlaying) {
-        while (true) {
-            positionMs = ListenTogether.partyPositionMs() ?: 0L
-            delay(250)
+        positionMs = ListenTogether.partyPositionMs() ?: 0L
+        if (state.playback.isPlaying) {
+            while (true) {
+                delay(250)
+                positionMs = ListenTogether.partyPositionMs() ?: 0L
+            }
         }
     }
 

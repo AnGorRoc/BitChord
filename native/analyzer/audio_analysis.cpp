@@ -64,6 +64,20 @@ double Percentile(std::vector<double> values, double ratio) {
   return values[index];
 }
 
+std::pair<double, double> TwoPercentiles(std::vector<double> values, double ratio1, double ratio2) {
+  if (values.empty()) return {0, 0};
+  const size_t index1 = static_cast<size_t>(Clamp(ratio1, 0, 1) * (values.size() - 1));
+  const size_t index2 = static_cast<size_t>(Clamp(ratio2, 0, 1) * (values.size() - 1));
+  if (index1 <= index2) {
+    std::nth_element(values.begin(), values.begin() + index1, values.end());
+    std::nth_element(values.begin() + index1 + 1, values.begin() + index2, values.end());
+  } else {
+    std::nth_element(values.begin(), values.begin() + index2, values.end());
+    std::nth_element(values.begin() + index2 + 1, values.begin() + index1, values.end());
+  }
+  return {values[index1], values[index2]};
+}
+
 double Average(const std::vector<double>& values, size_t start, size_t end) {
   start = std::min(start, values.size());
   end = std::min(std::max(start, end), values.size());
@@ -148,8 +162,9 @@ EnvelopeResult AnalyzeEnvelope(
   }
   if (result.levels.empty()) return result;
 
-  result.noise_floor = Percentile(result.levels, 0.05);
-  result.reference = Percentile(result.levels, 0.85);
+  const auto [p_noise, p_ref] = TwoPercentiles(result.levels, 0.05, 0.85);
+  result.noise_floor = p_noise;
+  result.reference = p_ref;
   result.threshold = std::max({
     0.0025,
     std::min(result.noise_floor * 2.6, result.reference * 0.28),
@@ -618,8 +633,9 @@ AnalysisResult AnalyzeAudio(
   const double rms = std::sqrt(square_sum / std::max<size_t>(1, content_end - content_start));
   result.loudness_lufs = std::max(-70.0, ToDb(rms) - 0.691);
   result.peak_dbfs = ToDb(peak);
+  const auto [p20, p95] = TwoPercentiles(envelope.levels, 0.2, 0.95);
   result.dynamic_range_db = Clamp(
-    ToDb(Percentile(envelope.levels, 0.95)) - ToDb(Percentile(envelope.levels, 0.2)),
+    ToDb(p95) - ToDb(p20),
     0,
     70
   );

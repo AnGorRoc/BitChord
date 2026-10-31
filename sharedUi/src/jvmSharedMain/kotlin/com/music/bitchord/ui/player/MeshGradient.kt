@@ -57,6 +57,15 @@ private val FallbackColors = listOf(
     Color(0xFFFFAF7B),
 )
 
+private val MESH_ANCHORS = listOf(
+    Offset(0.20f, 0.25f),
+    Offset(0.80f, 0.20f),
+    Offset(0.75f, 0.80f),
+    Offset(0.25f, 0.75f),
+)
+
+private val MESH_SPEEDS = floatArrayOf(1f, -0.7f, 0.85f, -1.15f)
+
 /** The four mesh colours, wrapped so the backdrop can skip recomposition. */
 @Immutable
 data class MeshPalette(val colors: List<Color>)
@@ -122,9 +131,11 @@ fun MeshGradientBackground(
 ) {
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
 
-    val tuned = (palette.colors.ifEmpty { FallbackColors } + FallbackColors)
-        .take(4)
-        .map { it.tuned() }
+    val tuned = remember(palette) {
+        (palette.colors.ifEmpty { FallbackColors } + FallbackColors)
+            .take(4)
+            .map { it.tuned() }
+    }
 
     // Each colour slot crossfades independently when the track (palette) changes,
     // unless "reduce animation" is on, in which case colours snap straight to target.
@@ -183,20 +194,14 @@ fun MeshGradientBackground(
             .background(baseColor)
             .blur(blurRadius),
     ) {
-        val anchors = listOf(
-            Offset(0.20f, 0.25f),
-            Offset(0.80f, 0.20f),
-            Offset(0.75f, 0.80f),
-            Offset(0.25f, 0.75f),
-        )
-        val speeds = listOf(1f, -0.7f, 0.85f, -1.15f)
         val drift = phase.value
 
         animatedColors.forEachIndexed { index, color ->
-            val anchor = anchors[index]
+            val anchor = MESH_ANCHORS[index]
+            val speed = MESH_SPEEDS[index]
             val center = Offset(
-                x = (anchor.x + 0.16f * cos(drift * speeds[index] + index * 1.7f)) * size.width,
-                y = (anchor.y + 0.16f * sin(drift * speeds[index] * 0.9f + index * 2.3f)) * size.height,
+                x = (anchor.x + 0.16f * cos(drift * speed + index * 1.7f)) * size.width,
+                y = (anchor.y + 0.16f * sin(drift * speed * 0.9f + index * 2.3f)) * size.height,
             )
             val radius = size.maxDimension * 0.62f
             drawCircle(
