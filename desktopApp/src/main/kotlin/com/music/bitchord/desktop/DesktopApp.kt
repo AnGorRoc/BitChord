@@ -3145,6 +3145,20 @@ fun BitChordDesktopApp() {
         typography = desktopTypography(),
     ) {
         val ambientBackdrop by DesktopAppearanceSettings.ambientBackdrop.collectAsState()
+        val ambientArtworkUrl = replaySummary.songs.firstOrNull()?.song?.thumbnailUrl
+            .takeIf { overlays.replay }
+            ?: selectedSong?.thumbnailUrl.takeIf { ambientBackdrop }
+        val artworkPalette = rememberDesktopArtworkPalette(ambientArtworkUrl)
+        val windowScope = LocalDesktopWindowScope.current
+        LaunchedEffect(windowScope?.window, ambientArtworkUrl, artworkPalette, ambientBackdrop) {
+            val window = windowScope?.window ?: return@LaunchedEffect
+            val targetColor = if (ambientBackdrop && ambientArtworkUrl != null) {
+                artworkPalette.primary
+            } else {
+                DesktopBackground
+            }
+            DesktopWindowsTheme.updateTitleBar(window, targetColor)
+        }
         val windowActions = LocalDesktopWindowActions.current
         CompositionLocalProvider(
             LocalContentColor provides Color.White,
