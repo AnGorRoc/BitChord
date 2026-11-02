@@ -98,13 +98,13 @@ private fun desktopMain() = application {
         title = "BitChord",
         icon = painterResource(Res.drawable.logo),
         state = state,
-        // No system title bar on Windows, where the application draws its own instead — see
-        // [DesktopWindowChrome].
+        // No system title bar on macOS, where the application draws its own instead — see
+        // [DesktopWindowChrome]. Windows and Linux use the system's native window frame.
         undecorated = DesktopPlatform.drawsOwnWindowFrame,
         // For Mica and Acrylic behind the sidebar and top bar: only a transparent window lets
         // DWM's material show through the chrome. Fixed at creation, so it is on wherever the
         // material is possible and the chosen one can be switched live — see [DesktopWindowBackdrop].
-        transparent = DesktopWindowBackdrop.available,
+        transparent = DesktopWindowBackdrop.available && DesktopPlatform.drawsOwnWindowFrame,
         resizable = true,
     ) {
         val composeWindow = window
@@ -115,7 +115,7 @@ private fun desktopMain() = application {
             // window takes to repaint: a white band along its edges.
             // Not over a transparent window, whose clear background is what the material shows
             // through; DWM moves that window, so there is no band to hide.
-            if (!DesktopWindowBackdrop.available) {
+            if (!DesktopWindowBackdrop.available || !DesktopPlatform.drawsOwnWindowFrame) {
                 composeWindow.background = java.awt.Color.BLACK
                 composeWindow.contentPane.background = java.awt.Color.BLACK
             } else {
@@ -140,7 +140,7 @@ private fun desktopMain() = application {
                 (openingSize.width.value * transform.scaleX).roundToInt(),
                 (openingSize.height.value * transform.scaleY).roundToInt(),
             )
-            if (DesktopPlatform.isWindows && DesktopWindowsFrame.install("BitChord")) {
+            if (DesktopPlatform.isWindows && DesktopPlatform.drawsOwnWindowFrame && DesktopWindowsFrame.install("BitChord")) {
                 DesktopWindowBackdrop.apply()
             } else if (DesktopPlatform.isMac && DesktopMacFrame.install(composeWindow)) {
                 DesktopWindowBackdrop.apply()
@@ -149,27 +149,27 @@ private fun desktopMain() = application {
         val actions = remember {
             DesktopWindowActions(
                 minimize = {
-                    if (!DesktopWindowsFrame.minimize()) state.isMinimized = true
+                    if (DesktopPlatform.drawsOwnWindowFrame && DesktopWindowsFrame.minimize()) return@DesktopWindowActions
+                    state.isMinimized = true
                 },
                 toggleMaximize = {
-                    if (!DesktopWindowsFrame.toggleMaximize()) {
-                        // An undecorated AWT window otherwise maximizes to the monitor bounds on
-                        // Windows when the native frame bridge is unavailable. Give AWT the
-                        // monitor's usable work area before Compose switches the placement.
-                        if (DesktopPlatform.isWindows && !DesktopWindowMode.maximized.value) {
-                            val screen = composeWindow.graphicsConfiguration.bounds
-                            val insets = Toolkit.getDefaultToolkit().getScreenInsets(
-                                composeWindow.graphicsConfiguration,
-                            )
-                            composeWindow.maximizedBounds = Rectangle(
-                                screen.x + insets.left,
-                                screen.y + insets.top,
-                                screen.width - insets.left - insets.right,
-                                screen.height - insets.top - insets.bottom,
-                            )
-                        }
-                        DesktopWindowMode.toggleMaximized()
+                    if (DesktopPlatform.drawsOwnWindowFrame && DesktopWindowsFrame.toggleMaximize()) return@DesktopWindowActions
+                    // An undecorated AWT window otherwise maximizes to the monitor bounds on
+                    // Windows when the native frame bridge is unavailable. Give AWT the
+                    // monitor's usable work area before Compose switches the placement.
+                    if (DesktopPlatform.drawsOwnWindowFrame && DesktopPlatform.isWindows && !DesktopWindowMode.maximized.value) {
+                        val screen = composeWindow.graphicsConfiguration.bounds
+                        val insets = Toolkit.getDefaultToolkit().getScreenInsets(
+                            composeWindow.graphicsConfiguration,
+                        )
+                        composeWindow.maximizedBounds = Rectangle(
+                            screen.x + insets.left,
+                            screen.y + insets.top,
+                            screen.width - insets.left - insets.right,
+                            screen.height - insets.top - insets.bottom,
+                        )
                     }
+                    DesktopWindowMode.toggleMaximized()
                 },
                 // The same door the system's close button went through, so the tray keeps the
                 // process alive exactly as it did before.

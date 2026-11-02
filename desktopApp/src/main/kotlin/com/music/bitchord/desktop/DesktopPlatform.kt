@@ -11,6 +11,10 @@ internal object DesktopPlatform {
 
     val isMac: Boolean = name.contains("mac", ignoreCase = true)
 
-    /** Whether the application draws the window's own frame instead of the system drawing it. */
-    val drawsOwnWindowFrame: Boolean = isWindows || isMac
+    /**
+     * Whether the application draws the window's own frame instead of the system drawing it.
+     * macOS draws its own unified title frame, while Windows and Linux use the standard native
+     * operating system window frame and title bar.
+     */
+    val drawsOwnWindowFrame: Boolean = isMac
 }

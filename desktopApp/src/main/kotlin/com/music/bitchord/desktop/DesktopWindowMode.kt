@@ -27,7 +27,7 @@ internal object DesktopWindowMode {
      * swaps the rendering surface and there leaves the whole screen white.
      */
     private val fillsScreen: WindowPlacement =
-        if (DesktopPlatform.drawsOwnWindowFrame) WindowPlacement.Maximized else WindowPlacement.Fullscreen
+        if (DesktopPlatform.drawsOwnWindowFrame || DesktopPlatform.isWindows) WindowPlacement.Maximized else WindowPlacement.Fullscreen
 
     fun toggle() = setFullScreen(!_fullScreen.value)
 
@@ -36,7 +36,7 @@ internal object DesktopWindowMode {
      * double-clicking the title bar has always done.
      */
     fun toggleMaximized() {
-        if (DesktopPlatform.isWindows && _fullScreen.value && DesktopWindowsFrame.setFullscreen(false)) {
+        if (DesktopPlatform.isWindows && DesktopPlatform.drawsOwnWindowFrame && _fullScreen.value && DesktopWindowsFrame.setFullscreen(false)) {
             DesktopWindowBackdrop.apply()
         }
         _fullScreen.value = false
@@ -64,7 +64,7 @@ internal object DesktopWindowMode {
         // window raised above it; no Compose placement does, and true Fullscreen paints the screen
         // white. With that in place the window's placement is left as it was — it is the Win32 style
         // that changes, not the placement.
-        if (DesktopPlatform.isWindows && DesktopWindowsFrame.setFullscreen(on)) {
+        if (DesktopPlatform.isWindows && DesktopPlatform.drawsOwnWindowFrame && DesktopWindowsFrame.setFullscreen(on)) {
             // The native window resets DWM's frame margin on the way out; the chosen material goes
             // back over it so the window is exactly as it was before fullscreen.
             if (!on) DesktopWindowBackdrop.apply()

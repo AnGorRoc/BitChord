@@ -247,7 +247,7 @@ private fun Modifier.captionPress(scope: WindowScope, actions: DesktopWindowActi
             }
             lastPressAt = down.uptimeMillis
             lastPressPosition = down.position
-            if (DesktopWindowsFrame.startDrag()) return@awaitEachGesture
+            if (DesktopPlatform.drawsOwnWindowFrame && DesktopWindowsFrame.startDrag()) return@awaitEachGesture
             if (DesktopPlatform.isMac && DesktopMacFrame.startDrag()) return@awaitEachGesture
             val window = scope.window
             val windowAtStart = window.location
