@@ -4770,13 +4770,13 @@ private fun DesktopSidebar(
             DesktopSidebarItem(BitChordIcons.Home, DesktopStrings["home", "Home"], destination == DesktopDestination.LISTEN_NOW) {
                 onDestinationSelected(DesktopDestination.LISTEN_NOW)
             }
-            DesktopSidebarItem(BitChordIcons.Explore, "Explore", destination == DesktopDestination.EXPLORE) {
+            DesktopSidebarItem(BitChordIcons.TabExplore, "Explore", destination == DesktopDestination.EXPLORE) {
                 onDestinationSelected(DesktopDestination.EXPLORE)
             }
-            DesktopSidebarItem(BitChordIcons.Library, "Library", destination == DesktopDestination.LIBRARY) {
+            DesktopSidebarItem(BitChordIcons.TabLibrary, "Library", destination == DesktopDestination.LIBRARY) {
                 onDestinationSelected(DesktopDestination.LIBRARY)
             }
-            DesktopSidebarItem(BitChordIcons.Search, "Search", destination == DesktopDestination.SEARCH) {
+            DesktopSidebarItem(BitChordIcons.TabSearch, "Search", destination == DesktopDestination.SEARCH) {
                 onDestinationSelected(DesktopDestination.SEARCH)
             }
             Spacer(Modifier.height(6.dp))
@@ -5027,10 +5027,10 @@ private fun DesktopFloatingNavigation(
     onDestinationSelected: (DesktopDestination) -> Unit,
 ) {
     val tabs = listOf(
-        DesktopDestination.LISTEN_NOW to (BitChordIcons.Play to "Play"),
-        DesktopDestination.EXPLORE to (BitChordIcons.Explore to "Explore"),
-        DesktopDestination.LIBRARY to (BitChordIcons.Library to "Library"),
-        DesktopDestination.SEARCH to (BitChordIcons.Search to "Search"),
+        DesktopDestination.LISTEN_NOW to (BitChordIcons.Home to DesktopStrings["home", "Home"]),
+        DesktopDestination.EXPLORE to (BitChordIcons.TabExplore to "Explore"),
+        DesktopDestination.LIBRARY to (BitChordIcons.TabLibrary to "Library"),
+        DesktopDestination.SEARCH to (BitChordIcons.TabSearch to "Search"),
     )
     val selected = tabs.firstOrNull { it.first == destination }?.first ?: DesktopDestination.LIBRARY
     val shape = RoundedCornerShape(percent = 50)
