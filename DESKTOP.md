@@ -27,7 +27,7 @@ running `gradlew.bat :desktopApp:run`.
 
 ## Installing a release
 
-Every download on the [releases page](https://github.com/kushagrasinghx/BitChord/releases) carries its own Java
+Every download on the [releases page](https://github.com/AnGorRoc/BitChord-X/releases) carries its own Java
 runtime, the FFmpeg and ONNX natives, the Automix analyser and its models.
 Nothing else has to be installed first — no JDK, no codec pack.
 
