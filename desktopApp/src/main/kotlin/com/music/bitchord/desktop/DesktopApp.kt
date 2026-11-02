@@ -3305,10 +3305,46 @@ fun BitChordDesktopApp() {
                         onOpenSettings = ::openSettings,
                         focusSearch = searchFocusRequested,
                         onSearchFocused = { searchFocusRequested = false },
+                        canGoBack = navHistory.isNotEmpty(),
+                        onBack = ::goBack,
+                        accountAvatar = activeAccount?.profiles?.firstOrNull { it.profileId == activeProfileId }?.avatar?.takeIf { it.isNotBlank() }
+                            ?: activeAccount?.avatar?.takeIf { it.isNotBlank() }
+                            ?: activeAccount?.profiles?.firstOrNull()?.avatar?.takeIf { it.isNotBlank() },
+                        onOpenAccounts = { DesktopTrackLog.log("accounts: opening the switcher"); overlays.accounts = true },
                     )
                 },
                 bottomBar = { compact ->
-                    DesktopBottomChrome(
+                    if (!compact) DesktopPlayerCapsule(
+                        song = selectedSong,
+                        isPlaying = playback.isPlaying,
+                        isLoading = playback.isLoading,
+                        previousEnabled = liveQueue.hasPrevious || playback.positionMs > BACK_RESTARTS_AFTER_MS,
+                        progress = if (playback.durationMs > 0L) {
+                            playback.positionMs.toFloat() / playback.durationMs.toFloat()
+                        } else {
+                            0f
+                        },
+                        volume = playback.volume,
+                        shuffle = shuffle,
+                        repeatMode = repeatMode,
+                        onPlayPause = { if (selectedSong != null) togglePlayPauseFromUser() },
+                        onPrevious = ::playPrevious,
+                        onNext = ::playNext,
+                        onShuffleChange = ::setShuffle,
+                        onRepeatModeChange = {
+                            repeatMode = it
+                            persistence.saveString("repeat_mode", it.name)
+                        },
+                        onOpenNowPlaying = { overlays.nowPlaying = true },
+                        onVolumeChange = {
+                            volume = it
+                            persistence.saveString("volume", it.toString())
+                        },
+                        onOpenAudioOutput = { overlays.audioOutput = true },
+                        onOpenLyrics = { overlays.toggleSidePanel(DesktopSidePanel.LYRICS) },
+                        onOpenQueue = { overlays.toggleSidePanel(DesktopSidePanel.QUEUE) },
+                        sidePanel = overlays.sidePanel,
+                    ) else DesktopBottomChrome(
                         compact = compact,
                         destination = destination,
                         song = selectedSong,
@@ -4668,6 +4704,198 @@ private fun DesktopTopBar(
     }
 }
 
+/**
+ * Apple Music's player on a wide window: no bar across the top, just a floating capsule at the
+ * foot of the page carrying transport, the now-playing card and the utilities.
+ */
+@Composable
+private fun DesktopPlayerCapsule(
+    song: Song?,
+    isPlaying: Boolean,
+    isLoading: Boolean,
+    previousEnabled: Boolean,
+    progress: Float,
+    volume: Float,
+    shuffle: Boolean,
+    repeatMode: DesktopRepeatMode,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onShuffleChange: (Boolean) -> Unit,
+    onRepeatModeChange: (DesktopRepeatMode) -> Unit,
+    onOpenNowPlaying: () -> Unit,
+    onVolumeChange: (Float) -> Unit,
+    onOpenAudioOutput: () -> Unit,
+    onOpenLyrics: () -> Unit,
+    onOpenQueue: () -> Unit,
+    sidePanel: DesktopSidePanel?,
+) {
+    val mixBlend = DesktopPlayerSettings.smartMixBlend.collectAsState()
+    val reduceAnimation by DesktopPlayerSettings.reduceAnimation.collectAsState()
+    val mixPulse = rememberMixPulse({ mixBlend.value }, enabled = !reduceAnimation, slow = true)
+    val currentProgress by rememberUpdatedState(progress)
+    val shape = RoundedCornerShape(percent = 50)
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), contentAlignment = Alignment.BottomCenter) {
+        val showVolume = maxWidth >= 760.dp
+        val showTransportExtras = maxWidth >= 600.dp
+        Row(
+            Modifier
+                .widthIn(max = 920.dp)
+                .fillMaxWidth()
+                .height(60.dp)
+                .clip(shape)
+                .desktopBarGlass(shape)
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (showTransportExtras) {
+                DesktopToolbarButton(onClick = { onShuffleChange(!shuffle) }, size = 32.dp) {
+                    Icon(
+                        BitChordIcons.Shuffle,
+                        DesktopStrings["shuffle", "Shuffle"],
+                        tint = if (shuffle) DesktopAccent else DesktopSecondary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+            DesktopToolbarButton(onClick = onPrevious, enabled = previousEnabled, size = 34.dp) {
+                Icon(
+                    Icons.Rounded.FastRewind,
+                    DesktopStrings["widget_previous", "Previous"],
+                    tint = if (previousEnabled) Color.White else DesktopSecondary.copy(alpha = 0.40f),
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            DesktopToolbarButton(onClick = onPlayPause, size = 40.dp) {
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                } else {
+                    Icon(
+                        if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        if (isPlaying) "Pause" else "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp),
+                    )
+                }
+            }
+            DesktopToolbarButton(onClick = onNext, size = 34.dp) {
+                Icon(
+                    Icons.Rounded.FastForward,
+                    DesktopStrings["widget_next", "Next"],
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            if (showTransportExtras) {
+                DesktopToolbarButton(onClick = { onRepeatModeChange(repeatMode.next()) }, size = 32.dp) {
+                    val tint = if (repeatMode != DesktopRepeatMode.OFF) DesktopAccent else DesktopSecondary
+                    if (repeatMode == DesktopRepeatMode.ONE) {
+                        Text(
+                            "1",
+                            color = tint,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.semantics { contentDescription = "Repeat one" },
+                        )
+                    } else {
+                        Icon(BitChordIcons.Repeat, "Repeat ${repeatMode.label()}", tint = tint, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+            Spacer(Modifier.width(10.dp))
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(vertical = 8.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.White.copy(alpha = 0.06f))
+                    .clickable(onClick = onOpenNowPlaying),
+            ) {
+                if (song == null) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            BitChordIcons.MusicNote,
+                            DesktopStrings["playback_channel_name", "Now playing"],
+                            tint = DesktopSecondary.copy(alpha = 0.65f),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                } else {
+                    Row(Modifier.fillMaxSize().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        DesktopArtwork(song.thumbnailUrl, Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)), px = ROW_ART_PX)
+                        Column(
+                            Modifier.weight(1f).padding(horizontal = 10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                song.title,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                song.artist,
+                                color = DesktopSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                        Spacer(Modifier.width(36.dp))
+                    }
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .drawBehind {
+                                val base = currentProgress.coerceIn(0f, 1f)
+                                val fraction = base + (1f - base) * mixPulse.cover
+                                drawRect(
+                                    color = Color.White.copy(alpha = mixPulse.alpha(0.55f)),
+                                    size = Size(size.width * fraction, size.height),
+                                )
+                            },
+                    )
+                }
+            }
+            Spacer(Modifier.width(10.dp))
+            if (showVolume) {
+                Icon(Icons.Rounded.VolumeUp, DesktopStrings["d_volume", "Volume"], tint = DesktopSecondary, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(8.dp))
+                DesktopThinSlider(
+                    value = volume,
+                    onValueChange = onVolumeChange,
+                    idleHeight = 4.dp,
+                    activeHeight = 8.dp,
+                    modifier = Modifier.width(78.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+            }
+            DesktopToolbarButton(onClick = onOpenAudioOutput, size = 32.dp) {
+                Icon(Icons.Rounded.Headphones, DesktopStrings["audio_output", "Audio output"], tint = DesktopSecondary, modifier = Modifier.size(19.dp))
+            }
+            DesktopToolbarButton(onClick = onOpenLyrics, size = 32.dp) {
+                Icon(
+                    BitChordIcons.LyricsQuote,
+                    DesktopStrings["lyrics", "Lyrics"],
+                    tint = if (sidePanel == DesktopSidePanel.LYRICS) Color.White else DesktopSecondary,
+                    modifier = Modifier.size(19.dp),
+                )
+            }
+            DesktopToolbarButton(onClick = onOpenQueue, size = 32.dp) {
+                Icon(
+                    BitChordIcons.Queue,
+                    DesktopStrings["queue", "Queue"],
+                    tint = if (sidePanel == DesktopSidePanel.QUEUE) Color.White else DesktopSecondary,
+                    modifier = Modifier.size(19.dp),
+                )
+            }
+        }
+    }
+}
 @Composable
 internal fun DesktopToolbarButton(
     onClick: () -> Unit,
@@ -4707,6 +4935,11 @@ private fun DesktopSidebar(
     /** Search was picked: the sidebar's box is the page's field, so it takes the focus. */
     focusSearch: Boolean,
     onSearchFocused: () -> Unit,
+    /** The top bar is gone, so the way back and the account live at the head of the sidebar. */
+    canGoBack: Boolean,
+    onBack: () -> Unit,
+    accountAvatar: String?,
+    onOpenAccounts: () -> Unit,
 ) {
     val searchFocusRequester = remember { FocusRequester() }
     LaunchedEffect(focusSearch) {
@@ -4759,6 +4992,18 @@ private fun DesktopSidebar(
         Column(
             Modifier.fillMaxSize().padding(start = 12.dp, end = 12.dp, top = if (inlineCaption) 4.dp else 16.dp, bottom = 16.dp),
         ) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                DesktopToolbarButton(onClick = onBack, enabled = canGoBack, size = 30.dp) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        DesktopStrings["back", "Back"],
+                        tint = if (canGoBack) Color.White else DesktopSecondary.copy(alpha = 0.40f),
+                        modifier = Modifier.size(19.dp),
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                DesktopAccountButton(avatar = accountAvatar, onClick = onOpenAccounts)
+            }
             DesktopSearchField(
                 query = query,
                 onQueryChange = onQueryChange,
@@ -5218,7 +5463,8 @@ private fun DesktopFrame(
                         Row(Modifier.fillMaxSize()) {
                             if (!compact) sidebar()
                             Column(Modifier.weight(1f).fillMaxHeight()) {
-                            topBar(compact)
+                            // Apple Music has no top bar on a wide window: the player is the floating capsule below.
+                            if (compact) topBar(compact)
                             Row(Modifier.fillMaxWidth().weight(1f)) {
                                 Box(
                                     Modifier
@@ -5240,13 +5486,11 @@ private fun DesktopFrame(
                                                 end = 0.dp,
                                                 // Room for the bar that floats over this, so the
                                                 // last row can still be scrolled clear of it.
-                                                bottom = if (compact) 128.dp else 16.dp,
+                                                bottom = if (compact) 128.dp else 104.dp,
                                             ),
                                         )
                                     }
-                                    if (compact) {
-                                        Box(Modifier.align(Alignment.BottomCenter)) { bottomBar(true) }
-                                    }
+                                    Box(Modifier.align(Alignment.BottomCenter)) { bottomBar(compact) }
                                 }
                                 Box(
                                     Modifier
