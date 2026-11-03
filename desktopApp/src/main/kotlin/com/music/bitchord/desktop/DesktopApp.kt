@@ -1896,8 +1896,23 @@ fun BitChordDesktopApp() {
     val eqFocused by DesktopEqualizerSettings.focused.collectAsState()
     val eqBalance by DesktopEqualizerSettings.balance.collectAsState()
     val eqBands by DesktopEqualizerSettings.bands.collectAsState()
+    val replayGainEnabled by DesktopEqualizerSettings.replayGainEnabled.collectAsState()
+    val replayGainPreamp by DesktopEqualizerSettings.replayGainPreamp.collectAsState()
+    val replayGainAlbum by DesktopEqualizerSettings.replayGainAlbum.collectAsState()
+    val replayGainPreventClipping by DesktopEqualizerSettings.replayGainPreventClipping.collectAsState()
+
+    val singLevel by DesktopEqualizerSettings.singLevel.collectAsState()
+    val singMethod by DesktopEqualizerSettings.singMethod.collectAsState()
+
     LaunchedEffect(eqEnabled, eqMode, eqToneX, eqToneY, eqFocused, eqBalance, eqBands) {
         playbackEngine.setEqualizer(eqEnabled, DesktopEqualizerSettings.curve(), eqBalance)
+    }
+    LaunchedEffect(replayGainEnabled, replayGainPreamp, replayGainAlbum, replayGainPreventClipping) {
+        playbackEngine.setReplayGain(replayGainEnabled, replayGainPreamp, replayGainAlbum, replayGainPreventClipping)
+    }
+    LaunchedEffect(singLevel, singMethod) {
+        playbackEngine.setSingLevel(singLevel)
+        playbackEngine.setSingMethod(singMethod)
     }
     LaunchedEffect(spatialAudio, skipSilence, outputPrecision) {
         playbackEngine.setSpatialAudio(spatialAudio)

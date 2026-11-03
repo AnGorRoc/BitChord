@@ -32,6 +32,11 @@ object PaxSenix {
             field = normalizePaxSenixApiKey(value)
         }
 
+    @JvmName("updateApiKey")
+    fun setApiKey(value: String) {
+        apiKey = value
+    }
+
     /** The original keyless Apple Music provider used by the existing source id. */
     suspend fun lyrics(
         title: String,

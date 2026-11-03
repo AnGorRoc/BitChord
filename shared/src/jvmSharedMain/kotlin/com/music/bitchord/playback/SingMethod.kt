@@ -56,7 +56,7 @@ interface SingEngine {
     fun reset()
 }
 
-internal fun engineFor(method: SingMethod): SingEngine = when (method) {
+fun engineFor(method: SingMethod): SingEngine = when (method) {
     SingMethod.ORIGINAL -> VocalCutOriginal()
     SingMethod.BAND_LIMITED -> VocalCutBandLimited()
     SingMethod.VOICE_GATE -> VocalCutDsp()

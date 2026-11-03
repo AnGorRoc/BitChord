@@ -1,6 +1,7 @@
 package com.music.bitchord.desktop
 
 import com.music.bitchord.playback.EqLayout
+import com.music.bitchord.playback.SingMethod
 import com.music.bitchord.playback.EqualizerPreset
 import com.music.bitchord.playback.manualCurve
 import com.music.bitchord.playback.toneCurve
@@ -34,6 +35,15 @@ internal object DesktopEqualizerSettings {
     )
     private val _bands = MutableStateFlow(readBands())
     private val _preset = MutableStateFlow(EqualizerPreset.matching(_bands.value))
+    private val _replayGainEnabled = MutableStateFlow(persistence.boolean(KEY_REPLAY_GAIN_ENABLED, false))
+    private val _replayGainPreamp = MutableStateFlow(persistence.string(KEY_REPLAY_GAIN_PREAMP, "0").toFloatOrNull() ?: 0f)
+    private val _replayGainAlbum = MutableStateFlow(persistence.boolean(KEY_REPLAY_GAIN_ALBUM, false))
+    private val _replayGainPreventClipping = MutableStateFlow(persistence.boolean(KEY_REPLAY_GAIN_PREVENT_CLIPPING, true))
+
+    private val _singLevel = MutableStateFlow(persistence.string(KEY_SING_LEVEL, "0").toFloatOrNull() ?: 0f)
+    private val _singMethod = MutableStateFlow(
+        SingMethod.fromName(persistence.string(KEY_SING_METHOD, SingMethod.VOICE_GATE.name))
+    )
 
     val enabled: StateFlow<Boolean> = _enabled
     val mode: StateFlow<DesktopEqualizerMode> = _mode
@@ -55,6 +65,45 @@ internal object DesktopEqualizerSettings {
 
     /** Which preset the bands currently are, or [EqualizerPreset.CUSTOM]. */
     val preset: StateFlow<EqualizerPreset> = _preset
+    val replayGainEnabled: StateFlow<Boolean> = _replayGainEnabled
+    val replayGainPreamp: StateFlow<Float> = _replayGainPreamp
+    val replayGainAlbum: StateFlow<Boolean> = _replayGainAlbum
+    val replayGainPreventClipping: StateFlow<Boolean> = _replayGainPreventClipping
+
+    val singLevel: StateFlow<Float> = _singLevel
+    val singMethod: StateFlow<SingMethod> = _singMethod
+
+    fun setReplayGainEnabled(value: Boolean) {
+        _replayGainEnabled.value = value
+        persistence.saveBoolean(KEY_REPLAY_GAIN_ENABLED, value)
+    }
+
+    fun setReplayGainPreamp(value: Float) {
+        val clamped = value.coerceIn(-24f, 12f)
+        _replayGainPreamp.value = clamped
+        persistence.saveString(KEY_REPLAY_GAIN_PREAMP, clamped.toString())
+    }
+
+    fun setReplayGainAlbum(value: Boolean) {
+        _replayGainAlbum.value = value
+        persistence.saveBoolean(KEY_REPLAY_GAIN_ALBUM, value)
+    }
+
+    fun setReplayGainPreventClipping(value: Boolean) {
+        _replayGainPreventClipping.value = value
+        persistence.saveBoolean(KEY_REPLAY_GAIN_PREVENT_CLIPPING, value)
+    }
+
+    fun setSingLevel(value: Float) {
+        val clamped = value.coerceIn(0f, 1f)
+        _singLevel.value = clamped
+        persistence.saveString(KEY_SING_LEVEL, clamped.toString())
+    }
+
+    fun setSingMethod(value: SingMethod) {
+        _singMethod.value = value
+        persistence.saveString(KEY_SING_METHOD, value.name)
+    }
 
     fun setEnabled(value: Boolean) {
         _enabled.value = value
@@ -129,4 +178,10 @@ internal object DesktopEqualizerSettings {
     private const val KEY_FOCUSED = "equalizer_focused"
     private const val KEY_BALANCE = "equalizer_balance"
     private const val KEY_BANDS = "equalizer_bands"
+    private const val KEY_REPLAY_GAIN_ENABLED = "replay_gain_enabled"
+    private const val KEY_REPLAY_GAIN_PREAMP = "replay_gain_preamp"
+    private const val KEY_REPLAY_GAIN_ALBUM = "replay_gain_album"
+    private const val KEY_REPLAY_GAIN_PREVENT_CLIPPING = "replay_gain_prevent_clipping"
+    private const val KEY_SING_LEVEL = "sing_level"
+    private const val KEY_SING_METHOD = "sing_method"
 }

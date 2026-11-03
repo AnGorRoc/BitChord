@@ -26,6 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Slider
+import com.music.bitchord.playback.SingMethod
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -129,6 +131,115 @@ internal fun DesktopEqualizerDialog(onDismiss: () -> Unit) {
                 color = DesktopSecondary,
                 modifier = Modifier.padding(horizontal = panelInset(22.dp), vertical = 6.dp),
             )
+            Spacer(Modifier.height(14.dp))
+
+            // ReplayGain Section
+            val replayGainEnabled by DesktopEqualizerSettings.replayGainEnabled.collectAsState()
+            val replayGainPreamp by DesktopEqualizerSettings.replayGainPreamp.collectAsState()
+            val replayGainAlbum by DesktopEqualizerSettings.replayGainAlbum.collectAsState()
+            val replayGainPreventClipping by DesktopEqualizerSettings.replayGainPreventClipping.collectAsState()
+
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = panelInset(22.dp), vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("ReplayGain", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                    Text(
+                        "Automatically equalizes the perceived loudness between songs",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = DesktopSecondary,
+                    )
+                }
+                Switch(
+                    checked = replayGainEnabled,
+                    onCheckedChange = DesktopEqualizerSettings::setReplayGainEnabled,
+                    colors = desktopSwitchColors(),
+                )
+            }
+            if (replayGainEnabled) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = panelInset(22.dp), vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    DesktopChip(
+                        selected = !replayGainAlbum,
+                        onClick = { DesktopEqualizerSettings::setReplayGainAlbum.invoke(false) },
+                        label = "Track Gain",
+                    )
+                    DesktopChip(
+                        selected = replayGainAlbum,
+                        onClick = { DesktopEqualizerSettings::setReplayGainAlbum.invoke(true) },
+                        label = "Album Gain",
+                    )
+                }
+                Column(Modifier.fillMaxWidth().padding(horizontal = panelInset(22.dp), vertical = 6.dp)) {
+                    Text(
+                        "Preamp: ${if (replayGainPreamp >= 0) "+%.1f".format(replayGainPreamp) else "%.1f".format(replayGainPreamp)} dB",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White,
+                    )
+                    Slider(
+                        value = replayGainPreamp,
+                        onValueChange = DesktopEqualizerSettings::setReplayGainPreamp,
+                        valueRange = -24f..12f,
+                    )
+                }
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = panelInset(22.dp), vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Prevent Clipping", style = MaterialTheme.typography.bodyMedium, color = Color.White, modifier = Modifier.weight(1f))
+                    Switch(
+                        checked = replayGainPreventClipping,
+                        onCheckedChange = DesktopEqualizerSettings::setReplayGainPreventClipping,
+                        colors = desktopSwitchColors(),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Sing / Karaoke Section
+            val singLevel by DesktopEqualizerSettings.singLevel.collectAsState()
+            val singMethod by DesktopEqualizerSettings.singMethod.collectAsState()
+
+            SectionLabel("Sing (Karaoke)")
+            Column(Modifier.fillMaxWidth().padding(horizontal = panelInset(22.dp), vertical = 6.dp)) {
+                Text(
+                    "Vocal Reduction: ${(singLevel * 100).toInt()}%",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White,
+                )
+                Slider(
+                    value = singLevel,
+                    onValueChange = DesktopEqualizerSettings::setSingLevel,
+                    valueRange = 0f..1f,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text("DSP Algorithm:", style = MaterialTheme.typography.bodySmall, color = DesktopSecondary)
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    DesktopChip(
+                        selected = singMethod == SingMethod.VOICE_GATE,
+                        onClick = { DesktopEqualizerSettings.setSingMethod(SingMethod.VOICE_GATE) },
+                        label = "Voice Gate",
+                    )
+                    DesktopChip(
+                        selected = singMethod == SingMethod.BAND_LIMITED,
+                        onClick = { DesktopEqualizerSettings.setSingMethod(SingMethod.BAND_LIMITED) },
+                        label = "Band-Limited",
+                    )
+                    DesktopChip(
+                        selected = singMethod == SingMethod.ORIGINAL,
+                        onClick = { DesktopEqualizerSettings.setSingMethod(SingMethod.ORIGINAL) },
+                        label = "Original",
+                    )
+                }
+            }
             Spacer(Modifier.height(8.dp))
         }
 
@@ -703,3 +814,21 @@ private const val ZERO_DETENT_DB = 0.6f
 
 /** Same, for the balance trim's own centre. */
 private const val BALANCE_DETENT = 0.04f
+
+@Composable
+private fun DesktopChip(selected: Boolean, onClick: () -> Unit, label: String) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.06f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (selected) Color.White else DesktopSecondary,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+        )
+    }
+}

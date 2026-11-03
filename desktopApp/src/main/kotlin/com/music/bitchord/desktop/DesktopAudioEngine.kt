@@ -7,6 +7,12 @@ import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.TrackAnalysisState
 import com.music.bitchord.data.settings.TransitionWindow
 import com.music.bitchord.playback.EqCurve
+import com.music.bitchord.playback.SingEngine
+import com.music.bitchord.playback.SingMethod
+import com.music.bitchord.playback.VocalCutDsp
+import com.music.bitchord.playback.VocalCutOriginal
+import com.music.bitchord.playback.VocalCutBandLimited
+import kotlin.math.pow
 import com.music.bitchord.playback.TransitionFilter
 import com.music.bitchord.playback.smart.CrossfadeMode
 import com.music.bitchord.playback.smart.TransitionPlan
@@ -719,6 +725,15 @@ class DesktopPlaybackEngine(
     private var equalizer = DesktopEqualizer()
     private var equalizerIncoming = DesktopEqualizer()
     private var silence: DesktopSilenceSkipper? = null
+    private var singCutEngine: SingEngine = VocalCutDsp()
+    private var singCutEngineIncoming: SingEngine = VocalCutDsp()
+    @Volatile private var singLevel: Float = 0f
+    @Volatile private var singMethod: SingMethod = SingMethod.VOICE_GATE
+
+    @Volatile private var replayGainEnabled: Boolean = false
+    @Volatile private var replayGainPreampDb: Float = 0f
+    @Volatile private var replayGainAlbumMode: Boolean = false
+    @Volatile private var replayGainPreventClipping: Boolean = true
 
     /** The playing track's heard position, on the sink's played-frame count; see [play]. */
     private val playhead = DesktopPlayhead()
@@ -879,8 +894,10 @@ class DesktopPlaybackEngine(
     /** Mixes the outgoing track with the one coming in, filtering each side. */
     private fun blend(track: Track, block: FloatArray, count: Int): Pair<FloatArray, Int> {
         val incoming = upcoming
-        // Widened first, whether or not a mix is running, then equalised.
+        // Sing vocal cut, replay gain, spatial widen and equaliser
+        singCut(singCutEngine, block, count)
         widen(spatial, track, block, count)
+        replayGainApply(block, count)
         equalise(equalizer, block, count)
         if (fadeRemaining <= 0 || incoming == null) return block to count
 
@@ -890,7 +907,9 @@ class DesktopPlaybackEngine(
         val incomingRate = deckRate(incoming)
         incomingSourceFrames += otherCount.toDouble() / sink.format.channels.coerceAtLeast(1) * incomingRate
         if (other != null) {
+            singCut(singCutEngineIncoming, other, otherCount)
             widen(spatialIncoming, incoming, other, otherCount)
+            replayGainApply(other, otherCount)
             equalise(equalizerIncoming, other, otherCount)
         }
         val channels = sink.format.channels.coerceAtLeast(1)
@@ -902,6 +921,7 @@ class DesktopPlaybackEngine(
             val progress = ((transitionTotal - fadeRemaining).toFloat() / fadeTotal.coerceAtLeast(1))
             val styleProgress = progress.coerceIn(0f, 1f)
             plan?.let { DesktopTransitionRide.aim(it, styleProgress, outgoingFilter, incomingFilter) }
+            DesktopLoopMixController.updateProgress(styleProgress)
             outgoingFilter.advance()
             incomingFilter.advance()
 
@@ -1152,6 +1172,10 @@ class DesktopPlaybackEngine(
         val promoted = equalizerIncoming
         equalizerIncoming = equalizer
         equalizer = promoted
+        val promotedSing = singCutEngineIncoming
+        singCutEngineIncoming = singCutEngine
+        singCutEngine = promotedSing
+        singCutEngineIncoming.reset()
         // Whichever is now idle starts the next incoming track clean.
         equalizerIncoming.reset()
         upcoming = null
@@ -1412,6 +1436,8 @@ class DesktopPlaybackEngine(
         spatial = DesktopSpatialAudio(sink.format.channels, sink.format.sampleRate)
         spatialIncoming = DesktopSpatialAudio(sink.format.channels, sink.format.sampleRate)
         equalizer.configure(sink.format.channels, sink.format.sampleRate)
+        singCutEngine.configure(sink.format.sampleRate)
+        singCutEngineIncoming.configure(sink.format.sampleRate)
         equalizerIncoming.configure(sink.format.channels, sink.format.sampleRate)
         silence = DesktopSilenceSkipper(sink.format.channels, sink.format.sampleRate)
             .apply { enabled = skipSilenceEnabled }
@@ -1448,6 +1474,8 @@ class DesktopPlaybackEngine(
         spatial = DesktopSpatialAudio(sink.format.channels, sink.format.sampleRate)
         spatialIncoming = DesktopSpatialAudio(sink.format.channels, sink.format.sampleRate)
         equalizer.configure(sink.format.channels, sink.format.sampleRate)
+        singCutEngine.configure(sink.format.sampleRate)
+        singCutEngineIncoming.configure(sink.format.sampleRate)
         equalizerIncoming.configure(sink.format.channels, sink.format.sampleRate)
         silence = DesktopSilenceSkipper(sink.format.channels, sink.format.sampleRate)
             .apply { enabled = skipSilenceEnabled }
@@ -1498,6 +1526,8 @@ class DesktopPlaybackEngine(
         // first moments of the new position.
         equalizer.reset()
         equalizerIncoming.reset()
+        singCutEngine.reset()
+        singCutEngineIncoming.reset()
         silence?.reset()
         resetPlayhead(track, millis * 1_000)
         // Cleared by [play] once the first of the new position's audio is on its way out.
@@ -1847,6 +1877,52 @@ class DesktopPlaybackEngine(
      * The curve is rendered by the caller because working out the make-up attenuation walks the
      * whole response ([EqCurve]), and the audio thread is the one place that must not do that.
      */
+    fun setSingLevel(level: Float) {
+        singLevel = level.coerceIn(0f, 1f)
+    }
+
+    fun setSingMethod(method: SingMethod) {
+        if (singMethod == method) return
+        singMethod = method
+        val rate = sink.format.sampleRate
+        singCutEngine = createSingEngine(method, rate)
+        singCutEngineIncoming = createSingEngine(method, rate)
+    }
+
+    private fun createSingEngine(method: SingMethod, sampleRate: Int): SingEngine = when (method) {
+        SingMethod.ORIGINAL -> VocalCutOriginal()
+        SingMethod.BAND_LIMITED -> VocalCutBandLimited()
+        SingMethod.VOICE_GATE -> VocalCutDsp()
+    }.apply { configure(sampleRate) }
+
+    private fun singCut(engine: SingEngine, samples: FloatArray, count: Int) {
+        val level = singLevel
+        if (level > 0.001f) {
+            engine.processSpan(samples, count, level)
+        }
+    }
+
+    fun setReplayGain(enabled: Boolean, preampDb: Float, albumMode: Boolean, preventClipping: Boolean) {
+        replayGainEnabled = enabled
+        replayGainPreampDb = preampDb.coerceIn(-24f, 12f)
+        replayGainAlbumMode = albumMode
+        replayGainPreventClipping = preventClipping
+    }
+
+    private fun replayGainApply(samples: FloatArray, count: Int) {
+        if (!replayGainEnabled) return
+        val gainDb = replayGainPreampDb
+        if (gainDb == 0f && !replayGainPreventClipping) return
+        val factor = if (gainDb == 0f) 1f else 10.0.pow(gainDb / 20.0).toFloat()
+        for (i in 0 until count) {
+            var s = samples[i] * factor
+            if (replayGainPreventClipping) {
+                s = s.coerceIn(-1f, 1f)
+            }
+            samples[i] = s
+        }
+    }
+
     fun setEqualizer(enabled: Boolean, curve: EqCurve, balance: Float) {
         equalizerCurve = curve
         equalizerBalance = balance.coerceIn(-1f, 1f)

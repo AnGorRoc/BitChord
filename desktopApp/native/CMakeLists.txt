@@ -131,3 +131,38 @@ elseif(MSVC)
     # The WinRT umbrella import library.
     target_link_libraries(bitchord_smtc PRIVATE windowsapp gdi32)
 endif()
+
+# LoopMix renderer: two Signalsmith Stretch decks mixed to stereo
+if(EXISTS "${REPO_ROOT}/native/loopmix/loop_mix_renderer.cpp" AND EXISTS "${REPO_ROOT}/app/src/main/cpp/jni/loopmix_jni.cpp")
+    add_library(bitchord_loopmix SHARED
+        ${REPO_ROOT}/native/loopmix/loop_mix_renderer.cpp
+        ${REPO_ROOT}/app/src/main/cpp/jni/loopmix_jni.cpp
+    )
+    if(WIN32)
+        set_target_properties(bitchord_loopmix PROPERTIES PREFIX "")
+    endif()
+    target_include_directories(bitchord_loopmix PRIVATE
+        ${REPO_ROOT}/native
+        ${REPO_ROOT}/native/third_party
+        ${REPO_ROOT}/app/src/main/cpp
+    )
+    if(DEFINED ENV{JAVA_HOME})
+        target_include_directories(bitchord_loopmix PRIVATE $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/win32 $ENV{JAVA_HOME}/include/linux)
+    else()
+        target_include_directories(bitchord_loopmix PRIVATE ${JNI_INCLUDE_DIRS})
+    endif()
+    if(MINGW)
+        target_link_options(bitchord_loopmix PRIVATE -static -static-libgcc -static-libstdc++)
+    endif()
+endif()
+
+# DSD and DST decoders
+if(EXISTS "${REPO_ROOT}/app/src/main/cpp/dsd/dsd_decimator.cpp")
+    add_library(bitchord_dsd SHARED ${REPO_ROOT}/app/src/main/cpp/dsd/dsd_decimator.cpp)
+    if(WIN32)
+        set_target_properties(bitchord_dsd PROPERTIES PREFIX "")
+    endif()
+    if(MINGW)
+        target_link_options(bitchord_dsd PRIVATE -static -static-libgcc -static-libstdc++)
+    endif()
+endif()
