@@ -3285,7 +3285,7 @@ fun BitChordDesktopApp() {
                         accountAvatar = activeAccount?.profiles?.firstOrNull { it.profileId == activeProfileId }?.avatar?.takeIf { it.isNotBlank() }
                             ?: activeAccount?.avatar?.takeIf { it.isNotBlank() }
                             ?: activeAccount?.profiles?.firstOrNull()?.avatar?.takeIf { it.isNotBlank() },
-                        onOpenAccounts = { DesktopTrackLog.log("accounts: opening the switcher"); overlays.accounts = true },
+                        onOpenAccounts = { DesktopTrackLog.log("accounts: opening the switcher"); overlays.accounts = !overlays.accounts },
                         canGoBack = navHistory.isNotEmpty(),
                         onBack = ::goBack,
                     )
@@ -3293,14 +3293,12 @@ fun BitChordDesktopApp() {
                 sidebar = {
                     DesktopSidebar(
                         destination = destination,
-                        settingsOpen = overlays.settingsPage != null,
                         accountPlaylists = sidebarAccountPlaylists,
                         localPlaylists = playlists,
                         openedCollectionId = openedCollection?.browseId,
                         onDestinationSelected = ::selectDestination,
                         onOpenAccountPlaylist = { openShelfItem(it, PLAYLISTS_SHELF) },
                         onOpenLocalPlaylist = ::openPlaylist,
-                        onOpenSettings = ::openSettings,
                         canGoBack = navHistory.isNotEmpty(),
                         onBack = ::goBack,
                         accountAvatar = activeAccount?.profiles?.firstOrNull { it.profileId == activeProfileId }?.avatar?.takeIf { it.isNotBlank() }
@@ -3308,7 +3306,8 @@ fun BitChordDesktopApp() {
                             ?: activeAccount?.profiles?.firstOrNull()?.avatar?.takeIf { it.isNotBlank() },
                         accountName = activeAccount?.profiles?.firstOrNull { it.profileId == activeProfileId }?.name?.takeIf { it.isNotBlank() }
                             ?: activeAccount?.name?.takeIf { it.isNotBlank() },
-                        onOpenAccounts = { DesktopTrackLog.log("accounts: opening the switcher"); overlays.accounts = true },
+                        accountsOpen = overlays.accounts,
+                        onOpenAccounts = { DesktopTrackLog.log("accounts: opening the switcher"); overlays.accounts = !overlays.accounts },
                     )
                 },
                 bottomBar = { compact ->
@@ -5103,19 +5102,18 @@ internal fun DesktopToolbarButton(
 @Composable
 private fun DesktopSidebar(
     destination: DesktopDestination,
-    settingsOpen: Boolean,
     accountPlaylists: List<ShelfItem>,
     localPlaylists: List<DesktopPlaylist>,
     openedCollectionId: String?,
     onDestinationSelected: (DesktopDestination) -> Unit,
     onOpenAccountPlaylist: (ShelfItem) -> Unit,
     onOpenLocalPlaylist: (DesktopPlaylist) -> Unit,
-    onOpenSettings: () -> Unit,
     /** The top bar is gone, so the way back lives at the head of the sidebar, beside the mark. */
     canGoBack: Boolean,
     onBack: () -> Unit,
     accountAvatar: String?,
     accountName: String?,
+    accountsOpen: Boolean = false,
     onOpenAccounts: () -> Unit,
 ) {
     val titleBarEnabled by DesktopTitleBarSetting.enabled.collectAsState()
@@ -5260,9 +5258,6 @@ private fun DesktopSidebar(
                 if (hiddenSidebar.isNotEmpty()) {
                     DesktopSidebarRestoreRow(hiddenSidebar)
                 }
-                DesktopSidebarItem(Icons.Rounded.Settings, "Settings", settingsOpen) {
-                    onOpenSettings()
-                }
                 // Apple Music ends its sidebar on the listener: photo and name, one click to switch.
                 Spacer(Modifier.height(4.dp))
                 Row(
@@ -5270,6 +5265,7 @@ private fun DesktopSidebar(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(7.dp))
                         .desktopHoverFill()
+                        .background(if (accountsOpen) Color.White.copy(alpha = 0.12f) else Color.Transparent)
                         .clickable(onClick = onOpenAccounts)
                         .padding(horizontal = 4.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,

@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -59,13 +60,20 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun DesktopAccountButton(
     avatar: String?,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
 ) {
     Box(
         // Rests at the toolbar buttons' hover wash and brightens a step when pointed at.
-        Modifier.size(36.dp).clip(CircleShape)
-            .desktopHoverWash(restAlpha = 0.12f, hoverAlpha = 0.2f)
-            .clickable(onClick = onClick),
+        modifier = Modifier.size(36.dp).clip(CircleShape)
+            .then(
+                if (onClick != null) {
+                    Modifier
+                        .desktopHoverWash(restAlpha = 0.12f, hoverAlpha = 0.2f)
+                        .clickable(onClick = onClick)
+                } else {
+                    Modifier
+                },
+            ),
         contentAlignment = Alignment.Center,
     ) {
         if (avatar != null) {
@@ -127,77 +135,86 @@ internal fun DesktopAccountSelector(
                     onClick = onDismiss,
                 ),
         )
-        val shape = RoundedCornerShape(20.dp)
-        Column(
-            Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 64.dp, end = 24.dp)
-                .widthIn(max = 380.dp)
-                .fillMaxWidth()
-                .clip(shape)
-                // The same frosted pane the floating bars are made of, sampling the page underneath
-                // rather than sitting on a flat fill.
-                .desktopBarGlass(shape),
-        ) {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val compact = maxWidth < 980.dp
+            val shape = RoundedCornerShape(16.dp)
+            Column(
+                Modifier
+                    .align(if (compact) Alignment.TopEnd else Alignment.BottomStart)
+                    .padding(
+                        top = if (compact) 64.dp else 40.dp,
+                        bottom = if (compact) 24.dp else 56.dp,
+                        start = if (compact) 24.dp else 12.dp,
+                        end = 24.dp,
+                    )
+                    .widthIn(max = if (compact) 380.dp else 340.dp)
+                    .fillMaxWidth()
+                    .clip(shape)
+                    // The same frosted pane the floating bars are made of, sampling the page underneath
+                    // rather than sitting on a flat fill.
+                    .desktopBarGlass(shape)
+                    .border(1.dp, Color.White.copy(alpha = 0.10f), shape),
             ) {
-                Text(
-                    if (accounts.isEmpty()) "Accounts" else "Switch account",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                )
-                Spacer(Modifier.weight(1f))
-                if (busy) CircularProgressIndicator(color = DesktopAccent, modifier = Modifier.size(16.dp))
-            }
-            LazyColumn(Modifier.heightIn(max = 460.dp)) {
-                if (accounts.isEmpty()) {
-                    item {
-                        Text(
-                            DesktopStrings[
-                                "d_nobody_is_signed_in",
-                                "Nobody is signed in. Your library, playlists and history need a " +
-                                    "YouTube Music account.",
-                            ],
-                            style = MaterialTheme.typography.bodySmall,
-                            color = DesktopSecondary,
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
-                        )
-                    }
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        if (accounts.isEmpty()) DesktopStrings["accounts", "Accounts"] else DesktopStrings["switch_account", "Switch account"],
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    if (busy) CircularProgressIndicator(color = DesktopAccent, modifier = Modifier.size(16.dp))
                 }
-                accounts.forEach { account ->
-                    item(key = "header-${account.accountId}") {
-                        Text(
-                            account.email.ifBlank { account.name.ifBlank { "Account" } },
-                            style = MaterialTheme.typography.labelMedium,
-                            color = DesktopSecondary,
-                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
-                        )
-                    }
-                    items(account.profiles.size, key = { "p-${account.accountId}-$it" }) { index ->
-                        val profile = account.profiles[index]
-                        DesktopProfileRow(
-                            profile = profile,
-                            selected = account.accountId == activeAccountId &&
-                                profile.profileId == activeProfileId,
-                            managing = managing,
-                            onClick = { onSelect(account, profile); onDismiss() },
-                            onRemove = { onRemoveAccount(account) },
-                        )
-                    }
-                }
-                item { DesktopSelectorAction(BitChordIcons.Plus, "Add account", onAddAccount) }
-                if (accounts.isNotEmpty()) {
-                    item {
-                        DesktopSelectorAction(Icons.Rounded.ManageAccounts, "Manage accounts") {
-                            managing = !managing
+                LazyColumn(Modifier.heightIn(max = 460.dp)) {
+                    if (accounts.isEmpty()) {
+                        item {
+                            Text(
+                                DesktopStrings[
+                                    "d_nobody_is_signed_in",
+                                    "Nobody is signed in. Your library, playlists and history need a " +
+                                        "YouTube Music account.",
+                                ],
+                                style = MaterialTheme.typography.bodySmall,
+                                color = DesktopSecondary,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                            )
                         }
                     }
+                    accounts.forEach { account ->
+                        item(key = "header-${account.accountId}") {
+                            Text(
+                                account.email.ifBlank { account.name.ifBlank { "Account" } },
+                                style = MaterialTheme.typography.labelMedium,
+                                color = DesktopSecondary,
+                                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
+                            )
+                        }
+                        items(account.profiles.size, key = { "p-${account.accountId}-$it" }) { index ->
+                            val profile = account.profiles[index]
+                            DesktopProfileRow(
+                                profile = profile,
+                                selected = account.accountId == activeAccountId &&
+                                    profile.profileId == activeProfileId,
+                                managing = managing,
+                                onClick = { onSelect(account, profile); onDismiss() },
+                                onRemove = { onRemoveAccount(account) },
+                            )
+                        }
+                    }
+                    item { DesktopSelectorAction(BitChordIcons.Plus, DesktopStrings["add_account", "Add account"], onAddAccount) }
+                    if (accounts.isNotEmpty()) {
+                        item {
+                            DesktopSelectorAction(Icons.Rounded.ManageAccounts, DesktopStrings["manage_accounts", "Manage accounts"]) {
+                                managing = !managing
+                            }
+                        }
+                    }
+                    item { DesktopSelectorAction(Icons.Rounded.Settings, DesktopStrings["settings", "Settings"], onOpenSettings) }
+                    item { Spacer(Modifier.height(10.dp)) }
                 }
-                item { DesktopSelectorAction(Icons.Rounded.Settings, "Settings", onOpenSettings) }
-                item { Spacer(Modifier.height(10.dp)) }
             }
         }
     }
