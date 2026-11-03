@@ -4830,16 +4830,15 @@ private fun DesktopPlayerCapsule(
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Transport controls (Left) with prominent buttons tightly grouped
+            // Transport controls (Left): core trio (volver, pausa, siguiente) larger with reduced gap
             Row(
-                horizontalArrangement = Arrangement.spacedBy((-1).dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (showTransportExtras) {
                     DesktopCapsuleButton(
                         onClick = { onShuffleChange(!shuffle) },
                         enabled = song != null,
-                        size = 30.dp,
+                        size = 28.dp,
                     ) {
                         Icon(
                             BitChordIcons.Shuffle,
@@ -4849,59 +4848,66 @@ private fun DesktopPlayerCapsule(
                                 shuffle -> DesktopAccent
                                 else -> activeSecondaryColor
                             },
-                            modifier = Modifier.size(19.dp),
+                            modifier = Modifier.size(18.dp),
                         )
                     }
+                    Spacer(Modifier.width(2.dp))
                 }
-                DesktopCapsuleButton(
-                    onClick = onPrevious,
-                    enabled = song != null && previousEnabled,
-                    size = 32.dp,
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy((-4).dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        Icons.Rounded.FastRewind,
-                        DesktopStrings["widget_previous", "Previous"],
-                        tint = if (song != null && previousEnabled) Color.White else inactiveColor,
-                        modifier = Modifier.size(23.dp),
-                    )
-                }
-                DesktopCapsuleButton(
-                    onClick = onPlayPause,
-                    enabled = song != null,
-                    size = 38.dp,
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = Color.White,
-                            strokeWidth = 2.2.dp,
-                        )
-                    } else {
+                    DesktopCapsuleButton(
+                        onClick = onPrevious,
+                        enabled = song != null && previousEnabled,
+                        size = 36.dp,
+                    ) {
                         Icon(
-                            if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            if (isPlaying) "Pause" else "Play",
-                            tint = if (song != null) Color.White else inactiveColor,
-                            modifier = Modifier.size(27.dp),
+                            Icons.Rounded.FastRewind,
+                            DesktopStrings["widget_previous", "Previous"],
+                            tint = if (song != null && previousEnabled) Color.White else inactiveColor,
+                            modifier = Modifier.size(26.dp),
                         )
                     }
-                }
-                DesktopCapsuleButton(
-                    onClick = onNext,
-                    enabled = song != null,
-                    size = 32.dp,
-                ) {
-                    Icon(
-                        Icons.Rounded.FastForward,
-                        DesktopStrings["widget_next", "Next"],
-                        tint = if (song != null) Color.White else inactiveColor,
-                        modifier = Modifier.size(23.dp),
-                    )
+                    DesktopCapsuleButton(
+                        onClick = onPlayPause,
+                        enabled = song != null,
+                        size = 42.dp,
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                color = Color.White,
+                                strokeWidth = 2.4.dp,
+                            )
+                        } else {
+                            Icon(
+                                if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                if (isPlaying) "Pause" else "Play",
+                                tint = if (song != null) Color.White else inactiveColor,
+                                modifier = Modifier.size(31.dp),
+                            )
+                        }
+                    }
+                    DesktopCapsuleButton(
+                        onClick = onNext,
+                        enabled = song != null,
+                        size = 36.dp,
+                    ) {
+                        Icon(
+                            Icons.Rounded.FastForward,
+                            DesktopStrings["widget_next", "Next"],
+                            tint = if (song != null) Color.White else inactiveColor,
+                            modifier = Modifier.size(26.dp),
+                        )
+                    }
                 }
                 if (showTransportExtras) {
+                    Spacer(Modifier.width(2.dp))
                     DesktopCapsuleButton(
                         onClick = { onRepeatModeChange(repeatMode.next()) },
                         enabled = song != null,
-                        size = 30.dp,
+                        size = 28.dp,
                     ) {
                         val tint = when {
                             song == null -> inactiveColor
@@ -4921,7 +4927,7 @@ private fun DesktopPlayerCapsule(
                                 BitChordIcons.Repeat,
                                 "Repeat ${repeatMode.label()}",
                                 tint = tint,
-                                modifier = Modifier.size(19.dp),
+                                modifier = Modifier.size(18.dp),
                             )
                         }
                     }
