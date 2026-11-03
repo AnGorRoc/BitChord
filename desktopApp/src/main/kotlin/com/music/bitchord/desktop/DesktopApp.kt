@@ -159,6 +159,11 @@ import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeDown
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -4721,67 +4726,107 @@ private fun DesktopPlayerCapsule(
     onOpenLyrics: () -> Unit,
     onOpenQueue: () -> Unit,
     sidePanel: DesktopSidePanel?,
+    onOpenSongMenu: ((Song) -> Unit)? = null,
 ) {
-    val mixBlend = DesktopPlayerSettings.smartMixBlend.collectAsState()
-    val reduceAnimation by DesktopPlayerSettings.reduceAnimation.collectAsState()
-    val mixPulse = rememberMixPulse({ mixBlend.value }, enabled = !reduceAnimation, slow = true)
     val currentProgress by rememberUpdatedState(progress)
     val shape = RoundedCornerShape(percent = 50)
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), contentAlignment = Alignment.BottomCenter) {
-        val showVolume = maxWidth >= 760.dp
-        val showTransportExtras = maxWidth >= 600.dp
+    val inactiveColor = Color.White.copy(alpha = 0.35f)
+    val activeSecondaryColor = Color.White.copy(alpha = 0.70f)
+
+    val volumeInteraction = remember { MutableInteractionSource() }
+    val volumeHovered by volumeInteraction.collectIsHoveredAsState()
+
+    BoxWithConstraints(
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        val showTransportExtras = maxWidth >= 580.dp
         Row(
             Modifier
                 .widthIn(max = 920.dp)
                 .fillMaxWidth()
-                .height(60.dp)
+                .height(54.dp)
                 .clip(shape)
                 .desktopBarGlass(shape)
-                .padding(horizontal = 12.dp),
+                .border(1.dp, Color.White.copy(alpha = 0.10f), shape)
+                .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Transport controls (Left)
             if (showTransportExtras) {
-                DesktopToolbarButton(onClick = { onShuffleChange(!shuffle) }, size = 32.dp) {
+                DesktopToolbarButton(
+                    onClick = { onShuffleChange(!shuffle) },
+                    enabled = song != null,
+                    size = 32.dp,
+                ) {
                     Icon(
                         BitChordIcons.Shuffle,
                         DesktopStrings["shuffle", "Shuffle"],
-                        tint = if (shuffle) DesktopAccent else DesktopSecondary,
+                        tint = when {
+                            song == null -> inactiveColor
+                            shuffle -> DesktopAccent
+                            else -> activeSecondaryColor
+                        },
                         modifier = Modifier.size(18.dp),
                     )
                 }
             }
-            DesktopToolbarButton(onClick = onPrevious, enabled = previousEnabled, size = 34.dp) {
+            DesktopToolbarButton(
+                onClick = onPrevious,
+                enabled = song != null && previousEnabled,
+                size = 34.dp,
+            ) {
                 Icon(
                     Icons.Rounded.FastRewind,
                     DesktopStrings["widget_previous", "Previous"],
-                    tint = if (previousEnabled) Color.White else DesktopSecondary.copy(alpha = 0.40f),
+                    tint = if (song != null && previousEnabled) Color.White else inactiveColor,
                     modifier = Modifier.size(22.dp),
                 )
             }
-            DesktopToolbarButton(onClick = onPlayPause, size = 40.dp) {
+            DesktopToolbarButton(
+                onClick = onPlayPause,
+                enabled = song != null,
+                size = 38.dp,
+            ) {
                 if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                    )
                 } else {
                     Icon(
                         if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         if (isPlaying) "Pause" else "Play",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp),
+                        tint = if (song != null) Color.White else inactiveColor,
+                        modifier = Modifier.size(26.dp),
                     )
                 }
             }
-            DesktopToolbarButton(onClick = onNext, size = 34.dp) {
+            DesktopToolbarButton(
+                onClick = onNext,
+                enabled = song != null,
+                size = 34.dp,
+            ) {
                 Icon(
                     Icons.Rounded.FastForward,
                     DesktopStrings["widget_next", "Next"],
-                    tint = Color.White,
+                    tint = if (song != null) Color.White else inactiveColor,
                     modifier = Modifier.size(22.dp),
                 )
             }
             if (showTransportExtras) {
-                DesktopToolbarButton(onClick = { onRepeatModeChange(repeatMode.next()) }, size = 32.dp) {
-                    val tint = if (repeatMode != DesktopRepeatMode.OFF) DesktopAccent else DesktopSecondary
-                    if (repeatMode == DesktopRepeatMode.ONE) {
+                DesktopToolbarButton(
+                    onClick = { onRepeatModeChange(repeatMode.next()) },
+                    enabled = song != null,
+                    size = 32.dp,
+                ) {
+                    val tint = when {
+                        song == null -> inactiveColor
+                        repeatMode != DesktopRepeatMode.OFF -> DesktopAccent
+                        else -> activeSecondaryColor
+                    }
+                    if (repeatMode == DesktopRepeatMode.ONE && song != null) {
                         Text(
                             "1",
                             color = tint,
@@ -4790,100 +4835,194 @@ private fun DesktopPlayerCapsule(
                             modifier = Modifier.semantics { contentDescription = "Repeat one" },
                         )
                     } else {
-                        Icon(BitChordIcons.Repeat, "Repeat ${repeatMode.label()}", tint = tint, modifier = Modifier.size(18.dp))
-                    }
-                }
-            }
-            Spacer(Modifier.width(10.dp))
-            Box(
-                Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .padding(vertical = 8.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color.White.copy(alpha = 0.06f))
-                    .clickable(onClick = onOpenNowPlaying),
-            ) {
-                if (song == null) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
-                            BitChordIcons.MusicNote,
-                            DesktopStrings["playback_channel_name", "Now playing"],
-                            tint = DesktopSecondary.copy(alpha = 0.65f),
-                            modifier = Modifier.size(20.dp),
+                            BitChordIcons.Repeat,
+                            "Repeat ${repeatMode.label()}",
+                            tint = tint,
+                            modifier = Modifier.size(18.dp),
                         )
                     }
-                } else {
-                    Row(Modifier.fillMaxSize().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        DesktopArtwork(song.thumbnailUrl, Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)), px = ROW_ART_PX)
-                        Column(
-                            Modifier.weight(1f).padding(horizontal = 10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text(
-                                song.title,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                song.artist,
-                                color = DesktopSecondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelSmall,
-                            )
-                        }
-                        Spacer(Modifier.width(36.dp))
-                    }
-                    Box(
-                        Modifier
-                            .align(Alignment.BottomStart)
-                            .fillMaxWidth()
-                            .height(2.dp)
-                            .drawBehind {
-                                val base = currentProgress.coerceIn(0f, 1f)
-                                val fraction = base + (1f - base) * mixPulse.cover
-                                drawRect(
-                                    color = Color.White.copy(alpha = mixPulse.alpha(0.55f)),
-                                    size = Size(size.width * fraction, size.height),
-                                )
-                            },
-                    )
                 }
             }
+
             Spacer(Modifier.width(10.dp))
-            if (showVolume) {
-                Icon(Icons.Rounded.VolumeUp, DesktopStrings["d_volume", "Volume"], tint = DesktopSecondary, modifier = Modifier.size(17.dp))
-                Spacer(Modifier.width(8.dp))
-                DesktopThinSlider(
-                    value = volume,
-                    onValueChange = onVolumeChange,
-                    idleHeight = 4.dp,
-                    activeHeight = 8.dp,
-                    modifier = Modifier.width(78.dp),
-                )
-                Spacer(Modifier.width(6.dp))
+
+            // Center: Now Playing / Logo
+            if (song == null) {
+                // Inactive state (Image 2): Centered subtle brand mark
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        painter = painterResource(Res.drawable.logo_mark),
+                        contentDescription = "BitChord",
+                        colorFilter = ColorFilter.tint(inactiveColor),
+                        modifier = Modifier.size(width = 24.dp, height = 16.dp),
+                    )
+                }
+            } else {
+                // Active playing state (Image 1): Artwork + Progress bar underneath + Title / Artist + 'Â·Â·Â·'
+                Row(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onOpenNowPlaying)
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    // Artwork with progress bar directly beneath
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        DesktopArtwork(
+                            song.thumbnailUrl,
+                            Modifier.size(34.dp).clip(RoundedCornerShape(5.dp)),
+                            px = ROW_ART_PX,
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Box(
+                            Modifier
+                                .width(34.dp)
+                                .height(2.5.dp)
+                                .clip(RoundedCornerShape(1.dp))
+                                .background(Color.White.copy(alpha = 0.22f)),
+                        ) {
+                            val fraction = currentProgress.coerceIn(0f, 1f)
+                            Box(
+                                Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(fraction)
+                                    .background(Color.White),
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.width(10.dp))
+
+                    // Title and Artist - Album
+                    Column(
+                        Modifier.widthIn(max = 280.dp),
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Text(
+                            song.title,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        val subtitle = if (!song.albumName.isNullOrBlank()) {
+                            "${song.artist} â€” ${song.albumName}"
+                        } else {
+                            song.artist
+                        }
+                        Text(
+                            subtitle,
+                            color = activeSecondaryColor,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+
+                    // Context menu button 'Â·Â·Â·'
+                    Spacer(Modifier.width(6.dp))
+                    DesktopToolbarButton(
+                        onClick = { onOpenSongMenu?.invoke(song) },
+                        size = 28.dp,
+                    ) {
+                        Icon(
+                            Icons.Rounded.MoreHoriz,
+                            DesktopStrings["more", "More"],
+                            tint = activeSecondaryColor,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
             }
-            DesktopToolbarButton(onClick = onOpenAudioOutput, size = 32.dp) {
-                Icon(Icons.Rounded.Headphones, DesktopStrings["audio_output", "Audio output"], tint = DesktopSecondary, modifier = Modifier.size(19.dp))
-            }
-            DesktopToolbarButton(onClick = onOpenLyrics, size = 32.dp) {
+
+            Spacer(Modifier.width(10.dp))
+
+            // Right side buttons: [Lyrics] [Queue] [Volume]
+            DesktopToolbarButton(
+                onClick = onOpenLyrics,
+                enabled = song != null,
+                size = 32.dp,
+            ) {
                 Icon(
                     BitChordIcons.LyricsQuote,
                     DesktopStrings["lyrics", "Lyrics"],
-                    tint = if (sidePanel == DesktopSidePanel.LYRICS) Color.White else DesktopSecondary,
-                    modifier = Modifier.size(19.dp),
+                    tint = when {
+                        song == null -> inactiveColor
+                        sidePanel == DesktopSidePanel.LYRICS -> Color.White
+                        else -> activeSecondaryColor
+                    },
+                    modifier = Modifier.size(18.dp),
                 )
             }
-            DesktopToolbarButton(onClick = onOpenQueue, size = 32.dp) {
+            DesktopToolbarButton(
+                onClick = onOpenQueue,
+                size = 32.dp,
+            ) {
                 Icon(
                     BitChordIcons.Queue,
                     DesktopStrings["queue", "Queue"],
-                    tint = if (sidePanel == DesktopSidePanel.QUEUE) Color.White else DesktopSecondary,
-                    modifier = Modifier.size(19.dp),
+                    tint = when {
+                        sidePanel == DesktopSidePanel.QUEUE -> Color.White
+                        song == null -> inactiveColor
+                        else -> activeSecondaryColor
+                    },
+                    modifier = Modifier.size(18.dp),
                 )
+            }
+
+            // Volume control with expandable hover slider
+            Row(
+                Modifier.hoverable(volumeInteraction),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AnimatedVisibility(
+                    visible = volumeHovered,
+                    enter = fadeIn(tween(150)) + expandHorizontally(animationSpec = tween(150)),
+                    exit = fadeOut(tween(150)) + shrinkHorizontally(animationSpec = tween(150)),
+                ) {
+                    DesktopThinSlider(
+                        value = volume,
+                        onValueChange = onVolumeChange,
+                        idleHeight = 3.5.dp,
+                        activeHeight = 7.dp,
+                        modifier = Modifier.width(68.dp).padding(end = 4.dp),
+                    )
+                }
+                DesktopToolbarButton(
+                    onClick = {
+                        if (volume > 0f) {
+                            onVolumeChange(0f)
+                        } else {
+                            onVolumeChange(0.8f)
+                        }
+                    },
+                    size = 32.dp,
+                ) {
+                    val volumeIcon = when {
+                        volume <= 0.001f -> Icons.AutoMirrored.Rounded.VolumeOff
+                        volume < 0.5f -> Icons.AutoMirrored.Rounded.VolumeDown
+                        else -> Icons.Rounded.VolumeUp
+                    }
+                    Icon(
+                        volumeIcon,
+                        DesktopStrings["d_volume", "Volume"],
+                        tint = if (song == null && volume <= 0f) inactiveColor else activeSecondaryColor,
+                        modifier = Modifier.size(19.dp),
+                    )
+                }
             }
         }
     }
