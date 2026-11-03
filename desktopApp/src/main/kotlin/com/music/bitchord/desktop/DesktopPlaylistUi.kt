@@ -70,6 +70,7 @@ import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.UserPlaylist
+import com.music.bitchord.data.spotify.ExportState
 import com.music.bitchord.ui.components.contextClick
 import com.music.bitchord.ui.icons.BitChordIcons
 
@@ -353,6 +354,7 @@ internal fun DesktopDeletePlaylistDialog(
 @Composable
 internal fun DesktopReorderPlaylistDialog(
     browseId: String,
+    localSongs: List<Song>? = null,
     busy: Boolean,
     error: String?,
     onSave: (original: List<Song>, reordered: List<Song>) -> Unit,
@@ -360,11 +362,19 @@ internal fun DesktopReorderPlaylistDialog(
     /** The app's song menu, planted under the cursor by the host this list runs in. */
     songContextMenu: @Composable (Song, () -> Unit) -> Unit,
 ) {
-    val entries by produceState<UiState<List<Song>>>(UiState.Loading, browseId) {
-        value = DesktopSearchClient.playlistEntries(browseId).fold(
-            onSuccess = { UiState.Success(it) },
-            onFailure = { UiState.Error(it.message ?: "Could not load the playlist") },
-        )
+    val entries by produceState<UiState<List<Song>>>(
+        initialValue = if (localSongs != null) UiState.Success(localSongs) else UiState.Loading,
+        key1 = browseId,
+        key2 = localSongs,
+    ) {
+        if (localSongs != null) {
+            value = UiState.Success(localSongs)
+        } else {
+            value = DesktopSearchClient.playlistEntries(browseId).fold(
+                onSuccess = { UiState.Success(it) },
+                onFailure = { UiState.Error(it.message ?: "Could not load the playlist") },
+            )
+        }
     }
     // Null until a row has been dragged: an untouched list has nothing to send.
     var draft by remember(browseId) { mutableStateOf<List<Song>?>(null) }
@@ -422,6 +432,51 @@ internal fun DesktopReorderPlaylistDialog(
             },
             onDismiss = onDismiss,
         )
+    }
+}
+
+@Composable
+internal fun DesktopExportPlaylistDialog(
+    title: String,
+    state: ExportState,
+    onDismiss: () -> Unit,
+) {
+    val busy = state is ExportState.Queued || state is ExportState.Running
+    DesktopDialogFrame(onDismiss = if (busy) ({}) else onDismiss) {
+        val subtitle = when (state) {
+            ExportState.Queued -> "Preparing export for “$title”…"
+            is ExportState.Running -> if (state.throttled) {
+                "Waiting for YouTube Music rate limit (${state.done} / ${state.total})…"
+            } else {
+                "Exporting to YouTube Music (${state.done} / ${state.total})…"
+            }
+            is ExportState.Done -> if (state.upToDate) {
+                "“$title” is already up to date on YouTube Music (${state.exported} songs)."
+            } else {
+                buildString {
+                    append("Exported ${state.exported} songs to YouTube Music.")
+                    if (state.skipped > 0) append(" (${state.skipped} skipped)")
+                }
+            }
+            is ExportState.Failed -> "Stopped at ${state.done} / ${state.total}: ${state.detail.ifBlank { state.kind.name }}"
+        }
+        DialogHeading("Export to YouTube Music", subtitle)
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (busy) {
+                CircularProgressIndicator(color = DesktopAccent, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(12.dp))
+            }
+            TextButton(onClick = onDismiss) {
+                Text(
+                    if (busy) DesktopStrings["cancel", "Cancel"] else DesktopStrings["done", "Done"],
+                    color = if (busy) DesktopSecondary else DesktopAccent,
+                )
+            }
+        }
     }
 }
 

@@ -1,203 +1,285 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="analysis_complete">analizzato</string>
-    <string name="analysis_in_progress">analisi in corso…</string>
-    <string name="analysis_refining">analizzato, rifinitura…</string>
-    <string name="audio_output">Audio output</string>
-    <string name="audio_output_playing">Playing here</string>
-    <string name="audio_pipeline">Audio Pipeline</string>
-    <string name="automix_analysis_status">Automix · questo brano: %1$s · successivo: %2$s</string>
-    <string name="automix_not_supported_video">Automix non supportato sui video musicali</string>
-    <string name="automix_stopped_in_party">Automix: interrotto in “Ascoltare insieme”</string>
-    <string name="autoplay">AutoPlay</string>
-    <string name="autoplay_empty_description">Continuerà con musica simile</string>
-    <string name="autoplay_off">AutoPlay disattivo</string>
-    <string name="autoplay_on">AutoPlay attivo</string>
-    <string name="autoplay_queue_description">Musica simile, selezionata per la riproduzione successiva</string>
-    <string name="bit_depth">%1$d bit</string>
-    <string name="cancel">Annulla</string>
-    <string name="cast">Cast</string>
-    <string name="cast_casting">Casting</string>
-    <string name="cast_connecting">Connecting…</string>
-    <string name="cast_row_subtitle">Chromecast and Google Cast speakers</string>
-    <string name="channel_count">%1$d canali</string>
-    <string name="choose_lyrics_provider">Scegli la fonte dei testi</string>
-    <string name="clear">Cancella</string>
-    <string name="close_lyrics">Chiudi testi</string>
-    <string name="data_saver">Data-Saver</string>
-    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
-    <string name="downgraded_from">↓ da %1$s</string>
-    <string name="drag_to_reorder">Trascina per riordinare</string>
-    <string name="failed">Non riuscito</string>
-    <string name="hi_res_lossless">Hi-Res Lossless</string>
-    <string name="high_quality">Alta qualità</string>
-    <string name="high_quality_upgrading">Alta qualità, aggiornamento in corso</string>
-    <string name="increase_lyrics_offset">Increase lyrics offset</string>
-    <string name="instrumental">Strumentale</string>
-    <string name="like">Mi piace</string>
-    <string name="listen_together">Ascoltare insieme</string>
-    <string name="listen_together_away">Assente — il posto è tenuto</string>
-    <string name="listen_together_host">Host</string>
-    <string name="listen_together_in_party">In un party · %1$s</string>
-    <string name="listen_together_jam">Jam di %1$s</string>
-    <string name="listen_together_jam_unnamed">Ascolto insieme</string>
-    <string name="listen_together_manage">Gestisci</string>
-    <string name="listen_together_open">Ascolta insieme</string>
-    <string name="listen_together_open_count">Ascolto insieme · %1$d</string>
-    <string name="listen_together_you">Tu</string>
-    <string name="mixing">Mixaggio</string>
-    <string name="lossless">Lossless</string>
-    <string name="lyrics_already_in_language">Questo testo è già in %1$s</string>
-    <string name="lyrics_already_romanized">Questo testo usa già caratteri latini</string>
-    <string name="lyrics_by">Testi di %1$s</string>
-    <string-array name="lyrics_intro_lines">
-        <item>Il ritmo sta arrivando</item>
-        <item>Il brano sta iniziando</item>
-        <item>Riscaldamento</item>
-        <item>Si crea l\'atmosfera</item>
-        <item>Prima il basso, poi le parole</item>
-        <item>Aspetta</item>
-        <item>Senti la crescita</item>
-        <item>Per ora solo il groove</item>
-        <item>Il ritornello sta arrivando</item>
-        <item>Lascialo respirare</item>
-        <item>Via alla voce</item>
-        <item>Prime note in arrivo</item>
-    </string-array>
-    <string-array name="lyrics_loading_lines">
-        <item>Recupero dei testi</item>
-        <item>Ricerca delle parole</item>
-        <item>Recupero delle strofe</item>
-        <item>I testi si stanno caricando</item>
-        <item>Controllo del foglio dei testi</item>
-        <item>Ricerca nel songbook</item>
-        <item>Allineamento dei testi</item>
-        <item>Le parole stanno arrivando</item>
-        <item>Controllo degli archivi</item>
-        <item>Ricerca delle parole giuste</item>
-        <item>I testi si stanno completando</item>
-        <item>Quasi trovate le parole</item>
-    </string-array>
-    <string name="lyrics_not_available">Testi non disponibili</string>
-    <string name="lyrics_offset">Lyrics offset</string>
-    <string name="lyrics_offset_description">Positive values show lyrics later</string>
-    <string name="lyrics_offset_reset">Reset</string>
-    <string name="lyrics_provider_current">Fonte attuale</string>
-    <string name="lyrics_provider_fetching">Recupero del testo…</string>
-    <string name="lyrics_provider_found">Testo trovato · Tocca per usarlo</string>
-    <string name="lyrics_provider_not_fetched">Tocca per recuperare</string>
-    <string name="lyrics_provider_not_found">Testo non trovato</string>
-    <string name="lyrics_romanization_unavailable">La traslitterazione non è disponibile per questo testo</string>
-    <string name="lyrics_romanized">Pronuncia traslitterata</string>
-    <string name="lyrics_saved_with_download">Testi salvati con questo download</string>
-    <string name="lyrics_share_pick_limit">La scheda è piena</string>
-    <string name="lyrics_translated_to">Tradotto in %1$s</string>
-    <string name="lyrics_translation_unavailable">La traduzione non è disponibile al momento</string>
-    <string name="medium_quality">Medium Quality</string>
-    <string name="mono">Mono</string>
-    <string name="more">Altro</string>
-    <string name="next_from">Prossimo da: %1$s</string>
-    <string name="next_in_queue">Prossimo in coda</string>
-    <string name="no_lyrics_for_track">Nessun testo per questo brano</string>
-    <string name="no_lyrics_found">Nessun testo trovato</string>
-    <string name="now_playing">In riproduzione</string>
-    <string name="open_lyrics">Lyrics</string>
-    <string name="pause">Pausa</string>
-    <string name="play">Riproduci</string>
-    <string name="played_by">Played by %1$s</string>
-    <string name="playing_from">Playing from %1$s</string>
-    <string name="playing_radio">Riproduzione radio %1$s</string>
-    <string name="queue">Coda</string>
-    <string name="remove_from_liked">Rimuovi da Musica che mi piace</string>
-    <string name="remove_from_queue">Rimuovi dalla coda</string>
-    <string name="repeat_all">Ripeti tutto</string>
-    <string name="repeat_off">Ripeti disattivo</string>
-    <string name="repeat_one">Ripeti uno</string>
-    <string name="romanize_lyrics">Traslittera il testo</string>
-    <string name="romanizing_lyrics">Traslitterazione del testo…</string>
-    <string name="show_original_lyrics">Mostra testo originale</string>
-    <string name="shuffle_off">Casuale disattivo</string>
-    <string name="shuffle_on">Casuale attivo</string>
-    <string name="stereo">Stereo</string>
-    <string name="translate_lyrics">Traduci testo</string>
-    <string name="translating_lyrics_to">Traduzione in %1$s…</string>
-    <string name="up_next">In arrivo</string>
-    <string name="upgrading_quality">Aggiornamento qualità</string>
-    <string name="waiting">in attesa</string>
-    <string name="widget_next">Successivo</string>
-    <string name="widget_previous">Precedente</string>
-    <string name="wired_headphones">Wired headphones</string>
-    <string name="usb_audio">USB audio</string>
-    <string name="hdmi_output">HDMI</string>
-    <string name="personal_phone">%1$s’s Phone</string>
-    <string name="this_phone">This phone</string>
-    <string name="albums">Album</string>
-    <string name="artists">Artisti</string>
-    <string name="card_plays_format">%1$s riproduzioni</string>
-    <string name="card_songs_format">%1$s brani</string>
-    <string name="card_views_format">%1$s visualizzazioni</string>
-    <string name="clear_search">Cancella ricerca</string>
-    <string name="downloaded">Scaricato</string>
-    <string name="explore">Esplora</string>
-    <string name="library">Libreria</string>
-    <string name="library_sign_in_description">Accedi al tuo account Google per vedere i brani che ti piacciono, le playlist e la cronologia di YouTube Music.</string>
-    <string name="new_playlist">Nuova playlist</string>
-    <string name="on_device">Sul dispositivo</string>
-    <string name="personalized_recommendations">Ricevi consigli personalizzati per te</string>
-    <string name="pinned">Fissato</string>
-    <string name="play_next">Riproduci dopo</string>
-    <string name="playlist">playlist</string>
-    <string name="playlist_action">Playlist</string>
-    <string name="playlists">Playlist</string>
-    <string name="recent_search_edit">Modifica “%1$s”</string>
-    <string name="recent_search_remove">Rimuovi “%1$s” dalle ricerche recenti</string>
-    <string name="recent_searches">Ricerche recenti</string>
-    <string name="replay_subtitle">I tuoi brani, artisti, album e generi più ascoltati</string>
-    <string name="retry">Riprova</string>
-    <string name="saved_to_youtube_music">Salvato su YouTube Music</string>
-    <string name="search">Cerca</string>
-    <string name="search_empty">Cerca milioni di brani su YouTube Music.</string>
-    <string name="search_hint">Artisti, brani, testi e altro</string>
-    <string name="selected">Selezionato</string>
-    <string name="share">Condividi</string>
-    <string name="shelf_artists_on_the_rise">Artisti emergenti</string>
-    <string name="shelf_chart">Classifica</string>
-    <string name="shelf_charts">Classifiche</string>
-    <string name="shelf_concerts">Concerti</string>
-    <string name="shelf_featured_playlists_for_you">Playlist in primo piano per te</string>
-    <string name="shelf_for_you">Per te</string>
-    <string name="shelf_forgotten_favorites">Preferiti dimenticati</string>
-    <string name="shelf_from_the_community">Dalla community</string>
-    <string name="shelf_from_your_library">Dalla tua raccolta</string>
-    <string name="shelf_hits_today">Hit di oggi</string>
-    <string name="shelf_listen_again">Ascolta di nuovo</string>
-    <string name="shelf_mixed_for_you">Mix per te</string>
-    <string name="shelf_new_releases">Nuove uscite</string>
-    <string name="shelf_quick_picks">Scelte rapide</string>
-    <string name="shelf_recents">Recenti</string>
-    <string name="shelf_recommended_music_videos">Video musicali consigliati</string>
-    <string name="shelf_shorts">Shorts</string>
-    <string name="shelf_similar_to">Simile a %1$s</string>
-    <string name="shelf_single">Singolo</string>
-    <string name="shelf_song_item">Brano</string>
-    <string name="shelf_top_music_videos">Migliori video musicali</string>
-    <string name="shelf_top_tunes_right_now">Brani del momento</string>
-    <string name="shelf_trending">Tendenze</string>
-    <string name="shelf_trending_community_playlists">Playlist popolari della community</string>
-    <string name="shelf_youtube_charts">Classifiche di YouTube</string>
-    <string name="show_all">Mostra tutto</string>
-    <string name="sign_in">Accedi</string>
-    <string name="sign_in_youtube_music">Accedi a YouTube Music</string>
-    <string name="subscriptions">Iscrizioni</string>
-    <string name="switch_to_grid_view">Passa alla vista a griglia</string>
-    <string name="switch_to_list_view">Passa alla vista a elenco</string>
-    <string name="your_replay">Il tuo Replay</string>
-    <string name="your_listening_experience">La tua esperienza di ascolto</string>
-    <string name="default_replay_holder">Ascoltatore BitChord</string>
-    <string name="member_since">Membro da</string>
-    <string name="import_spotify">Importa da Spotify</string>
-    <string name="import_spotify_subtitle">Da un collegamento playlist</string>
-    <string name="search_library_empty">Cerca i brani nella cartella Musica locale.</string>
-    <string name="search_library_hint">Brani, artisti e album</string>
-    <string name="search_library_no_results">Nulla in Musica locale corrisponde a «%1$s».</string>
+  <string name="analysis_complete">analizzato</string>
+  <string name="analysis_in_progress">analisi in corso…</string>
+  <string name="analysis_refining">analizzato, rifinitura…</string>
+  <string name="audio_output">Audio output</string>
+  <string name="audio_output_playing">Playing here</string>
+  <string name="audio_pipeline">Audio Pipeline</string>
+  <string name="automix_analysis_status">Automix · questo brano: %1$s · successivo: %2$s</string>
+  <string name="automix_not_supported_video">Automix non supportato sui video musicali</string>
+  <string name="automix_stopped_in_party">Automix: interrotto in “Ascoltare insieme”</string>
+  <string name="autoplay">AutoPlay</string>
+  <string name="autoplay_empty_description">Continuerà con musica simile</string>
+  <string name="autoplay_off">AutoPlay disattivo</string>
+  <string name="autoplay_on">AutoPlay attivo</string>
+  <string name="autoplay_queue_description">Musica simile, selezionata per la riproduzione successiva</string>
+  <string name="bit_depth">%1$d bit</string>
+  <string name="cancel">Annulla</string>
+  <string name="cast">Cast</string>
+  <string name="cast_casting">Casting</string>
+  <string name="cast_connecting">Connecting…</string>
+  <string name="cast_row_subtitle">Chromecast and Google Cast speakers</string>
+  <string name="channel_count">%1$d canali</string>
+  <string name="choose_lyrics_provider">Scegli la fonte dei testi</string>
+  <string name="clear">Cancella</string>
+  <string name="close_lyrics">Chiudi testi</string>
+  <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
+  <string name="drag_to_reorder">Trascina per riordinare</string>
+  <string name="failed">Non riuscito</string>
+  <string name="hi_res_lossless">Hi-Res Lossless</string>
+  <string name="high_quality">Alta qualità</string>
+  <string name="increase_lyrics_offset">Increase lyrics offset</string>
+  <string name="instrumental">Strumentale</string>
+  <string name="like">Mi piace</string>
+  <string name="listen_together">Ascoltare insieme</string>
+  <string name="listen_together_away">Assente — il posto è tenuto</string>
+  <string name="listen_together_host">Host</string>
+  <string name="listen_together_in_party">In un party · %1$s</string>
+  <string name="listen_together_jam">Jam di %1$s</string>
+  <string name="listen_together_jam_unnamed">Ascolto insieme</string>
+  <string name="listen_together_manage">Gestisci</string>
+  <string name="listen_together_open">Ascolta insieme</string>
+  <string name="listen_together_open_count">Ascolto insieme · %1$d</string>
+  <string name="listen_together_you">Tu</string>
+  <string name="mixing">Mixaggio</string>
+  <string name="lossless">Lossless</string>
+  <string name="lyrics_already_in_language">Questo testo è già in %1$s</string>
+  <string name="lyrics_already_romanized">Questo testo usa già caratteri latini</string>
+  <string name="lyrics_by">Testi di %1$s</string>
+  <string-array name="lyrics_intro_lines">
+    <item>Il ritmo sta arrivando</item>
+    <item>Il brano sta iniziando</item>
+    <item>Riscaldamento</item>
+    <item>Si crea l\'atmosfera</item>
+    <item>Prima il basso, poi le parole</item>
+    <item>Aspetta</item>
+    <item>Senti la crescita</item>
+    <item>Per ora solo il groove</item>
+    <item>Il ritornello sta arrivando</item>
+    <item>Lascialo respirare</item>
+    <item>Via alla voce</item>
+    <item>Prime note in arrivo</item>
+  </string-array>
+  <string-array name="lyrics_loading_lines">
+    <item>Recupero dei testi</item>
+    <item>Ricerca delle parole</item>
+    <item>Recupero delle strofe</item>
+    <item>I testi si stanno caricando</item>
+    <item>Controllo del foglio dei testi</item>
+    <item>Ricerca nel songbook</item>
+    <item>Allineamento dei testi</item>
+    <item>Le parole stanno arrivando</item>
+    <item>Controllo degli archivi</item>
+    <item>Ricerca delle parole giuste</item>
+    <item>I testi si stanno completando</item>
+    <item>Quasi trovate le parole</item>
+  </string-array>
+  <string name="lyrics_not_available">Testi non disponibili</string>
+  <string name="lyrics_offset">Lyrics offset</string>
+  <string name="lyrics_offset_description">Positive values show lyrics later</string>
+  <string name="lyrics_offset_reset">Reset</string>
+  <string name="lyrics_provider_current">Fonte attuale</string>
+  <string name="lyrics_provider_fetching">Recupero del testo…</string>
+  <string name="lyrics_provider_found">Testo trovato · Tocca per usarlo</string>
+  <string name="lyrics_provider_not_fetched">Tocca per recuperare</string>
+  <string name="lyrics_provider_not_found">Testo non trovato</string>
+  <string name="lyrics_romanization_unavailable">La traslitterazione non è disponibile per questo testo</string>
+  <string name="lyrics_romanized">Pronuncia traslitterata</string>
+  <string name="lyrics_saved_with_download">Testi salvati con questo download</string>
+  <string name="lyrics_share_pick_limit">La scheda è piena</string>
+  <string name="lyrics_translated_to">Tradotto in %1$s</string>
+  <string name="lyrics_translation_unavailable">La traduzione non è disponibile al momento</string>
+  <string name="mono">Mono</string>
+  <string name="more">Altro</string>
+  <string name="next_from">Prossimo da: %1$s</string>
+  <string name="next_in_queue">Prossimo in coda</string>
+  <string name="no_lyrics_for_track">Nessun testo per questo brano</string>
+  <string name="no_lyrics_found">Nessun testo trovato</string>
+  <string name="now_playing">In riproduzione</string>
+  <string name="open_lyrics">Lyrics</string>
+  <string name="pause">Pausa</string>
+  <string name="play">Riproduci</string>
+  <string name="played_by">Played by %1$s</string>
+  <string name="playing_from">Playing from %1$s</string>
+  <string name="playing_radio">Riproduzione radio %1$s</string>
+  <string name="queue">Coda</string>
+  <string name="remove_from_liked">Rimuovi da Musica che mi piace</string>
+  <string name="remove_from_queue">Rimuovi dalla coda</string>
+  <string name="repeat_all">Ripeti tutto</string>
+  <string name="repeat_off">Ripeti disattivo</string>
+  <string name="repeat_one">Ripeti uno</string>
+  <string name="romanize_lyrics">Traslittera il testo</string>
+  <string name="romanizing_lyrics">Traslitterazione del testo…</string>
+  <string name="show_original_lyrics">Mostra testo originale</string>
+  <string name="shuffle_off">Casuale disattivo</string>
+  <string name="shuffle_on">Casuale attivo</string>
+  <string name="stereo">Stereo</string>
+  <string name="translate_lyrics">Traduci testo</string>
+  <string name="translating_lyrics_to">Traduzione in %1$s…</string>
+  <string name="up_next">In arrivo</string>
+  <string name="upgrading_quality">Aggiornamento qualità</string>
+  <string name="waiting">in attesa</string>
+  <string name="widget_next">Successivo</string>
+  <string name="widget_previous">Precedente</string>
+  <string name="wired_headphones">Wired headphones</string>
+  <string name="usb_audio">USB audio</string>
+  <string name="hdmi_output">HDMI</string>
+  <string name="personal_phone">%1$s’s Phone</string>
+  <string name="this_phone">This phone</string>
+  <string name="albums">Album</string>
+  <string name="artists">Artisti</string>
+  <string name="card_plays_format">%1$s riproduzioni</string>
+  <string name="card_songs_format">%1$s brani</string>
+  <string name="card_views_format">%1$s visualizzazioni</string>
+  <string name="clear_search">Cancella ricerca</string>
+  <string name="downloaded">Scaricato</string>
+  <string name="explore">Esplora</string>
+  <string name="library">Libreria</string>
+  <string name="library_sign_in_description">Accedi al tuo account Google per vedere i brani che ti piacciono, le playlist e la cronologia di YouTube Music.</string>
+  <string name="new_playlist">Nuova playlist</string>
+  <string name="on_device">Sul dispositivo</string>
+  <string name="pinned">Fissato</string>
+  <string name="play_next">Riproduci dopo</string>
+  <string name="playlist">playlist</string>
+  <string name="playlist_action">Playlist</string>
+  <string name="playlists">Playlist</string>
+  <string name="recent_search_edit">Modifica “%1$s”</string>
+  <string name="recent_search_remove">Rimuovi “%1$s” dalle ricerche recenti</string>
+  <string name="recent_searches">Ricerche recenti</string>
+  <string name="replay_subtitle">I tuoi brani, artisti, album e generi più ascoltati</string>
+  <string name="retry">Riprova</string>
+  <string name="saved_to_youtube_music">Salvato su YouTube Music</string>
+  <string name="search">Cerca</string>
+  <string name="search_empty">Cerca milioni di brani su YouTube Music.</string>
+  <string name="search_hint">Artisti, brani, testi e altro</string>
+  <string name="selected">Selezionato</string>
+  <string name="share">Condividi</string>
+  <string name="shelf_artists_on_the_rise">Artisti emergenti</string>
+  <string name="shelf_chart">Classifica</string>
+  <string name="shelf_charts">Classifiche</string>
+  <string name="shelf_concerts">Concerti</string>
+  <string name="shelf_featured_playlists_for_you">Playlist in primo piano per te</string>
+  <string name="shelf_for_you">Per te</string>
+  <string name="shelf_forgotten_favorites">Preferiti dimenticati</string>
+  <string name="shelf_from_the_community">Dalla community</string>
+  <string name="shelf_from_your_library">Dalla tua raccolta</string>
+  <string name="shelf_hits_today">Hit di oggi</string>
+  <string name="shelf_listen_again">Ascolta di nuovo</string>
+  <string name="shelf_mixed_for_you">Mix per te</string>
+  <string name="shelf_new_releases">Nuove uscite</string>
+  <string name="shelf_quick_picks">Scelte rapide</string>
+  <string name="shelf_recents">Recenti</string>
+  <string name="shelf_recommended_music_videos">Video musicali consigliati</string>
+  <string name="shelf_shorts">Shorts</string>
+  <string name="shelf_similar_to">Simile a %1$s</string>
+  <string name="shelf_single">Singolo</string>
+  <string name="shelf_song_item">Brano</string>
+  <string name="shelf_top_music_videos">Migliori video musicali</string>
+  <string name="shelf_top_tunes_right_now">Brani del momento</string>
+  <string name="shelf_trending">Tendenze</string>
+  <string name="shelf_trending_community_playlists">Playlist popolari della community</string>
+  <string name="shelf_youtube_charts">Classifiche di YouTube</string>
+  <string name="show_all">Mostra tutto</string>
+  <string name="sign_in">Accedi</string>
+  <string name="sign_in_youtube_music">Accedi a YouTube Music</string>
+  <string name="subscriptions">Iscrizioni</string>
+  <string name="your_replay">Il tuo Replay</string>
+  <string name="your_listening_experience">La tua esperienza di ascolto</string>
+  <string name="default_replay_holder">Ascoltatore BitChord</string>
+  <string name="member_since">Membro da</string>
+  <string name="import_spotify">Importa da Spotify</string>
+  <string name="import_spotify_subtitle">Da un collegamento playlist</string>
+  <string name="search_library_empty">Cerca i brani nella cartella Musica locale.</string>
+  <string name="search_library_hint">Brani, artisti e album</string>
+  <string name="search_library_no_results">Nulla in Musica locale corrisponde a «%1$s».</string>
+  <string name="save_as_playlist">Save as playlist</string>
+  <string name="save_queue_as_playlist">Save queue as playlist</string>
+  <string name="save_radio_as_playlist">Save radio as playlist</string>
+  <string name="watch_output">Smartwatch</string>
+  <string name="watch_output_subtitle">Riproduci sull’altoparlante o sulle cuffie dello smartwatch</string>
+  <string name="previously_played">Ascoltati di recente</string>
+  <string name="search_addons_hint">Cerca nei tuoi componenti aggiuntivi</string>
+  <string name="search_addons_empty">Cerca contemporaneamente in tutti i componenti aggiuntivi abilitati. I brani vengono riprodotti direttamente dall’estensione.</string>
+  <string name="search_addons_no_results">Nessun componente aggiuntivo contiene “%1$s”.</string>
+  <string name="sign_in_with_google">Accedi con Google</string>
+  <string name="top_picks_for_you">Consigliati per te</string>
+  <string name="top_pick_made_for_you">Creati per te</string>
+  <string name="top_pick_mood_for_you">In base al tuo umore</string>
+  <string name="top_pick_featuring">Con %1$s</string>
+  <string name="top_pick_and_similar">%1$s e artisti simili</string>
+  <string name="top_pick_named_station">Stazione di %1$s</string>
+  <string name="top_pick_your_station">La tua stazione</string>
+  <string name="top_pick_discovery_station">Stazione Scoperte</string>
+  <string name="top_pick_new_from">Novità di %1$s</string>
+  <string name="mood_energy">Energia</string>
+  <string name="mood_energy_line">Brani carichi di ritmo per darti la carica.</string>
+  <string name="mood_relax">Relax</string>
+  <string name="mood_relax_line">Sonorità morbide e distensive per rallentare il ritmo.</string>
+  <string name="mood_feeling_blue">Malinconia</string>
+  <string name="mood_feeling_blue_line">Canzoni malinconiche per quando ne hai bisogno.</string>
+  <string name="mood_feel_good">Buonumore</string>
+  <string name="mood_feel_good_line">Brani allegri e solari per illuminare la giornata.</string>
+  <string name="mood_focus">Concentrazione</string>
+  <string name="mood_focus_line">Musica costante per non perdere la concentrazione.</string>
+  <string name="mood_heartbreak">Cuore spezzato</string>
+  <string name="mood_heartbreak_line">Inni per dimenticare, lacrima dopo lacrima.</string>
+  <string name="mood_love">Amore</string>
+  <string name="mood_love_line">Canzoni romantiche per ogni istante.</string>
+  <string name="find_your_mood">Trova il tuo mood</string>
+  <string name="mood_after_hours">A tarda notte</string>
+  <string name="mood_after_hours_line">Groove notturni per quando la città tace.</string>
+  <string name="mood_alone_time">Tempo per me</string>
+  <string name="mood_alone_time_line">Musica rilassante per goderti i tuoi momenti da solo.</string>
+  <string name="mood_chill">Chill</string>
+  <string name="mood_chill_line">Suoni distesi per rilassarsi completamente.</string>
+  <string name="mood_commuting">In viaggio</string>
+  <string name="mood_commuting_line">La colonna sonora perfetta per il tragitto.</string>
+  <string name="mood_eating_cooking">In cucina e a tavola</string>
+  <string name="mood_eating_cooking_line">Musica calorosa e accogliente per pranzi e cene.</string>
+  <string name="mood_evening">Sera</string>
+  <string name="mood_evening_line">Melodie rilassanti per concludere la giornata.</string>
+  <string name="mood_fitness">Allenamento</string>
+  <string name="mood_fitness_line">Ritmi intensi per superare i tuoi limiti.</string>
+  <string name="mood_gaming">Gaming</string>
+  <string name="mood_gaming_line">Colonne sonore per salire di livello.</string>
+  <string name="mood_home">A casa</string>
+  <string name="mood_home_line">Ascolto facile e piacevole per una giornata di riposo.</string>
+  <string name="mood_morning">Mattina</string>
+  <string name="mood_morning_line">Canzoni brillanti per iniziare la giornata col piede giusto.</string>
+  <string name="mood_motivation">Motivazione</string>
+  <string name="mood_motivation_line">Brani motivazionali per iniziare con grinta.</string>
+  <string name="mood_outdoors">All’aria aperta</string>
+  <string name="mood_outdoors_line">Musica per respirare aria fresca e orizzonti aperti.</string>
+  <string name="mood_party">Festa</string>
+  <string name="mood_party_line">I pezzi più ballati per animare la serata.</string>
+  <string name="mood_sleep">Sonno</string>
+  <string name="mood_sleep_line">Suoni delicati e rassicuranti per addormentarsi.</string>
+  <string name="mood_social">Compagnia</string>
+  <string name="mood_social_line">Canzoni famose che tutti sanno cantare.</string>
+  <string name="mood_sports">Sport</string>
+  <string name="mood_sports_line">L’adrenalina delle grandi partite dall’inizio alla fine.</string>
+  <string name="mood_summertime">Atmosfera estiva</string>
+  <string name="mood_summertime_line">Canzoni solari per le calde giornate estive.</string>
+  <string name="mood_holiday">Feste</string>
+  <string name="mood_holiday_line">I classici intramontabili per il periodo festivo.</string>
+  <string name="mood_weekend">Fine settimana</string>
+  <string name="mood_weekend_line">Musica piacevole per goderti i giorni liberi.</string>
+  <string name="mood_wellbeing">Benessere</string>
+  <string name="mood_wellbeing_line">Atmosfere serene per la meditazione e lo yoga.</string>
+  <string name="mood_work">Lavoro</string>
+  <string name="mood_work_line">Tracce strumentali lineari per lavorare al meglio.</string>
+  <string name="video_quality">Qualità video</string>
+  <string name="video_quality_auto">Automatica</string>
+  <string name="mix_view_bars">%1$d battute</string>
+  <string name="mix_view_one_bar">1 battuta</string>
+  <string name="mix_view_seconds">%1$d sec</string>
+  <string name="mix_view_bpm">%1$d bpm</string>
+  <string name="data_saver">Data-Saver</string>
+  <string name="downgraded_from">↓ da %1$s</string>
+  <string name="high_quality_upgrading">Alta qualità, aggiornamento in corso</string>
+  <string name="medium_quality">Medium Quality</string>
+  <string name="personalized_recommendations">Ricevi consigli personalizzati per te</string>
+  <string name="switch_to_grid_view">Passa alla vista a griglia</string>
+  <string name="switch_to_list_view">Passa alla vista a elenco</string>
 </resources>

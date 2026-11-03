@@ -1,7 +1,5 @@
 package com.music.bitchord.playback
 
-import android.net.Uri
-import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.TrackLog
 import kotlinx.coroutines.CancellationException
@@ -44,7 +42,7 @@ object ExternalLink {
      * Every host a shared link may name or be redirected to. A link shortener
      * is here because its answer is a redirect to a page that is also here.
      */
-    internal val HOSTS = setOf(
+    val HOSTS = setOf(
         "open.spotify.com", "spotify.link", "spotify.app.link",
         "music.apple.com", "itunes.apple.com",
         "deezer.com", "deezer.page.link", "link.deezer.com",
@@ -63,17 +61,20 @@ object ExternalLink {
      * https, carrying a user name or password, or not on one of [HOSTS].
      * Parsed once, by the parser that will make the request.
      */
-    internal fun allowedUrl(raw: String): HttpUrl? {
+    fun allowedUrl(raw: String): HttpUrl? {
         val url = raw.toHttpUrlOrNull() ?: return null
         return url.takeIf { isAllowed(it) }
     }
 
-    internal fun isAllowed(url: HttpUrl): Boolean =
+    fun isAllowed(url: HttpUrl): Boolean =
         url.isHttps && url.username.isEmpty() && url.password.isEmpty() &&
             url.host.lowercase().removePrefix("www.") in HOSTS
 
+    /** Whether [raw] is a page [resolve] knows how to read. */
+    fun supports(raw: String): Boolean = allowedUrl(raw) != null
+
     /** Whether [uri] is a page [resolve] knows how to read. */
-    fun supports(uri: Uri): Boolean = allowedUrl(uri.toString()) != null
+    fun supports(uri: Any): Boolean = allowedUrl(uri.toString()) != null
 
     private val fetcher by lazy {
         PageFetcher(
@@ -107,7 +108,7 @@ object ExternalLink {
     }
 
     /** What [html], the page at [url], says it holds; separate from the fetching so it can be read without a network. */
-    internal fun resolved(url: HttpUrl, html: String): Resolved? {
+    fun resolved(url: HttpUrl, html: String): Resolved? {
         val host = url.host.lowercase().removePrefix("www.")
         val doc = Jsoup.parse(html)
         fun meta(property: String) =
@@ -156,7 +157,7 @@ object ExternalLink {
      * Spotify writes the artist first in the description ("Artist · Song ·
      * 2020"), sometimes with the song again as the second part.
      */
-    internal fun spotifyQuery(title: String, description: String): String {
+    fun spotifyQuery(title: String, description: String): String {
         val artist = description.split('·', '•').map { it.trim() }
             .firstOrNull { it.isNotEmpty() && !it.equals(title, ignoreCase = true) }
             ?.takeIf { !it.matches(YEAR) }
@@ -172,7 +173,7 @@ object ExternalLink {
      * separates title from artist is only looked for where the page's wording
      * says there is one, and it is the last such word.
      */
-    internal fun cleanTitle(raw: String): String {
+    fun cleanTitle(raw: String): String {
         var text = raw.replace("‎", "").trim()
         var decorated = false
         text = text.replace(SERVICE_SUFFIX) { decorated = true; "" }
@@ -193,22 +194,13 @@ object ExternalLink {
 }
 
 /** A page fetched, and the address it was finally read from. */
-internal class FetchedPage(val url: HttpUrl, val html: String)
+class FetchedPage(val url: HttpUrl, val html: String)
 
 /**
  * Fetches a page the way a link preview would, and only as far as the rules
  * allow.
- *
- * Redirects are not left to the HTTP client, which would follow any of them to
- * anywhere: each one is read here, checked with [allows] before it is asked
- * for, and there are at most [maxRedirects]. The body is read only as far as
- * [maxBytes] - the tags that matter are at the top of a page - so a page
- * that never ends costs a fixed amount of memory. The client is given in so
- * that it can be told not to follow redirects itself.
- *
- * The agent says what it is. The pages that matter serve their tags to it.
  */
-internal class PageFetcher(
+class PageFetcher(
     private val client: OkHttpClient,
     private val allows: (HttpUrl) -> Boolean,
     private val maxRedirects: Int = MAX_REDIRECTS,
@@ -224,7 +216,7 @@ internal class PageFetcher(
             }
             val request = Request.Builder()
                 .url(url)
-                .header("User-Agent", USER_AGENT)
+                .header("User-Agent", userAgent)
                 .header("Accept-Language", "en")
                 .build()
             client.newCall(request).execute().use { response ->
@@ -251,6 +243,7 @@ internal class PageFetcher(
         const val MAX_BYTES = 512L * 1024
 
         private const val TAG = "BitChord"
-        private val USER_AGENT = "BitChord/${BuildConfig.VERSION_NAME} (link preview)"
+        @Volatile
+        var userAgent: String = "BitChord/1.9.1 (link preview)"
     }
 }

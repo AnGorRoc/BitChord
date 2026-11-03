@@ -34,10 +34,22 @@ import com.music.bitchord.ui.screens.LibraryScreen
 import com.music.bitchord.ui.screens.MoodGenrePlaylistsScreen
 import com.music.bitchord.ui.screens.SearchScreen
 import com.music.bitchord.data.NerdStats
+import com.music.bitchord.data.TopPicks
+import com.music.bitchord.data.model.ArtistRef
+import com.music.bitchord.data.model.TopPick
+import com.music.bitchord.data.model.TopPickKind
+import com.music.bitchord.data.model.TopPickMood
+import com.music.bitchord.data.spotify.ExportState
+import com.music.bitchord.playback.MusicLinkParser
+import com.music.bitchord.playback.ParsedMusicLink
 import com.music.bitchord.playback.PlaybackPosition
 import com.music.bitchord.playback.QueueSource
 import com.music.bitchord.playback.QueueTimeline
 import com.music.bitchord.playback.QueueTimeline.asQueueEntry
+import com.music.bitchord.playback.SharedLinkOutcome
+import com.music.bitchord.playback.SharedLinkResolver
+import com.music.bitchord.sharedui.resources.vazirmatn_regular
+import java.time.LocalDateTime
 import com.music.bitchord.data.listentogether.partyQueueIndexOf
 import com.music.bitchord.data.listentogether.partyUpcomingAfter
 import com.music.bitchord.ui.LyricsProviderState
@@ -462,30 +474,40 @@ internal fun desktopColorScheme() = darkColorScheme(
 
 @Composable
 internal fun desktopTypography(): Typography {
-    val sfProDisplay = FontFamily(
-        composeFont(Res.font.sf_pro_display_regular, FontWeight.W400),
-        composeFont(Res.font.sf_pro_display_medium, FontWeight.W500),
-        composeFont(Res.font.sf_pro_display_semibold, FontWeight.W600),
-        composeFont(Res.font.sf_pro_display_bold, FontWeight.W700),
-        composeFont(Res.font.sf_pro_display_heavy, FontWeight.W800),
-    )
+    val selectedFont by DesktopAppearanceSettings.appFont.collectAsState()
+    val fontFamily = when (selectedFont) {
+        DesktopAppFont.SF_PRO -> FontFamily(
+            composeFont(Res.font.sf_pro_display_regular, FontWeight.W400),
+            composeFont(Res.font.sf_pro_display_medium, FontWeight.W500),
+            composeFont(Res.font.sf_pro_display_semibold, FontWeight.W600),
+            composeFont(Res.font.sf_pro_display_bold, FontWeight.W700),
+            composeFont(Res.font.sf_pro_display_heavy, FontWeight.W800),
+        )
+        DesktopAppFont.VAZIRMATN -> FontFamily(
+            composeFont(SharedRes.font.vazirmatn_regular, FontWeight.W400),
+            composeFont(SharedRes.font.vazirmatn_regular, FontWeight.W500),
+            composeFont(SharedRes.font.vazirmatn_regular, FontWeight.W600),
+            composeFont(SharedRes.font.vazirmatn_regular, FontWeight.W700),
+            composeFont(SharedRes.font.vazirmatn_regular, FontWeight.W800),
+        )
+    }
     val defaults = Typography()
     return defaults.copy(
-        displayLarge = defaults.displayLarge.copy(fontFamily = sfProDisplay, fontWeight = FontWeight.W800, fontSize = 34.sp, letterSpacing = (-0.8).sp),
-        displayMedium = defaults.displayMedium.copy(fontFamily = sfProDisplay),
-        displaySmall = defaults.displaySmall.copy(fontFamily = sfProDisplay),
-        headlineLarge = defaults.headlineLarge.copy(fontFamily = sfProDisplay, fontWeight = FontWeight.W800, fontSize = 30.sp, letterSpacing = (-0.7).sp),
-        headlineMedium = defaults.headlineMedium.copy(fontFamily = sfProDisplay, fontWeight = FontWeight.W700, fontSize = 22.sp, letterSpacing = (-0.4).sp),
-        headlineSmall = defaults.headlineSmall.copy(fontFamily = sfProDisplay),
-        titleLarge = defaults.titleLarge.copy(fontFamily = sfProDisplay, fontWeight = FontWeight.W700, fontSize = 20.sp, letterSpacing = (-0.3).sp),
-        titleMedium = defaults.titleMedium.copy(fontFamily = sfProDisplay, fontWeight = FontWeight.W600, fontSize = 16.sp, letterSpacing = (-0.2).sp),
-        titleSmall = defaults.titleSmall.copy(fontFamily = sfProDisplay),
-        bodyLarge = defaults.bodyLarge.copy(fontFamily = sfProDisplay, fontWeight = FontWeight.W400, fontSize = 16.sp),
-        bodyMedium = defaults.bodyMedium.copy(fontFamily = sfProDisplay, fontWeight = FontWeight.W400, fontSize = 14.sp),
-        bodySmall = defaults.bodySmall.copy(fontFamily = sfProDisplay),
-        labelLarge = defaults.labelLarge.copy(fontFamily = sfProDisplay),
-        labelMedium = defaults.labelMedium.copy(fontFamily = sfProDisplay, fontWeight = FontWeight.W600, fontSize = 12.sp),
-        labelSmall = defaults.labelSmall.copy(fontFamily = sfProDisplay, fontWeight = FontWeight.W600, fontSize = 11.sp),
+        displayLarge = defaults.displayLarge.copy(fontFamily = fontFamily, fontWeight = FontWeight.W800, fontSize = 34.sp, letterSpacing = (-0.8).sp),
+        displayMedium = defaults.displayMedium.copy(fontFamily = fontFamily),
+        displaySmall = defaults.displaySmall.copy(fontFamily = fontFamily),
+        headlineLarge = defaults.headlineLarge.copy(fontFamily = fontFamily, fontWeight = FontWeight.W800, fontSize = 30.sp, letterSpacing = (-0.7).sp),
+        headlineMedium = defaults.headlineMedium.copy(fontFamily = fontFamily, fontWeight = FontWeight.W700, fontSize = 22.sp, letterSpacing = (-0.4).sp),
+        headlineSmall = defaults.headlineSmall.copy(fontFamily = fontFamily),
+        titleLarge = defaults.titleLarge.copy(fontFamily = fontFamily, fontWeight = FontWeight.W700, fontSize = 20.sp, letterSpacing = (-0.3).sp),
+        titleMedium = defaults.titleMedium.copy(fontFamily = fontFamily, fontWeight = FontWeight.W600, fontSize = 16.sp, letterSpacing = (-0.2).sp),
+        titleSmall = defaults.titleSmall.copy(fontFamily = fontFamily),
+        bodyLarge = defaults.bodyLarge.copy(fontFamily = fontFamily, fontWeight = FontWeight.W400, fontSize = 16.sp),
+        bodyMedium = defaults.bodyMedium.copy(fontFamily = fontFamily, fontWeight = FontWeight.W400, fontSize = 14.sp),
+        bodySmall = defaults.bodySmall.copy(fontFamily = fontFamily),
+        labelLarge = defaults.labelLarge.copy(fontFamily = fontFamily),
+        labelMedium = defaults.labelMedium.copy(fontFamily = fontFamily, fontWeight = FontWeight.W600, fontSize = 12.sp),
+        labelSmall = defaults.labelSmall.copy(fontFamily = fontFamily, fontWeight = FontWeight.W600, fontSize = 11.sp),
     )
 }
 
@@ -581,6 +603,17 @@ fun BitChordDesktopApp() {
     // Recently Played has its own request and its own skeleton at the head of the page, as on the
     // phone; it is only asked for with an account to have played on.
     var homeRecentsLoading by remember { mutableStateOf(false) }
+    var topPicks by remember {
+        val currentHour = LocalDateTime.now().let { "${it.toLocalDate()}T${it.hour}" }
+        mutableStateOf(
+            TopPicks.decode(persistence.string("top_picks_cache", ""))
+                ?.takeIf { it.day == currentHour }
+                ?.picks,
+        )
+    }
+    var topPicksLoading by remember { mutableStateOf(false) }
+    var exportState by remember { mutableStateOf<ExportState?>(null) }
+    var exportJob by remember { mutableStateOf<Job?>(null) }
     // Held out here so a page keeps its place when another is visited and it is come back to.
     val homeListState = rememberLazyListState()
     val exploreListState = rememberLazyListState()
@@ -1586,6 +1619,65 @@ fun BitChordDesktopApp() {
         }
     }
 
+    /** Saves the current live queue or station as a playlist (on YouTube Music if signed in, or locally). */
+    fun saveCurrentQueueAsPlaylist() {
+        val songs = liveQueue.songs.filterNot { it.isUnresolvedSpotify }
+        if (songs.isEmpty()) return
+        val title = liveQueue.current?.radioName?.takeIf(String::isNotBlank)?.let { "$it Radio" }
+            ?: liveQueue.current?.playbackSource?.takeIf(String::isNotBlank)
+            ?: "Saved Queue"
+        if (DesktopYouTubeAuth.isSignedIn && songs.all { DesktopSearchClient.isVideoId(it.videoId) }) {
+            scope.launch {
+                DesktopSearchClient.createPlaylist(title, PlaylistPrivacy.PRIVATE, songs.map(Song::videoId))
+                    .onSuccess { playlistId ->
+                        editPlaylistShelf { items ->
+                            val card = ShelfItem(
+                                title = title,
+                                subtitle = "${songs.size} songs",
+                                thumbnailUrl = songs.firstOrNull()?.thumbnailUrl,
+                                videoId = null,
+                                browseId = "VL$playlistId",
+                            )
+                            listOf(card) + items.filterNot { it.browseId == card.browseId }
+                        }
+                        libraryStale = true
+                        DesktopPlayerHost.showMessage("Saved '$title' to YouTube Music")
+                    }
+                    .onFailure {
+                        playlists = playlists + DesktopPlaylist(title = title, songs = songs)
+                        persistence.savePlaylists(playlists)
+                        DesktopPlayerHost.showMessage("Saved '$title' on this device")
+                    }
+            }
+        } else {
+            playlists = playlists + DesktopPlaylist(title = title, songs = songs)
+            persistence.savePlaylists(playlists)
+            DesktopPlayerHost.showMessage("Saved '$title'")
+        }
+    }
+
+    fun exportOpenPlaylist() {
+        val collection = openedCollection ?: return
+        val sourceKey = when {
+            collection.browseId.startsWith(SPOTIFY_PAGE_PREFIX) -> collection.browseId
+            playlists.any { it.id == collection.browseId } -> LOCAL_PLAYLIST_PREFIX + collection.browseId
+            else -> collection.browseId
+        }
+        exportJob?.cancel()
+        exportJob = scope.launch {
+            val result = DesktopPlaylistExporter.export(
+                persistence = persistence,
+                localId = sourceKey,
+                title = collection.title,
+                songs = collection.songs,
+                onState = { exportState = it },
+            )
+            if (result is ExportState.Done) {
+                libraryStale = true
+            }
+        }
+    }
+
     playbackEngine = remember {
         DesktopPlaybackEngine(
             onEnded = {
@@ -2245,6 +2337,63 @@ fun BitChordDesktopApp() {
 
     fun search() {
         if (query.isBlank() || searchLoading) return
+        when (val link = MusicLinkParser.parseText(query)) {
+            is ParsedMusicLink.Track -> {
+                searchTyping = false
+                searchSuggestions = emptyList()
+                scope.launch {
+                    val resolved = DesktopSearchClient.trackLinks(link.videoId).getOrNull()
+                        ?: Song(videoId = link.videoId, title = link.videoId, artist = "", thumbnailUrl = null)
+                    playSong(resolved)
+                }
+                return
+            }
+            is ParsedMusicLink.Page -> {
+                searchTyping = false
+                searchSuggestions = emptyList()
+                if (link.browseId.startsWith("UC")) {
+                    openArtist(link.browseId, link.browseId)
+                } else {
+                    openCollection(link.browseId)
+                }
+                return
+            }
+            is ParsedMusicLink.Search -> {
+                query = link.query
+            }
+            is ParsedMusicLink.External -> {
+                overlays.settingsPage = null
+                overlays.settingsCategory = null
+                destination = DesktopDestination.SEARCH
+                searchTyping = false
+                searchSuggestions = emptyList()
+                searchCommitted = true
+                searchLoading = true
+                searchError = null
+                scope.launch {
+                    when (val outcome = withContext(Dispatchers.IO) { SharedLinkResolver.default.open(link.url) }) {
+                        is SharedLinkOutcome.Play -> {
+                            searchLoading = false
+                            playSong(outcome.song, source = DesktopQueueSource(DesktopStrings["search", "Search"], PlaybackSourceType.SHARED_LINK))
+                        }
+                        is SharedLinkOutcome.Search -> {
+                            query = outcome.query
+                            DesktopMusicSources.search(outcome.query, searchFilter).fold(
+                                onSuccess = { searchRows = it },
+                                onFailure = { searchError = it.message ?: "Search failed" },
+                            )
+                            searchLoading = false
+                        }
+                        SharedLinkOutcome.Unresolved -> {
+                            searchLoading = false
+                            searchError = "Could not resolve that music link"
+                        }
+                    }
+                }
+                return
+            }
+            null -> Unit
+        }
         overlays.settingsPage = null
         overlays.settingsCategory = null
         destination = DesktopDestination.SEARCH
@@ -2470,6 +2619,59 @@ fun BitChordDesktopApp() {
         val added = shelves.withoutRepeatsOf(existing)
             .filter { it.items.isNotEmpty() && homeSeenTitles.add(it.title.lowercase()) }
         if (added.isNotEmpty()) homeState = UiState.Success(existing + added)
+    }
+
+    fun openTopPick(pick: TopPick, label: String = "") {
+        if (pick.kind == TopPickKind.LATEST_RELEASE && pick.browseId != null) {
+            openCollection(pick.browseId!!)
+            return
+        }
+        scope.launch {
+            TopPicks.queue(pick).onSuccess { songs ->
+                if (songs.isNotEmpty()) {
+                    playSongs(songs, 0, DesktopQueueSource(label.ifBlank { pick.title }, PlaybackSourceType.HOME))
+                }
+            }
+        }
+    }
+
+    fun openTopPickMood(mood: TopPickMood, label: String) {
+        openTopPick(TopPicks.moodStation(mood).copy(title = label), label)
+    }
+
+    LaunchedEffect(homeState) {
+        val shelves = (homeState as? UiState.Success)?.data ?: return@LaunchedEffect
+        val now = LocalDateTime.now()
+        val hourKey = "${now.toLocalDate()}T${now.hour}"
+        val listener = activeAccount?.profiles?.firstOrNull { it.profileId == activeProfileId }?.name?.takeIf(String::isNotBlank)
+            ?: activeAccount?.name?.takeIf(String::isNotBlank)
+        val cached = TopPicks.decode(persistence.string("top_picks_cache", ""))
+        if (cached != null && cached.day == hourKey && cached.listener == listener && cached.picks.isNotEmpty()) {
+            topPicks = cached.picks
+            topPicksLoading = false
+            return@LaunchedEffect
+        }
+        if (topPicks == null) topPicksLoading = true
+        val built = withContext(Dispatchers.IO) {
+            val monthStats = DesktopListeningStats.summary(DesktopReplayPeriod.THIS_MONTH)
+            val stats = if (monthStats.songs.isNotEmpty()) monthStats else DesktopListeningStats.summary()
+            TopPicks.build(
+                homeShelves = shelves,
+                local = TopPicks.LocalTaste(
+                    artists = stats.artists.map { ArtistRef(name = it.title, browseId = it.browseId) },
+                    songs = stats.songs.map { it.song },
+                ),
+                now = now,
+            )
+        }
+        if (built.isNotEmpty()) {
+            topPicks = built
+            persistence.saveString(
+                "top_picks_cache",
+                TopPicks.encode(TopPicks.Stored(listener = listener, day = hourKey, picks = built)),
+            )
+        }
+        topPicksLoading = false
     }
 
     /**
@@ -2757,6 +2959,17 @@ fun BitChordDesktopApp() {
 
     fun renameOpenPlaylist(title: String) {
         val collection = openedCollection ?: return
+        val localPlaylist = playlists.firstOrNull { it.id == collection.browseId }
+        if (localPlaylist != null) {
+            playlists = playlists.map { if (it.id == localPlaylist.id) it.copy(title = title) else it }
+            persistence.savePlaylists(playlists)
+            openedCollection = openedCollection
+                ?.takeIf { it.browseId == collection.browseId }
+                ?.copy(title = title)
+                ?: openedCollection
+            closePlaylistDialogs()
+            return
+        }
         playlistBusy = true
         playlistError = null
         scope.launch {
@@ -2783,6 +2996,14 @@ fun BitChordDesktopApp() {
 
     fun deleteOpenPlaylist() {
         val collection = openedCollection ?: return
+        val localPlaylist = playlists.firstOrNull { it.id == collection.browseId }
+        if (localPlaylist != null) {
+            playlists = playlists.filterNot { it.id == localPlaylist.id }
+            persistence.savePlaylists(playlists)
+            closePlaylistDialogs()
+            if (openedCollection?.browseId == collection.browseId) openedCollection = null
+            return
+        }
         playlistBusy = true
         playlistError = null
         scope.launch {
@@ -2804,6 +3025,17 @@ fun BitChordDesktopApp() {
     /** Takes one row back out of the playlist it is being read in. */
     fun removeFromOpenPlaylist(song: Song) {
         val collection = openedCollection ?: return
+        val localPlaylist = playlists.firstOrNull { it.id == collection.browseId }
+        if (localPlaylist != null) {
+            val updatedSongs = localPlaylist.songs.filterNot { it.videoId == song.videoId }
+            playlists = playlists.map { if (it.id == localPlaylist.id) it.copy(songs = updatedSongs) else it }
+            persistence.savePlaylists(playlists)
+            openedCollection = openedCollection
+                ?.takeIf { it.browseId == collection.browseId }
+                ?.copy(songs = updatedSongs)
+                ?: openedCollection
+            return
+        }
         val setVideoId = song.setVideoId ?: return
         scope.launch {
             DesktopSearchClient.removeFromPlaylist(
@@ -2829,6 +3061,17 @@ fun BitChordDesktopApp() {
      */
     fun reorderOpenPlaylist(original: List<Song>, reordered: List<Song>) {
         val collection = openedCollection ?: return
+        val localPlaylist = playlists.firstOrNull { it.id == collection.browseId }
+        if (localPlaylist != null) {
+            playlists = playlists.map { if (it.id == localPlaylist.id) it.copy(songs = reordered) else it }
+            persistence.savePlaylists(playlists)
+            openedCollection = openedCollection
+                ?.takeIf { it.browseId == collection.browseId }
+                ?.copy(songs = reordered, continuation = null)
+                ?: openedCollection
+            closePlaylistDialogs()
+            return
+        }
         playlistBusy = true
         playlistError = null
         scope.launch {
@@ -3404,6 +3647,7 @@ fun BitChordDesktopApp() {
                                 onRemove = ::removeFromQueue,
                                 onMove = ::moveInQueue,
                                 onClear = ::clearQueue,
+                                onSaveQueue = ::saveCurrentQueueAsPlaylist,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
@@ -3491,6 +3735,7 @@ fun BitChordDesktopApp() {
                             onRemoveFromQueue = ::removeFromQueue,
                             onMoveInQueue = ::moveInQueue,
                             onClearQueue = ::clearQueue,
+                            onSaveQueue = ::saveCurrentQueueAsPlaylist,
                             onOpenMenu = { playerMenuOpen = true },
                             onOpenAlbum = { id ->
                                 overlays.nowPlaying = false
@@ -3756,8 +4001,10 @@ fun BitChordDesktopApp() {
                     }
                     val reorderCollection = openedCollection?.takeIf { overlays.reorder }
                     if (reorderCollection != null) {
+                        val localForReorder = playlists.firstOrNull { it.id == reorderCollection.browseId }
                         DesktopReorderPlaylistDialog(
                             browseId = reorderCollection.browseId,
+                            localSongs = localForReorder?.songs,
                             busy = playlistBusy,
                             error = playlistError,
                             onSave = ::reorderOpenPlaylist,
@@ -3772,6 +4019,17 @@ fun BitChordDesktopApp() {
                                     onUpgradeQuality = null,
                                     onDismiss = onDismiss,
                                 )
+                            },
+                        )
+                    }
+                    exportState?.let { currentExport ->
+                        DesktopExportPlaylistDialog(
+                            title = openedCollection?.title.orEmpty(),
+                            state = currentExport,
+                            onDismiss = {
+                                exportJob?.cancel()
+                                exportJob = null
+                                exportState = null
                             },
                         )
                     }
@@ -4166,38 +4424,55 @@ fun BitChordDesktopApp() {
                                 }
                             }
                         }
-                        openedCollection != null -> DesktopCollectionPage(
-                            collection = openedCollection!!,
-                            loadingMore = collectionLoadingMore,
-                            onLoadMore = ::loadMoreCollectionSongs,
-                            onRename = { overlays.rename = true }.takeIf { openedCollection?.owned == true },
-                            onShare = openedCollection
-                                ?.takeIf { it.type == BrowseType.ALBUM || it.type == BrowseType.PLAYLIST }
-                                ?.let { collection -> { shareCollection(collection) } },
-                            onDelete = { overlays.delete = true }.takeIf { openedCollection?.owned == true },
-                            onReorder = { overlays.reorder = true }.takeIf {
-                                openedCollection?.owned == true && openedCollection?.type == BrowseType.PLAYLIST
-                            },
-                            onRemoveFromPlaylist = ::removeFromOpenPlaylist
-                                .takeIf { openedCollection?.owned == true },
-                            likedIds = likedIds,
-                            onPlaySongs = { songs, index ->
-                                playSongs(songs, index, openedCollection?.let { collectionSource(it) })
-                            },
-                            onShuffle = { songs ->
-                                playSongs(songs.shuffled(), 0, openedCollection?.let { collectionSource(it) })
-                            },
-                            onDownloadAll = ::downloadAll,
-                            animatedCanvas = animatedCanvas,
-                            onToggleLike = { song ->
-                                toggleLike(song)
-                            },
-                            onAddToPlaylist = { playlistTarget = it },
-                            onDownload = ::downloadSong,
-                            downloadedIds = downloads.map(Song::videoId).toSet(),
-                            downloadInProgress = downloadInProgress,
-                            contentPadding = contentPadding,
-                        )
+                        openedCollection != null -> {
+                            val collection = openedCollection!!
+                            val isLocalPlaylist = playlists.any { it.id == collection.browseId }
+                            val isSpotifyPlaylist = collection.browseId.startsWith(SPOTIFY_PAGE_PREFIX)
+                            val canEditPlaylist = collection.owned == true || isLocalPlaylist
+                            val pinnedIds by DesktopAppUiHost.pinnedPlaylists.collectAsState()
+                            val pinKey = if (isLocalPlaylist) LOCAL_PLAYLIST_PREFIX + collection.browseId else collection.browseId
+                            DesktopCollectionPage(
+                                collection = collection,
+                                loadingMore = collectionLoadingMore,
+                                onLoadMore = ::loadMoreCollectionSongs,
+                                onRename = { overlays.rename = true }.takeIf { canEditPlaylist },
+                                onShare = collection
+                                    .takeIf { !isLocalPlaylist && !isSpotifyPlaylist && (it.type == BrowseType.ALBUM || it.type == BrowseType.PLAYLIST) }
+                                    ?.let { { shareCollection(it) } },
+                                onDelete = { overlays.delete = true }.takeIf { canEditPlaylist },
+                                onReorder = { overlays.reorder = true }.takeIf {
+                                    canEditPlaylist && collection.type == BrowseType.PLAYLIST
+                                },
+                                onRemoveFromPlaylist = ::removeFromOpenPlaylist
+                                    .takeIf { canEditPlaylist },
+                                isPinned = pinKey in pinnedIds,
+                                onTogglePin = {
+                                    if (!DesktopAppUiHost.togglePinnedPlaylist(pinKey)) {
+                                        DesktopPlayerHost.showMessage("You can pin up to ${DesktopAppUiHost.MAX_PINNED_PLAYLISTS} playlists")
+                                    }
+                                }.takeIf { collection.type == BrowseType.PLAYLIST },
+                                onExportToYouTube = ::exportOpenPlaylist.takeIf {
+                                    youtubeSignedIn && (isLocalPlaylist || isSpotifyPlaylist) && collection.songs.isNotEmpty()
+                                },
+                                likedIds = likedIds,
+                                onPlaySongs = { songs, index ->
+                                    playSongs(songs, index, openedCollection?.let { collectionSource(it) })
+                                },
+                                onShuffle = { songs ->
+                                    playSongs(songs.shuffled(), 0, openedCollection?.let { collectionSource(it) })
+                                },
+                                onDownloadAll = ::downloadAll,
+                                animatedCanvas = animatedCanvas,
+                                onToggleLike = { song ->
+                                    toggleLike(song)
+                                },
+                                onAddToPlaylist = { playlistTarget = it },
+                                onDownload = ::downloadSong,
+                                downloadedIds = downloads.map(Song::videoId).toSet(),
+                                downloadInProgress = downloadInProgress,
+                                contentPadding = contentPadding,
+                            )
+                        }
                         destination == DesktopDestination.LISTEN_NOW -> HomeScreen(
                             state = homeState,
                             listState = homeListState,
@@ -4215,6 +4490,20 @@ fun BitChordDesktopApp() {
                             loadingMore = homeLoadingMore,
                             recentlyPlayedLoading = homeRecentsLoading,
                             leadHero = false,
+                            topPicks = topPicks,
+                            topPicksLoading = topPicksLoading,
+                            listenerName = activeAccount?.profiles?.firstOrNull { it.profileId == activeProfileId }?.name?.takeIf(String::isNotBlank)
+                                ?: activeAccount?.name?.takeIf(String::isNotBlank),
+                            onTopPickClick = ::openTopPick,
+                            onTopPickLongPress = { pick ->
+                                when {
+                                    pick.browseId != null -> openCollection(pick.browseId!!)
+                                    pick.artistBrowseId != null -> openArtist(pick.artistBrowseId!!, pick.artistName.orEmpty().ifBlank { pick.title })
+                                }
+                            },
+                            onMoodClick = ::openTopPickMood,
+                            onMoodsShowAll = { selectDestination(DesktopDestination.EXPLORE) },
+                            artworkMotion = animatedCanvas,
                         )
                         destination == DesktopDestination.EXPLORE && selectedMoodGenre != null -> Column(Modifier.fillMaxSize()) {
                             MoodGenrePlaylistsScreen(
@@ -6866,12 +7155,53 @@ private fun DesktopSettingsScreen(
 
                 if (shows(DesktopSettingsCategory.APPEARANCE)) item {
                     SettingsGroup(DesktopStrings["appearance", "Appearance"]) {
+                        val selectedFont by DesktopAppearanceSettings.appFont.collectAsState()
+                        val fontTitle = DesktopStrings["font", "Font"]
+                        val fontSubtitle = selectedFont.label
+                        if (settingsRowVisible(fontTitle, fontSubtitle)) {
+                            Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                                Text(fontTitle, fontWeight = FontWeight.Medium)
+                                Text(fontSubtitle, color = DesktopSecondary, style = MaterialTheme.typography.bodySmall)
+                                Spacer(Modifier.height(10.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    DesktopAppFont.entries.forEach { option ->
+                                        FilterChip(
+                                            colors = desktopChipColors(),
+                                            selected = selectedFont == option,
+                                            onClick = { DesktopAppearanceSettings.setAppFont(option) },
+                                            label = { Text(option.label) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        val reduceAnimation by DesktopAppearanceSettings.reduceAnimation.collectAsState()
+                        SettingsToggle(
+                            DesktopStrings["reduce_animation", "Reduce animation"],
+                            DesktopStrings["reduce_animation_subtitle", "Simpler transitions and motion across the app"],
+                            reduceAnimation,
+                            DesktopAppearanceSettings::setReduceAnimation,
+                        )
                         val reduceDynamicBlur by DesktopAppearanceSettings.reduceDynamicBlur.collectAsState()
                         SettingsToggle(
                             DesktopStrings["reduce_dynamic_blur", "Reduce dynamic blur"],
                             DesktopStrings["reduce_dynamic_blur_subtitle", "Swaps frosted glass for solid fills across the app"],
                             reduceDynamicBlur,
                             DesktopAppearanceSettings::setReduceDynamicBlur,
+                        )
+                        val lyricAboveScrubber by DesktopAppearanceSettings.lyricAboveScrubber.collectAsState()
+                        SettingsToggle(
+                            DesktopStrings["lyric_above_scrubber", "Lyric above scrubber"],
+                            DesktopStrings["lyric_above_scrubber_subtitle", "Shows the current synced lyric line above the playback bar"],
+                            lyricAboveScrubber,
+                            DesktopAppearanceSettings::setLyricAboveScrubber,
+                        )
+                        val showQueueHistory by DesktopAppearanceSettings.showQueueHistory.collectAsState()
+                        SettingsToggle(
+                            DesktopStrings["show_queue_history", "Show queue history"],
+                            DesktopStrings["show_queue_history_subtitle", "Shows tracks already played above the current song in the queue"],
+                            showQueueHistory,
+                            DesktopAppearanceSettings::setShowQueueHistory,
                         )
                         if (DesktopPlatform.drawsOwnWindowFrame) {
                             val titleBar by DesktopTitleBarSetting.enabled.collectAsState()
@@ -7554,6 +7884,13 @@ private fun DesktopSourceEditorDialog(
     )
 }
 
+private enum class DesktopCollectionSort(val label: String) {
+    DEFAULT("Default order"),
+    TITLE_ASC("Title (A to Z)"),
+    TITLE_DESC("Title (Z to A)"),
+    ARTIST("Artist"),
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DesktopCollectionPage(
@@ -7568,6 +7905,9 @@ private fun DesktopCollectionPage(
     /** Copies the release's own YouTube Music link; null for anything with no link to share. */
     onShare: (() -> Unit)?,
     onRemoveFromPlaylist: ((Song) -> Unit)?,
+    isPinned: Boolean = false,
+    onTogglePin: (() -> Unit)? = null,
+    onExportToYouTube: (() -> Unit)? = null,
     likedIds: Set<String>,
     onPlaySongs: (List<Song>, Int) -> Unit,
     onShuffle: (List<Song>) -> Unit,
@@ -7584,12 +7924,20 @@ private fun DesktopCollectionPage(
     // The phone's "search this list": a filter over the rows already loaded.
     var searching by remember(collection.browseId) { mutableStateOf(false) }
     var listQuery by remember(collection.browseId) { mutableStateOf("") }
-    val shownSongs = remember(songs, listQuery) {
+    var sortOrder by remember(collection.browseId) { mutableStateOf(DesktopCollectionSort.DEFAULT) }
+    var sortOpen by remember(collection.browseId) { mutableStateOf(false) }
+    val shownSongs = remember(songs, listQuery, sortOrder) {
         val needle = listQuery.trim()
-        songs.withIndex().filter { (_, song) ->
+        val filtered = songs.withIndex().filter { (_, song) ->
             needle.isBlank() || song.title.contains(needle, ignoreCase = true) ||
                 song.artist.contains(needle, ignoreCase = true) ||
                 song.albumName.orEmpty().contains(needle, ignoreCase = true)
+        }
+        when (sortOrder) {
+            DesktopCollectionSort.DEFAULT -> filtered
+            DesktopCollectionSort.TITLE_ASC -> filtered.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.value.title })
+            DesktopCollectionSort.TITLE_DESC -> filtered.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.value.title })
+            DesktopCollectionSort.ARTIST -> filtered.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.value.artist })
         }
     }
     var moreOpen by remember(collection.browseId) { mutableStateOf(false) }
@@ -7709,6 +8057,26 @@ private fun DesktopCollectionPage(
                                     if (!searching) listQuery = ""
                                 },
                             )
+                            if (collection.type == BrowseType.PLAYLIST) {
+                                Box {
+                                    DesktopCircleButton(
+                                        Icons.Rounded.Sort,
+                                        DesktopStrings["sort_playlist", "Sort playlist"],
+                                        onClick = { sortOpen = true },
+                                    )
+                                    DropdownMenu(expanded = sortOpen, onDismissRequest = { sortOpen = false }) {
+                                        DesktopCollectionSort.entries.forEach { option ->
+                                            DropdownMenuItem(
+                                                text = { Text(option.label) },
+                                                onClick = {
+                                                    sortOrder = option
+                                                    sortOpen = false
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                             Box {
                                 DesktopCircleButton(Icons.Rounded.MoreHoriz, DesktopStrings["more", "More"], onClick = { moreOpen = true })
                                 DropdownMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }) {
@@ -7720,6 +8088,34 @@ private fun DesktopCollectionPage(
                                             onDownloadAll(songs)
                                         },
                                     )
+                                    onTogglePin?.let { togglePin ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    if (isPinned) {
+                                                        DesktopStrings["unpin_playlist", "Unpin playlist"]
+                                                    } else {
+                                                        DesktopStrings["pin_playlist", "Pin playlist"]
+                                                    },
+                                                )
+                                            },
+                                            leadingIcon = { Icon(BitChordIcons.Pin, null) },
+                                            onClick = {
+                                                moreOpen = false
+                                                togglePin()
+                                            },
+                                        )
+                                    }
+                                    onExportToYouTube?.let { export ->
+                                        DropdownMenuItem(
+                                            text = { Text(DesktopStrings["export_to_youtube_music", "Export to YouTube Music"]) },
+                                            leadingIcon = { Icon(Icons.Rounded.Cloud, null) },
+                                            onClick = {
+                                                moreOpen = false
+                                                export()
+                                            },
+                                        )
+                                    }
                                     onShare?.let { share ->
                                         DropdownMenuItem(
                                             text = { Text(DesktopStrings["share", "Share"]) },

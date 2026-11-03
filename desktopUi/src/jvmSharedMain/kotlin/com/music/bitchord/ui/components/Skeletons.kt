@@ -102,7 +102,7 @@ private fun SkeletonLine(fraction: Float, height: Dp, modifier: Modifier = Modif
  * come back without a subtitle, and guessing wrong shifts everything under it.
  */
 @Composable
-private fun SectionHeaderSkeleton(index: Int = 0) {
+fun SectionHeaderSkeleton(index: Int = 0) {
     Column(Modifier.padding(horizontal = PAGE_GUTTER, vertical = 10.dp)) {
         SkeletonLine(fraction = TitleWidths[index % TitleWidths.size] * 0.7f, height = 18.dp)
     }
@@ -173,8 +173,8 @@ private fun HeroShelfSkeleton() {
     }
 }
 
-/** Reserved at the top of Play while Recents loads, matching its saved layout. */
-fun LazyListScope.recentlyPlayedSkeleton(listLayout: Boolean) {
+/** Reserved at the top of Play while Recents loads. */
+fun LazyListScope.recentlyPlayedSkeleton(listLayout: Boolean = true) {
     item(key = "skeleton:recently-played") {
         Column(Modifier.padding(bottom = 26.dp)) {
             RecentsHeaderSkeleton()
@@ -214,7 +214,7 @@ fun LazyListScope.recentlyPlayedSkeleton(listLayout: Boolean) {
     }
 }
 
-/** Recents heading plus the adjacent list/grid toggle placeholder. */
+/** Recents heading placeholder. */
 @Composable
 private fun RecentsHeaderSkeleton() {
     Row(
@@ -226,8 +226,6 @@ private fun RecentsHeaderSkeleton() {
         Box(Modifier.weight(1f)) {
             SkeletonLine(fraction = TitleWidths.first() * 0.7f, height = 18.dp)
         }
-        Spacer(Modifier.width(8.dp))
-        ShimmerBox(Modifier.size(32.dp), CircleShape)
     }
 }
 

@@ -41,6 +41,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.LibraryViewType
@@ -75,8 +76,27 @@ internal object DesktopAppUiHost : AppUiHost {
         _homeRecentsViewType.value = value
     }
 
-    /** Nothing is pinned here: the desktop has no pin action to put anything first. */
-    override val pinnedPlaylists: StateFlow<List<String>> = MutableStateFlow(emptyList())
+    /** Playlist browse ids pinned to the front of the Library's Playlists shelf, in pin order. */
+    private val _pinnedPlaylists = MutableStateFlow(
+        persistence.string(KEY_PINNED_PLAYLISTS, "").split(",").filter { it.isNotBlank() },
+    )
+    override val pinnedPlaylists: StateFlow<List<String>> = _pinnedPlaylists
+
+    /**
+     * Pins or unpins [browseId], returning whether it is pinned afterwards.
+     * Capped at [MAX_PINNED_PLAYLISTS] (5) — pinning a sixth is refused without evicting.
+     */
+    fun togglePinnedPlaylist(browseId: String): Boolean {
+        val current = _pinnedPlaylists.value
+        val updated = when {
+            browseId in current -> current - browseId
+            current.size >= MAX_PINNED_PLAYLISTS -> return false
+            else -> current + browseId
+        }
+        _pinnedPlaylists.value = updated
+        persistence.saveString(KEY_PINNED_PLAYLISTS, updated.joinToString(","))
+        return browseId in updated
+    }
 
     private val _librarySort = MutableStateFlow(
         runCatching { LibrarySort.valueOf(persistence.string(KEY_LIBRARY_SORT, LibrarySort.DEFAULT.name)) }
@@ -89,6 +109,17 @@ internal object DesktopAppUiHost : AppUiHost {
         _librarySort.value = value
     }
 
+    private val _libraryViewType = MutableStateFlow(
+        runCatching { LibraryViewType.valueOf(persistence.string(KEY_LIBRARY_VIEW_TYPE, LibraryViewType.GRID.name)) }
+            .getOrDefault(LibraryViewType.GRID),
+    )
+    override val libraryViewType: StateFlow<LibraryViewType> = _libraryViewType
+
+    fun setLibraryViewType(value: LibraryViewType) {
+        persistence.saveString(KEY_LIBRARY_VIEW_TYPE, value.name)
+        _libraryViewType.value = value
+    }
+
     /** Kept current by the app, which owns the download list — see `BitChordDesktopApp`. */
     val downloaded = MutableStateFlow<Set<String>>(emptySet())
 
@@ -98,8 +129,16 @@ internal object DesktopAppUiHost : AppUiHost {
         return ids
     }
 
+    override suspend fun releaseMotion(album: String, artist: String): CanvasArtwork? {
+        if (!DesktopPlayerSettings.animatedCanvas.value) return null
+        return DesktopCanvasClient.lookupAlbum(album, artist)?.toShared()
+    }
+
+    const val MAX_PINNED_PLAYLISTS = 5
     private const val KEY_SWIPE_PLAY_NEXT = "swipe_play_next"
     private const val KEY_HOME_RECENTS_VIEW = "home_recents_view"
+    private const val KEY_PINNED_PLAYLISTS = "pinned_playlists"
+    private const val KEY_LIBRARY_VIEW_TYPE = "library_view_type"
 }
 
 /**
@@ -230,37 +269,60 @@ internal fun <T : Any> DesktopPointerMenuHost(
     }
 }
 
-/** The phone's sort for a Library "Show all" grid: the one thing its cards carry is a title. */
+/** The phone's sort and view-type toggle for a Library "Show all" grid. */
 @Composable
 internal fun DesktopLibrarySortMenu() {
     val sort by DesktopAppUiHost.librarySort.collectAsState()
+    val viewType by DesktopAppUiHost.libraryViewType.collectAsState()
     var open by remember { mutableStateOf(false) }
-    Box {
-        DesktopToolbarButton(onClick = { open = true }) {
-            Icon(Icons.AutoMirrored.Rounded.Sort, DesktopStrings["sort_library", "Sort library"], tint = Color.White)
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            LibrarySort.entries.forEach { option ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            when (option) {
-                                LibrarySort.DEFAULT -> DesktopStrings["sort_default", "Default order"]
-                                LibrarySort.TITLE_ASC -> DesktopStrings["sort_title_ascending", "Alphabetical (A to Z)"]
-                                LibrarySort.TITLE_DESC -> DesktopStrings["sort_title_descending", "Alphabetical (Z to A)"]
-                            },
-                        )
-                    },
-                    trailingIcon = if (option == sort) {
-                        { Icon(Icons.Rounded.Check, contentDescription = null) }
-                    } else {
-                        null
-                    },
-                    onClick = {
-                        DesktopAppUiHost.setLibrarySort(option)
-                        open = false
-                    },
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        DesktopToolbarButton(
+            onClick = {
+                DesktopAppUiHost.setLibraryViewType(
+                    if (viewType == LibraryViewType.GRID) LibraryViewType.LIST else LibraryViewType.GRID,
                 )
+            },
+        ) {
+            Icon(
+                if (viewType == LibraryViewType.GRID) BitChordIcons.ListView else BitChordIcons.GridView,
+                contentDescription = if (viewType == LibraryViewType.GRID) {
+                    DesktopStrings["view_as_list", "View as list"]
+                } else {
+                    DesktopStrings["view_as_grid", "View as grid"]
+                },
+                tint = Color.White,
+            )
+        }
+        Box {
+            DesktopToolbarButton(onClick = { open = true }) {
+                Icon(Icons.AutoMirrored.Rounded.Sort, DesktopStrings["sort_library", "Sort library"], tint = Color.White)
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                LibrarySort.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                when (option) {
+                                    LibrarySort.DEFAULT -> DesktopStrings["sort_default", "Default order"]
+                                    LibrarySort.TITLE_ASC -> DesktopStrings["sort_title_ascending", "Alphabetical (A to Z)"]
+                                    LibrarySort.TITLE_DESC -> DesktopStrings["sort_title_descending", "Alphabetical (Z to A)"]
+                                },
+                            )
+                        },
+                        trailingIcon = if (option == sort) {
+                            { Icon(Icons.Rounded.Check, contentDescription = null) }
+                        } else {
+                            null
+                        },
+                        onClick = {
+                            DesktopAppUiHost.setLibrarySort(option)
+                            open = false
+                        },
+                    )
+                }
             }
         }
     }

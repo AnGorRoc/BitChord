@@ -13,7 +13,7 @@ import io.ktor.client.plugins.ResponseException
  * or at the very start — so a song title or a video id that happens to
  * contain "401" is not taken for one.
  */
-internal fun httpStatusOf(e: Throwable): Int? {
+fun httpStatusOf(e: Throwable): Int? {
     var cause: Throwable? = e
     var depth = 0
     while (cause != null && depth++ < MAX_CAUSE_DEPTH) {

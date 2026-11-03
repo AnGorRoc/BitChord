@@ -670,6 +670,12 @@ fun NowPlayingScreen(
     shuffleEnabled: Boolean,
     autoplayEnabled: Boolean,
     signedIn: Boolean,
+    /**
+     * Whether a like is still worth offering without an account. The desktop
+     * app keeps its own likes on disk and syncs them when it can, so the heart
+     * belongs there whether or not YouTube is signed in.
+     */
+    localLikes: Boolean = false,
     accountName: String?,
     likeStatus: LikeStatus,
     onToggleLike: () -> Unit,
@@ -711,6 +717,7 @@ fun NowPlayingScreen(
      */
     onQueueDragActiveChange: (Boolean) -> Unit = {},
     onClearQueue: () -> Unit,
+    onSaveQueue: (() -> Unit)? = null,
     onOpenMenu: () -> Unit,
     onOpenAlbum: (String) -> Unit,
     /**
@@ -829,6 +836,7 @@ fun NowPlayingScreen(
     val openListenTogetherMembers: () -> Unit = { showListenTogetherMembers = true }
 
     val syncedLyricsEnabled by PlayerSettings.syncedLyrics.collectAsStateWithLifecycle()
+    val lyricAboveScrubber by PlayerSettings.lyricAboveScrubber.collectAsStateWithLifecycle()
     val lyricsOffsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
     // A lambda, not a value: read by the lyric strip and panel in scopes of
     // their own, so a tick recomposes them and not the player around them.
@@ -1645,6 +1653,7 @@ fun NowPlayingScreen(
                 onDismiss = { lyricsShare = null },
             )
         }
+        MixViewOverlay(hazeState = playerHaze)
         if (playerOverflow.value) {
             PlayerDrawer(
                 hazeState = playerHaze,
@@ -2045,7 +2054,7 @@ fun NowPlayingScreen(
                             credits = {
                                 LandscapeCredits(
                                     song = song,
-                                    signedIn = signedIn,
+                                    signedIn = signedIn || localLikes,
                                     likeStatus = likeStatus,
                                     showRevertCue = showRevertCue,
                                     onToggleLike = onToggleLike,
@@ -2061,7 +2070,7 @@ fun NowPlayingScreen(
                             // the transport lives under the sleeve and the full
                             // lyric sheet owns the column on the right, so there is
                             // no room — or need — for a single line here.
-                            lyricStrip = if (compact && syncedLyricsEnabled) {
+                            lyricStrip = if (compact && syncedLyricsEnabled && lyricAboveScrubber) {
                                 {
                                     CurrentLyricStrip(
                                         lines = lyricsTranslation.displayedLyrics,
@@ -2112,6 +2121,13 @@ fun NowPlayingScreen(
                                     onPlayPause = onPlayPause,
                                     onNext = onNext,
                                     compact = compact,
+                                    shuffleEnabled = shuffleEnabled,
+                                    repeatMode = repeatMode,
+                                    // The desktop player has no capsule row under the
+                                    // sleeve, so the modes ride beside the transport.
+                                    // A phone keeps them in the queue capsule.
+                                    onToggleShuffle = if (compact) null else onToggleShuffle,
+                                    onCycleRepeat = if (compact) null else onCycleRepeat,
                                 )
                             },
                             volume = if (hideVolumeBar || !compact) {
@@ -2212,6 +2228,7 @@ fun NowPlayingScreen(
                             onRemove = onRemoveFromQueue,
                             onMove = onMoveInQueue,
                             onClear = onClearQueue,
+                            onSaveQueue = onSaveQueue,
                             onDragActiveChange = onQueueDragActiveChange,
                             modifier = Modifier.fillMaxSize(),
                         )
@@ -3427,14 +3444,14 @@ fun NowPlayingScreen(
                             Spacer(Modifier.width(10.dp))
                             // Beside the credits rather than down in the toggle row:
                             // liking is about *this song*, and the row below is about
-                            // how the queue plays. Guests get nothing to tap, since
-                            // there's no account to record it against — and neither
-                            // does a local file or a finished download, which carries
-                            // no YouTube identity to rate.
-                            if (signedIn && song.localUri == null) {
+                            // how the queue plays. Guests get nothing to tap unless
+                            // the caller keeps likes locally, as the desktop app
+                            // does — and a local file or a finished download has no
+                            // YouTube identity to rate either way.
+                            if ((signedIn || localLikes) && song.localUri == null) {
                                 val liked = likeStatus == LikeStatus.LIKE
                                 CircleGlyph(
-                                    icon = if (liked) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                                    icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
                                     contentDescription = stringResource(
                                         if (liked) Res.string.remove_from_liked else Res.string.like,
                                     ),
@@ -3640,6 +3657,7 @@ fun NowPlayingScreen(
                                     onRemove = onRemoveFromQueue,
                                     onMove = onMoveInQueue,
                                     onClear = onClearQueue,
+                                    onSaveQueue = onSaveQueue,
                                     onScrollingChange = { queueScrolling = it },
                                     onDragActiveChange = onQueueDragActiveChange,
                                     collapsePlayerOnScroll = true,
@@ -3702,7 +3720,8 @@ fun NowPlayingScreen(
                     // accompanied by a dedicated lyrics button in the bottom row. Its
                     // one-line slot remains, invisibly, so opening lyrics cannot grow
                     // the half-player merely to make room for the source label.
-                    if (!lyricsOpen && syncedLyricsEnabled) {
+                    val stripEnabled = syncedLyricsEnabled && lyricAboveScrubber
+                    if (!lyricsOpen && stripEnabled) {
                         CurrentLyricStrip(
                             lines = lyricsTranslation.displayedLyrics,
                             trackKey = song.videoId,
@@ -3718,7 +3737,7 @@ fun NowPlayingScreen(
                             onClick = openLyrics,
                         )
                     }
-                    if (!lyricsOpen && !syncedLyricsEnabled) {
+                    if (!lyricsOpen && !stripEnabled) {
                         Text(
                             text = "\u00A0",
                             style = MaterialTheme.typography.titleMedium,

@@ -2,6 +2,7 @@ package com.music.bitchord.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.LibraryViewType
 import kotlinx.coroutines.flow.StateFlow
@@ -28,9 +29,25 @@ interface AppUiHost {
     /** How a Library "Show all" grid is ordered. */
     val librarySort: StateFlow<LibrarySort>
 
+    /** Whether the Library's collections are cards or stacked rows with a small cover. */
+    val libraryViewType: StateFlow<LibraryViewType>
+
     /** Video ids of the tracks already downloaded, for the mark on their rows. */
     @Composable
     fun downloadedIds(): Set<String>
+
+    /**
+     * A release's motion cover, for Home's Top Picks — the same lookup the
+     * album page makes. Null is the normal answer, and the only one where the
+     * user has animated artwork off or the platform has no lookup.
+     */
+    suspend fun releaseMotion(album: String, artist: String): CanvasArtwork? = null
+
+    /**
+     * Apple Music's looping clip of the YouTube artist [browseId], billed as
+     * [artistName], for Home's Top Picks. Null as for [releaseMotion].
+     */
+    suspend fun artistMotion(browseId: String, artistName: String): CanvasArtwork? = null
 }
 
 object AppUi {

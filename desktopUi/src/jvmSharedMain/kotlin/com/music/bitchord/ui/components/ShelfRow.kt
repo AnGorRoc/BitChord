@@ -35,6 +35,9 @@ val LocalShelfRowChrome = staticCompositionLocalOf<ShelfRowChrome> { NoShelfRowC
  *
  * Snaps to each cell rather than stopping mid-card: a fling always settles with
  * a column aligned to the leading edge instead of leaving items cut in half.
+ *
+ * [artwork] lists each item's cover by lazy index, so the covers just past the
+ * visible cells are fetched before the scroll reaches them — see [PrefetchArtworkAhead].
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -43,8 +46,10 @@ fun ShelfRow(
     horizontalArrangement: Arrangement.Horizontal,
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
+    artwork: List<String?> = emptyList(),
     content: LazyListScope.() -> Unit,
 ) {
+    PrefetchArtworkAhead(state, artwork)
     LocalShelfRowChrome.current.Wrap(state) {
         LazyRow(
             modifier = modifier,

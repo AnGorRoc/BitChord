@@ -515,7 +515,9 @@ internal fun LandscapeMainPane(
         lyricStrip?.invoke()
         scrubber()
         Spacer(Modifier.height(if (compact) 0.dp else 8.dp))
-        transport()
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            transport()
+        }
         if (volume != null) {
             Spacer(Modifier.height(if (compact) 0.dp else 12.dp))
             volume()
@@ -583,13 +585,13 @@ internal fun LandscapeCredits(
             }
         }
         Spacer(Modifier.width(10.dp))
-        // Same gate as the portrait player's: no account to like against for a
-        // guest, and no YouTube identity to rate a local file or a finished
-        // download against either.
+        // The account gate, except where the caller keeps likes locally (the
+        // desktop app does): there the heart is still a real control, and a
+        // local file or a finished download has no YouTube identity to rate.
         if (signedIn && song.localUri == null) {
             val liked = likeStatus == LikeStatus.LIKE
             CircleGlyph(
-                icon = if (liked) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
                 contentDescription = stringResource(
                     if (liked) Res.string.remove_from_liked else Res.string.like,
                 ),

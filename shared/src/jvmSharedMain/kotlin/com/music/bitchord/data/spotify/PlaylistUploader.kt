@@ -218,7 +218,7 @@ class PlaylistUploader(
         }
     }
 
-    internal companion object {
+    companion object {
         /** Songs per request. */
         const val BATCH = 25
         /** YouTube's cap on a playlist's length. */

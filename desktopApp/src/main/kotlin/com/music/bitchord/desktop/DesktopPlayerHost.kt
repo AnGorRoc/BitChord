@@ -13,10 +13,12 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.data.settings.MixBlend
+import com.music.bitchord.data.settings.MixTransitionView
 import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.TransitionWindow
 import com.music.bitchord.ui.player.AudioOutputDevice
 import com.music.bitchord.ui.player.AudioOutputKind
+import com.music.bitchord.ui.player.BluetoothForm
 import com.music.bitchord.ui.player.CanvasVideoSpec
 import com.music.bitchord.ui.player.LyricsRomanizationResult
 import com.music.bitchord.ui.player.LyricsTranslationResult
@@ -101,6 +103,7 @@ internal object DesktopPlayerHost : PlayerHost {
                     name = name,
                     kind = kindOf(name),
                     isActive = id == selected,
+                    form = formOf(name),
                 )
             }
         }
@@ -185,8 +188,8 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
     override val canvasOverCellular = MutableStateFlow(true)
     override val fullBleedArtwork = MutableStateFlow(false)
     override val hideSongStatus = MutableStateFlow(false)
-    override val showQueueHistory = MutableStateFlow(false)
-    override val hideVolumeBar = MutableStateFlow(false)
+    override val showQueueHistory: StateFlow<Boolean> get() = DesktopAppearanceSettings.showQueueHistory
+    override val hideVolumeBar: StateFlow<Boolean> get() = DesktopAppearanceSettings.hideVolumeBar
     // A desktop window has no status bar to hide.
     override val hideStatusBar = MutableStateFlow(false)
     override val lastPlayerScreen = MutableStateFlow(
@@ -202,19 +205,25 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
 
     // A desktop is never on a metered link as far as this app can tell.
     override val meteredConnection = MutableStateFlow<Boolean?>(false)
+    override val streamCeilingOverride = MutableStateFlow<AudioQuality?>(null)
     override val preferUsbDac = MutableStateFlow(false)
     override val prioritizeSpotifyCanvas = MutableStateFlow(false)
-    override val reduceAnimation = MutableStateFlow(false)
-    override val reduceDynamicBlur = MutableStateFlow(false)
+    override val reduceAnimation: StateFlow<Boolean> get() = DesktopAppearanceSettings.reduceAnimation
+    override val reduceDynamicBlur: StateFlow<Boolean> get() = DesktopAppearanceSettings.reduceDynamicBlur
     override val showNerdStats = MutableStateFlow(false)
+    override val showListenTogetherButton = MutableStateFlow(true)
     override val smartAnalysis = MutableStateFlow(SmartAnalysis())
+    override val automixDetail = MutableStateFlow<String?>(null)
     override val smartFadeEnabled = MutableStateFlow(false)
     override val smartMixInProgress = MutableStateFlow(false)
     override val smartMixBlend = MutableStateFlow<MixBlend?>(null)
+    override val smartMixView = MutableStateFlow<MixTransitionView?>(null)
+    override val smartMixProgress = MutableStateFlow(0f)
     override val smartTransitionWindow = MutableStateFlow<TransitionWindow?>(null)
     override val spotifyCanvasAutoHide = MutableStateFlow(true)
     override val syncedLyrics = MutableStateFlow(true)
-    override val translationLanguage = MutableStateFlow("")
+    override val lyricAboveScrubber: StateFlow<Boolean> get() = DesktopAppearanceSettings.lyricAboveScrubber
+    override val translationLanguage: StateFlow<String> get() = DesktopTranslationSetting.language
     override val versionAlignmentInProgress = MutableStateFlow(false)
 
     override fun setLastPlayerScreen(value: LastPlayerScreen) {
@@ -241,6 +250,17 @@ private fun kindOf(name: String): AudioOutputKind {
         "hdmi" in n || "display" in n || "nvidia" in n -> AudioOutputKind.HDMI
         "headphone" in n || "headset" in n -> AudioOutputKind.WIRED
         else -> AudioOutputKind.OTHER
+    }
+}
+
+private fun formOf(name: String): BluetoothForm {
+    val n = name.lowercase(Locale.ROOT)
+    return when {
+        "airpods max" in n || "wh-1000xm" in n || "headphone" in n || "headset" in n -> BluetoothForm.HEADPHONES
+        "airpods" in n || "buds" in n || "wf-1000xm" in n || "earbud" in n -> BluetoothForm.BUDS
+        "speaker" in n || "soundlink" in n || "flip" in n || "charge" in n || "homepod" in n -> BluetoothForm.SPEAKER
+        "car" in n || "handsfree" in n -> BluetoothForm.CAR
+        else -> BluetoothForm.UNKNOWN
     }
 }
 

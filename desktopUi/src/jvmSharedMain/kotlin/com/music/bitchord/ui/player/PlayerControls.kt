@@ -56,6 +56,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -457,17 +458,27 @@ internal fun TransportRow(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     compact: Boolean = false,
+    /**
+     * Shuffle and repeat, drawn at either end of the row. Provided by the
+     * desktop player, where the transport is the only place the playback modes
+     * have to live; phones keep them in the capsule that appears with the queue.
+     */
+    shuffleEnabled: Boolean = false,
+    repeatMode: Int = RepeatModes.OFF,
+    onToggleShuffle: (() -> Unit)? = null,
+    onCycleRepeat: (() -> Unit)? = null,
 ) {
     val playSize = if (compact) 58.dp else 74.dp
     val playTouch = if (compact) 76.dp else 92.dp
     val skipSize = if (compact) 44.dp else PLAYER_SKIP_ICON_SIZE
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        // SpaceAround, not SpaceEvenly: the outer margins take half a gap, so
-        // the three buttons spread a little further apart from each other.
-        horizontalArrangement = Arrangement.SpaceAround,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val toggleShuffle = onToggleShuffle
+    val cycleRepeat = onCycleRepeat
+    val showsModes = toggleShuffle != null && cycleRepeat != null
+
+    // Previous, play/pause and next, kept in one block so the five-control row
+    // can hold them together: SpaceAround would pull them apart to fill the
+    // measure, and these three read as one unit.
+    val actionButtons: @Composable () -> Unit = {
         TransportGlyph(
             icon = Res.drawable.ic_player_previous,
             contentDescription = stringResource(Res.string.widget_previous),
@@ -508,6 +519,116 @@ internal fun TransportRow(
             enabled = nextEnabled,
             haptic = Haptic.SkipNext,
         )
+    }
+
+    Row(
+        modifier = Modifier
+            // Five controls do not want the full width of a desktop column:
+            // pulled to its edges they stop reading as one transport. Held to
+            // the measure the modes give them, and centred by the caller.
+            .then(
+                if (showsModes) {
+                    Modifier.widthIn(max = TRANSPORT_WITH_MODES_MAX_WIDTH)
+                } else {
+                    Modifier
+                },
+            )
+            .fillMaxWidth(),
+        // With the modes, the outer row only has to push shuffle and repeat to
+        // the ends; the three transport controls stay together in the middle.
+        horizontalArrangement = if (showsModes) Arrangement.SpaceBetween else Arrangement.SpaceAround,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (showsModes) {
+            TransportModeGlyph(
+                icon = BitChordIcons.Shuffle,
+                contentDescription = stringResource(
+                    if (shuffleEnabled) Res.string.shuffle_on else Res.string.shuffle_off,
+                ),
+                onClick = toggleShuffle,
+                active = shuffleEnabled,
+                haptic = if (shuffleEnabled) Haptic.ToggleOff else Haptic.ToggleOn,
+            )
+        }
+        Row(
+            modifier = if (showsModes) Modifier else Modifier.fillMaxWidth(),
+            horizontalArrangement = if (showsModes) Arrangement.spacedBy(8.dp) else Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            actionButtons()
+        }
+        if (showsModes) {
+            TransportModeGlyph(
+                icon = BitChordIcons.Repeat,
+                contentDescription = when (repeatMode) {
+                    RepeatModes.ONE -> stringResource(Res.string.repeat_one)
+                    RepeatModes.ALL -> stringResource(Res.string.repeat_all)
+                    else -> stringResource(Res.string.repeat_off)
+                },
+                onClick = cycleRepeat,
+                active = repeatMode != RepeatModes.OFF,
+                badge = "1".takeIf { repeatMode == RepeatModes.ONE },
+                // Three states, so the buzz tracks the edges of the cycle:
+                // leaving off rises, returning to off falls, and the step
+                // between the two repeat modes is just a selection.
+                haptic = when (repeatMode) {
+                    RepeatModes.OFF -> Haptic.ToggleOn
+                    RepeatModes.ONE -> Haptic.ToggleOff
+                    else -> Haptic.Select
+                },
+            )
+        }
+    }
+}
+
+/**
+ * Shuffle or repeat beside the transport: a plain glyph, not the capsule the
+ * queue uses, so the five controls read as one row.
+ */
+@Composable
+private fun TransportModeGlyph(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    active: Boolean,
+    haptic: Haptic,
+    /** "1" inside the loop while repeat is set to a single track. */
+    badge: String? = null,
+) {
+    val haptics = rememberHaptics()
+    val alpha by animateFloatAsState(
+        targetValue = if (active) 1f else 0.55f,
+        label = "transportModeAlpha",
+    )
+    Box(
+        modifier = Modifier
+            .size(PLAYER_MODE_TOUCH_SIZE)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                haptics.play(haptic)
+                onClick()
+            }
+            .semantics { this.contentDescription = contentDescription },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = LocalPlayerTint.current.copy(alpha = alpha),
+                modifier = Modifier.size(PLAYER_MODE_ICON_SIZE),
+            )
+            if (badge != null) {
+                Text(
+                    text = badge,
+                    color = LocalPlayerTint.current,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
     }
 }
 
@@ -763,8 +884,8 @@ private fun PlaybackModesPill(
  *
  * [active] brightens the disc rather than only the glyph: this sits on album
  * artwork of any colour, and a white icon on a white-ish sleeve has no tint
- * change left to make. The filled heart carries the state as a shape too —
- * see [BitChordIcons.HeartFilled].
+ * change left to make. The filled star carries the state as a shape too — see
+ * [BitChordIcons.StarFilled].
  */
 @Composable
 internal fun CircleGlyph(
@@ -859,6 +980,13 @@ private fun TransportGlyph(
 /** The skip glyphs' width, and their touch box, beside the larger play button. */
 private val PLAYER_SKIP_ICON_SIZE = 53.dp
 private val PLAYER_SKIP_TOUCH_SIZE = 53.dp
+
+/** Shuffle and repeat, smaller than the skip glyphs so the transport stays the centre. */
+private val PLAYER_MODE_ICON_SIZE = 27.dp
+private val PLAYER_MODE_TOUCH_SIZE = 44.dp
+
+/** How wide the five-control transport is allowed to get before its ends drift. */
+private val TRANSPORT_WITH_MODES_MAX_WIDTH = 360.dp
 
 /**
  * The skip glyphs are drawn a little flatter than they are wide, so the pair
