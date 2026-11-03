@@ -5658,6 +5658,11 @@ private fun DesktopFrame(
             if (DesktopPlatform.drawsOwnWindowFrame && !DesktopPlatform.isMac) {
                 val interactionSource = remember { MutableInteractionSource() }
                 val captionHovered by interactionSource.collectIsHoveredAsState()
+                SideEffect {
+                    if (DesktopPlatform.isWindows) {
+                        DesktopWindowsFrame.snapLayoutsAllowed = (!isNowPlaying || captionHovered)
+                    }
+                }
                 val targetAlpha = if (isNowPlaying) {
                     if (captionHovered) 1f else 0f
                 } else {
