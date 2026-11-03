@@ -1,9 +1,18 @@
 package com.music.bitchord.desktop
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.music.bitchord.ui.icons.BitChordIcons
 
 /**
  * Which of the app's dialogs, sheets and full-page overlays are showing.
@@ -38,6 +47,12 @@ internal class DesktopOverlays {
      * wherever it was opened from.
      */
     var settingsPage by mutableStateOf<DesktopSettingsPage?>(null)
+
+    /**
+     * Which category of Settings is currently drilled into, or null for the main settings page.
+     */
+    var settingsCategory by mutableStateOf<DesktopSettingsCategory?>(null)
+
     var lastfmLogin by mutableStateOf(false)
     var listenBrainzToken by mutableStateOf(false)
     var discordToken by mutableStateOf(false)
@@ -51,6 +66,39 @@ internal class DesktopOverlays {
     fun toggleSidePanel(panel: DesktopSidePanel) {
         sidePanel = if (sidePanel == panel) null else panel
     }
+}
+
+/**
+ * The 10 settings categories ported from the phone app.
+ */
+internal enum class DesktopSettingsCategory(val titleKey: String, val defaultTitle: String) {
+    DOWNLOADS("downloads", "Downloads"),
+    PLAYBACK("playback", "Playback"),
+    APPEARANCE("appearance", "Appearance"),
+    PERFORMANCE("performance", "Performance"),
+    LOCAL_MUSIC("local_music", "Local Music"),
+    STORAGE("storage", "Storage"),
+    YOUR_DATA("your_data", "Your Data"),
+    MISCELLANEOUS("miscellaneous", "Miscellaneous"),
+    LANGUAGE("language", "Language"),
+    ADVANCED("advanced_options", "Advanced options"),
+    ;
+
+    fun title(): String = DesktopStrings[titleKey, defaultTitle]
+
+    val icon: ImageVector
+        get() = when (this) {
+            DOWNLOADS -> BitChordIcons.Download
+            PLAYBACK -> BitChordIcons.Play
+            APPEARANCE -> Icons.Rounded.Palette
+            PERFORMANCE -> BitChordIcons.Performance
+            LOCAL_MUSIC -> BitChordIcons.Library
+            STORAGE -> Icons.Rounded.Storage
+            YOUR_DATA -> Icons.Rounded.BarChart
+            MISCELLANEOUS -> Icons.Rounded.Tune
+            LANGUAGE -> Icons.Rounded.Language
+            ADVANCED -> Icons.Rounded.Code
+        }
 }
 
 /**
