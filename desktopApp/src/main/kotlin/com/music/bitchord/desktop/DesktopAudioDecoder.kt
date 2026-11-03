@@ -101,6 +101,7 @@ internal class DesktopAudioDecoder : DesktopSampleSource {
 
     /** Live only while this decoder reads through windowed HTTP; see [open]. */
     private var rangeSource: DesktopRangeStream? = null
+    private var smbFile: com.hierynomus.smbj.share.File? = null
     private var avio: AVIOContext? = null
     private var readPacket: Read_packet_Pointer_BytePointer_int? = null
     private var seekPacket: Seek_Pointer_long_int? = null
@@ -143,12 +144,23 @@ internal class DesktopAudioDecoder : DesktopSampleSource {
         av_log_set_level(AV_LOG_ERROR)
         ensureNetwork()
 
+        val isSmb = com.music.bitchord.data.smb.SmbConfig.isSmbUrl(url)
+        val finalHeaders = headers.toMutableMap()
+        if (!isSmb && (url.startsWith("http://") || url.startsWith("https://"))) {
+            val host = runCatching { java.net.URI.create(url).host }.getOrNull().orEmpty()
+            if (com.music.bitchord.data.webdav.WebDavAuth.shouldAuthorize(host)) {
+                com.music.bitchord.data.webdav.WebDavAuth.authHeader?.let {
+                    finalHeaders["Authorization"] = it
+                }
+            }
+        }
+
         val options = AVDictionary(null)
-        if (headers.isNotEmpty()) {
+        if (finalHeaders.isNotEmpty()) {
             // FFmpeg wants one blob with CRLF between fields, not a dictionary.
-            val block = headers.entries.joinToString("") { (name, value) -> "$name: $value\r\n" }
+            val block = finalHeaders.entries.joinToString("") { (name, value) -> "$name: $value\r\n" }
             av_dict_set(options, "headers", block, 0)
-            headers["User-Agent"]?.let { av_dict_set(options, "user_agent", it, 0) }
+            finalHeaders["User-Agent"]?.let { av_dict_set(options, "user_agent", it, 0) }
         }
         // A stream that stalls mid-track should be retried rather than ending the song, which is
         // what a bare read error would look like upstream.
@@ -158,14 +170,19 @@ internal class DesktopAudioDecoder : DesktopSampleSource {
         av_dict_set(options, "reconnect_delay_max", "5", 0)
         av_dict_set(options, "rw_timeout", "15000000", 0)
 
-        val opened = if (windowed) windowedContext(url, headers) else AVFormatContext(null)
+        val opened = when {
+            isSmb -> smbContext(url)
+            windowed -> windowedContext(url, finalHeaders)
+            else -> AVFormatContext(null)
+        }
         // The code matters.
         val inputFormat: AVInputFormat? = when (transport?.lowercase()) {
             DesktopAddonStream.HLS -> av_find_input_format("hls")
             DesktopAddonStream.DASH -> av_find_input_format("dash")
             else -> null
         }
-        val status = avformat_open_input(opened, if (windowed) null as String? else url, inputFormat, options)
+        val inputUrl = if (windowed || isSmb) null as String? else url
+        val status = avformat_open_input(opened, inputUrl, inputFormat, options)
         check(status >= 0) { "could not open stream (${describe(status)})" }
         format = opened
         check(avformat_find_stream_info(opened, null as AVDictionary?) >= 0) { "no stream info" }
@@ -299,6 +316,48 @@ internal class DesktopAudioDecoder : DesktopSampleSource {
         // has a pb, so there is no flag to set here.
         context.pb(io)
         rangeSource = source
+        readPacket = read
+        seekPacket = seek
+        avio = io
+        return context
+    }
+
+    private fun smbContext(url: String): AVFormatContext {
+        val path = com.music.bitchord.data.smb.SmbConfig.relativePath(url, com.music.bitchord.data.smb.SmbAuth.share)
+            ?: url.removePrefix("smb://").substringAfter('/')
+        val file = com.music.bitchord.data.smb.SmbClient.openFile(path)
+        val fileLength = runCatching { file.length }.getOrDefault(-1L)
+        val scratch = ByteArray(IO_BUFFER_BYTES)
+        var position = 0L
+
+        val read = object : Read_packet_Pointer_BytePointer_int() {
+            override fun call(opaque: Pointer?, buffer: BytePointer?, size: Int): Int {
+                if (buffer == null) return AVERROR_EOF
+                val toRead = minOf(size, scratch.size)
+                val taken = file.read(scratch, position, 0, toRead)
+                if (taken <= 0) return AVERROR_EOF
+                position += taken
+                buffer.put(scratch, 0, taken)
+                return taken
+            }
+        }
+        val seek = object : Seek_Pointer_long_int() {
+            override fun call(opaque: Pointer?, offset: Long, whence: Int): Long {
+                if (whence == AVSEEK_SIZE) return fileLength
+                val target = when (whence) {
+                    SEEK_CUR -> position + offset
+                    SEEK_END -> if (fileLength >= 0) fileLength + offset else position + offset
+                    else -> offset
+                }
+                position = target.coerceAtLeast(0L)
+                return position
+            }
+        }
+        val buffer = BytePointer(av_malloc(IO_BUFFER_BYTES.toLong()))
+        val io = avio_alloc_context(buffer, IO_BUFFER_BYTES, 0, null, read, null, seek)
+        val context = avformat_alloc_context()
+        context.pb(io)
+        smbFile = file
         readPacket = read
         seekPacket = seek
         avio = io
@@ -494,6 +553,8 @@ internal class DesktopAudioDecoder : DesktopSampleSource {
         readPacket = null
         seekPacket = null
         rangeSource = null
+        smbFile?.let { runCatching { it.close() } }
+        smbFile = null
     }
 
     internal companion object {

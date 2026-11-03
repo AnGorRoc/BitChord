@@ -18,6 +18,14 @@ class DesktopPersistence {
         encodeDefaults = true
     }
 
+    init {
+        com.music.bitchord.data.tidal.TidalInstances.init(
+            read = { string("tidal_manual_json", "").ifBlank { null } },
+            write = { saveString("tidal_manual_json", it) },
+        )
+        syncNetworkAuth()
+    }
+
     fun likedIds(): Set<String> = readLines(KEY_LIKED_IDS).toSet()
 
     fun saveLikedIds(ids: Set<String>) = writeLines(KEY_LIKED_IDS, ids.toList())
@@ -114,10 +122,164 @@ class DesktopPersistence {
 
     fun saveFloat(key: String, value: Float) = preferences.putFloat(key, value)
 
-    fun sourceEnabled(sourceId: String): Boolean = boolean("source_${sourceId}_enabled", true)
+    fun long(key: String, default: Long): Long = preferences.getLong(key, default)
+
+    fun saveLong(key: String, value: Long) = preferences.putLong(key, value)
+
+    fun sourceEnabled(sourceId: String, default: Boolean = true): Boolean = boolean("source_${sourceId}_enabled", default)
 
     fun saveSourceEnabled(sourceId: String, enabled: Boolean) =
         saveBoolean("source_${sourceId}_enabled", enabled)
+
+    fun upgradeLengthSlackSeconds(): Int = int("upgrade_length_slack_sec", 6).coerceIn(0, 15)
+
+    fun saveUpgradeLengthSlackSeconds(value: Int) = saveInt("upgrade_length_slack_sec", value.coerceIn(0, 15))
+
+    fun directSourceStream(): Boolean = boolean("direct_source_stream", false)
+
+    fun saveDirectSourceStream(enabled: Boolean) = saveBoolean("direct_source_stream", enabled)
+
+    fun losslessFromStart(): Boolean = boolean("lossless_from_start", false)
+
+    fun saveLosslessFromStart(enabled: Boolean) = saveBoolean("lossless_from_start", enabled)
+
+    fun losslessDowngrade(): Boolean = boolean("lossless_downgrade", true)
+
+    fun saveLosslessDowngrade(enabled: Boolean) = saveBoolean("lossless_downgrade", enabled)
+
+    fun offlineMode(): Boolean = boolean("offline_mode", false)
+
+    fun saveOfflineMode(enabled: Boolean) = saveBoolean("offline_mode", enabled)
+
+    fun smartPreload(): Boolean = boolean("smart_preload", true)
+
+    fun saveSmartPreload(enabled: Boolean) = saveBoolean("smart_preload", enabled)
+
+    fun improveCachedSongs(): Boolean = boolean("improve_cached_songs", false)
+
+    fun saveImproveCachedSongs(enabled: Boolean) = saveBoolean("improve_cached_songs", enabled)
+
+    fun losslessCacheLevel(): com.music.bitchord.data.settings.LosslessCacheLevel {
+        val raw = string("lossless_cache_level", com.music.bitchord.data.settings.LosslessCacheLevel.CD.name)
+        return runCatching { com.music.bitchord.data.settings.LosslessCacheLevel.valueOf(raw) }
+            .getOrDefault(com.music.bitchord.data.settings.LosslessCacheLevel.CD)
+    }
+
+    fun saveLosslessCacheLevel(level: com.music.bitchord.data.settings.LosslessCacheLevel) =
+        saveString("lossless_cache_level", level.name)
+
+    fun losslessCacheLimitBytes(): Long = long("lossless_cache_limit_bytes", 2L * 1024 * 1024 * 1024)
+
+    fun saveLosslessCacheLimitBytes(bytes: Long) = saveLong("lossless_cache_limit_bytes", bytes)
+
+    fun webdavUrl(): String = string("webdav_url", "")
+    fun saveWebdavUrl(url: String) {
+        saveString("webdav_url", url)
+        syncNetworkAuth()
+    }
+
+    fun webdavUsername(): String = string("webdav_username", "")
+    fun saveWebdavUsername(user: String) {
+        saveString("webdav_username", user)
+        syncNetworkAuth()
+    }
+
+    fun webdavPassword(): String {
+        val raw = string("webdav_password", "")
+        if (raw.isBlank() || !DesktopPlatform.isWindows) return raw
+        return runCatching {
+            val bytes = Base64.getDecoder().decode(raw)
+            DesktopWindowsCrypto.unprotect(bytes)?.toString(StandardCharsets.UTF_8) ?: raw
+        }.getOrDefault(raw)
+    }
+
+    fun saveWebdavPassword(password: String) {
+        val toStore = if (password.isNotBlank() && DesktopPlatform.isWindows) {
+            val sealed = DesktopWindowsCrypto.protect(password.toByteArray(StandardCharsets.UTF_8))
+            if (sealed != null) Base64.getEncoder().encodeToString(sealed) else password
+        } else {
+            password
+        }
+        saveString("webdav_password", toStore)
+        syncNetworkAuth()
+    }
+
+    fun smbHost(): String = string("smb_host", "")
+    fun saveSmbHost(host: String) {
+        saveString("smb_host", host)
+        syncNetworkAuth()
+    }
+
+    fun smbShare(): String = string("smb_share", "")
+    fun saveSmbShare(share: String) {
+        saveString("smb_share", share)
+        syncNetworkAuth()
+    }
+
+    fun smbBasePath(): String = string("smb_base_path", "")
+    fun saveSmbBasePath(path: String) {
+        saveString("smb_base_path", path)
+        syncNetworkAuth()
+    }
+
+    fun smbUsername(): String = string("smb_username", "")
+    fun saveSmbUsername(user: String) {
+        saveString("smb_username", user)
+        syncNetworkAuth()
+    }
+
+    fun smbDomain(): String = string("smb_domain", "")
+    fun saveSmbDomain(domain: String) {
+        saveString("smb_domain", domain)
+        syncNetworkAuth()
+    }
+
+    fun smbPassword(): String {
+        val raw = string("smb_password", "")
+        if (raw.isBlank() || !DesktopPlatform.isWindows) return raw
+        return runCatching {
+            val bytes = Base64.getDecoder().decode(raw)
+            DesktopWindowsCrypto.unprotect(bytes)?.toString(StandardCharsets.UTF_8) ?: raw
+        }.getOrDefault(raw)
+    }
+
+    fun saveSmbPassword(password: String) {
+        val toStore = if (password.isNotBlank() && DesktopPlatform.isWindows) {
+            val sealed = DesktopWindowsCrypto.protect(password.toByteArray(StandardCharsets.UTF_8))
+            if (sealed != null) Base64.getEncoder().encodeToString(sealed) else password
+        } else {
+            password
+        }
+        saveString("smb_password", toStore)
+        syncNetworkAuth()
+    }
+
+    fun syncNetworkAuth() {
+        val wUrl = webdavUrl()
+        val wUser = webdavUsername()
+        val wPass = webdavPassword()
+        if (wUrl.isNotBlank()) {
+            val host = runCatching { java.net.URI.create(wUrl).host }.getOrNull().orEmpty()
+            com.music.bitchord.data.webdav.WebDavAuth.update(
+                host,
+                com.music.bitchord.data.webdav.WebDavConfig.basicAuthHeader(wUser, wPass),
+            )
+        }
+        val sHost = smbHost()
+        val sShare = smbShare()
+        val sPath = smbBasePath()
+        val sUser = smbUsername()
+        val sPass = smbPassword()
+        if (sHost.isNotBlank() && sShare.isNotBlank()) {
+            com.music.bitchord.data.smb.SmbAuth.update(
+                host = sHost,
+                share = sShare,
+                basePath = sPath,
+                username = sUser,
+                password = sPass,
+            )
+        }
+    }
 
     /** The source list is the desktop equivalent of Android's encrypted SourceRegistry state. */
     internal fun sourceConfigs(): List<DesktopSourceConfig> {
@@ -137,6 +299,8 @@ class DesktopPersistence {
         if ((raw != null || protected != null) && stored == null) {
             DesktopTrackLog.log("stored sources could not be read; leaving them untouched")
             return listOf(
+                DesktopSourceConfig("tidal", DesktopSourceKind.TIDAL, enabled = sourceEnabled("tidal", default = false)),
+                DesktopSourceConfig("monochrome", DesktopSourceKind.MONOCHROME, baseUrl = DesktopMonochromeSource.DEFAULT_URL, enabled = sourceEnabled("monochrome", default = false)),
                 DesktopSourceConfig("jiosaavn", DesktopSourceKind.JIOSAAVN, enabled = sourceEnabled("jiosaavn")),
                 DesktopSourceConfig("youtube", DesktopSourceKind.YOUTUBE),
             )
@@ -146,6 +310,25 @@ class DesktopPersistence {
         val initial = (stored ?: migrateLegacySources())
             .filterNot { it.kind == DesktopSourceKind.MODULE }
         val withBuiltIns = initial.toMutableList().apply {
+            if (none { it.kind == DesktopSourceKind.TIDAL }) {
+                add(
+                    DesktopSourceConfig(
+                        "tidal",
+                        DesktopSourceKind.TIDAL,
+                        enabled = sourceEnabled("tidal", default = false),
+                    ),
+                )
+            }
+            if (none { it.kind == DesktopSourceKind.MONOCHROME }) {
+                add(
+                    DesktopSourceConfig(
+                        "monochrome",
+                        DesktopSourceKind.MONOCHROME,
+                        baseUrl = DesktopMonochromeSource.DEFAULT_URL,
+                        enabled = sourceEnabled("monochrome", default = false),
+                    ),
+                )
+            }
             if (none { it.kind == DesktopSourceKind.JIOSAAVN }) {
                 add(
                     DesktopSourceConfig(

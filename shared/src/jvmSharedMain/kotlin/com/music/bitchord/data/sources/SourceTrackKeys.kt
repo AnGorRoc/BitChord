@@ -17,4 +17,8 @@ object SourceTrackKeys {
         if (cut <= 0) return null
         return body.substring(0, cut) to body.substring(cut + SEPARATOR.length)
     }
+
+    fun forSource(configId: String, trackId: String): String = "$PREFIX$configId$SEPARATOR$trackId"
+    fun sourceOf(key: String): String? = parse(key)?.first
+    fun keyOf(key: String): String = parse(key)?.second ?: key
 }

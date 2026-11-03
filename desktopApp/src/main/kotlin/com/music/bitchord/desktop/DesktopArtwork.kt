@@ -1,6 +1,10 @@
 package com.music.bitchord.desktop
 
+import com.music.bitchord.data.Http
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.remote.RemoteArtReader
+import com.music.bitchord.data.smb.SmbClient
+import com.music.bitchord.data.smb.SmbConfig
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -16,6 +20,7 @@ import androidx.compose.foundation.Image
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.graphics.decodeToImageBitmap
+import okhttp3.Request
 import java.net.URI
 
 /**
@@ -48,12 +53,36 @@ internal object DesktopArtworkCache {
     suspend fun load(url: String?): ImageBitmap? {
         if (url.isNullOrBlank()) return null
         images.get(url)?.let { return it }
-        return runCatching {
-            URI(url).toURL().openConnection().apply {
-                connectTimeout = 10_000
-                readTimeout = 10_000
-            }.getInputStream().use { stream -> stream.readBytes().decodeToImageBitmap() }
-        }.getOrNull()?.also { images.put(url, it) }
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                when {
+                    url.startsWith("embedded:") -> {
+                        val streamUrl = url.removePrefix("embedded:")
+                        val isSmb = SmbConfig.isSmbUrl(streamUrl)
+                        RemoteArtReader.picture(streamUrl, isSmb)?.bytes?.decodeToImageBitmap()
+                    }
+                    SmbConfig.isSmbUrl(url) -> {
+                        SmbClient.readFully(url).decodeToImageBitmap()
+                    }
+                    url.startsWith("http://") || url.startsWith("https://") -> {
+                        val request = Request.Builder().url(url).build()
+                        Http.client.newCall(request).execute().use { response ->
+                            if (response.isSuccessful) {
+                                response.body.bytes().decodeToImageBitmap()
+                            } else {
+                                null
+                            }
+                        }
+                    }
+                    else -> {
+                        URI(url).toURL().openConnection().apply {
+                            connectTimeout = 10_000
+                            readTimeout = 10_000
+                        }.getInputStream().use { stream -> stream.readBytes().decodeToImageBitmap() }
+                    }
+                }
+            }.getOrNull()?.also { images.put(url, it) }
+        }
     }
 }
 

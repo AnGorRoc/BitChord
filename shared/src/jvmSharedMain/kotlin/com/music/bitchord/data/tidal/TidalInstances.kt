@@ -1,7 +1,5 @@
 package com.music.bitchord.data.tidal
 
-import android.content.Context
-import android.content.SharedPreferences
 import com.music.bitchord.data.TrackLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -47,15 +45,13 @@ object TidalInstances {
         Entry("https://tracks.monochrome.st", "Monochrome Tracks", verified = true),
     )
 
-    private const val FILE = "bitchord_tidal"
-    private const val KEY_MANUAL_JSON = "tidal_manual_json"
-
     // Half an hour: probes are network, and a pool that was alive minutes
     // ago is alive now. Every search/stream would otherwise pay the slow
     // volunteer's timeout on each new track.
     private const val HEALTH_TTL_MS = 30 * 60 * 1000L
 
-    private lateinit var prefs: SharedPreferences
+    private var readStore: (() -> String?)? = null
+    private var writeStore: ((String) -> Unit)? = null
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -70,23 +66,23 @@ object TidalInstances {
     private var healthAt = 0L
     private val lock = Any()
 
-    fun init(context: Context) {
-        if (this::prefs.isInitialized) return
-        prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-        _manual.value = readManual()
+    fun init(read: () -> String?, write: (String) -> Unit) {
+        synchronized(lock) {
+            readStore = read
+            writeStore = write
+            _manual.value = readManual()
+        }
     }
 
     private fun readManual(): List<Entry> {
-        val raw = prefs.getString(KEY_MANUAL_JSON, null) ?: return emptyList()
+        val raw = readStore?.invoke() ?: return emptyList()
         return runCatching { json.decodeFromString(ListSerializer(Entry.serializer()), raw) }
             .getOrDefault(emptyList())
     }
 
     private fun writeManual(list: List<Entry>) {
-        if (!this::prefs.isInitialized) return
-        prefs.edit()
-            .putString(KEY_MANUAL_JSON, json.encodeToString(ListSerializer(Entry.serializer()), list))
-            .apply()
+        val writer = writeStore ?: return
+        writer(json.encodeToString(ListSerializer(Entry.serializer()), list))
     }
 
     /**

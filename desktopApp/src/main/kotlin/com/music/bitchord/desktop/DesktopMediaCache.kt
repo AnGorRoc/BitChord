@@ -99,6 +99,12 @@ internal object DesktopMediaCache {
     internal const val MIN_LIMIT_MB = 128
     internal const val MAX_LIMIT_MB = 10 * 1024
 
+    fun openInExplorer() {
+        runCatching {
+            java.awt.Desktop.getDesktop().open(directory.toFile())
+        }
+    }
+
     /** Past this the Storage row warns, because it is a noticeable share of a disk. */
     internal const val WARNING_MB = 2048
 }

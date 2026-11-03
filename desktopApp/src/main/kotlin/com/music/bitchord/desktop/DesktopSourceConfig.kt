@@ -43,6 +43,22 @@ internal enum class DesktopSourceKind(
         supportsLossless = true,
         rank = 1,
     ),
+    TIDAL(
+        label = DesktopStrings["source_tidal_label", "Hi-Res Lossless"],
+        detail = "FLAC · Lossless · Hi-Res",
+        labels = listOf("FLAC", "Lossless", "Hi-Res"),
+        needsServer = false,
+        supportsLossless = true,
+        rank = 1,
+    ),
+    MONOCHROME(
+        label = "Monochrome",
+        detail = "FLAC · Lossless",
+        labels = listOf("FLAC", "Lossless"),
+        needsServer = false,
+        supportsLossless = true,
+        rank = 1,
+    ),
     JIOSAAVN(
         label = "JioSaavn",
         detail = "High Quality · 320kbps",

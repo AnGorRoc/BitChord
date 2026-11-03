@@ -527,6 +527,8 @@ private enum class DesktopDestination(val id: String, val label: String) {
     HISTORY("history", "History"),
     DOWNLOADS("downloads", "Downloads"),
     LOCAL_MUSIC("local-music", "Local Music"),
+    WEBDAV("webdav", "WebDAV"),
+    SMB("smb", "SMB"),
     SETTINGS("settings", "Settings"),
 }
 
@@ -634,6 +636,8 @@ fun BitChordDesktopApp() {
     /** What the Spotify grid is waiting on, or why it is empty; null once its playlists are in. */
     var spotifyLibraryStatus by remember { mutableStateOf<String?>(null) }
     var spotifyImportOpen by remember { mutableStateOf(false) }
+    var showWebDavDialog by remember { mutableStateOf(false) }
+    var showSmbDialog by remember { mutableStateOf(false) }
     /** Where the one back button in the top bar goes: every place visited, oldest first. */
     val navHistory = remember { mutableStateListOf<DesktopNavEntry>() }
     /** Set while [goBack] puts a place back, so that move is not itself recorded as a visit. */
@@ -2553,6 +2557,26 @@ fun BitChordDesktopApp() {
                 ),
                 icon = Icons.Rounded.Folder,
             ),
+            LibraryLink(
+                item = ShelfItem(
+                    title = "WebDAV",
+                    subtitle = "Remote WebDAV music folder",
+                    thumbnailUrl = null,
+                    videoId = null,
+                    browseId = "remote:webdav",
+                ),
+                icon = Icons.Rounded.Cloud,
+            ).takeIf { DesktopWebDav.isConfigured() },
+            LibraryLink(
+                item = ShelfItem(
+                    title = "SMB Share",
+                    subtitle = "Network share music folder",
+                    thumbnailUrl = null,
+                    videoId = null,
+                    browseId = "remote:smb",
+                ),
+                icon = Icons.Rounded.Folder,
+            ).takeIf { DesktopSmb.isConfigured() },
             // As on the phone, only while signed in to Spotify in Account & integrations.
             LibraryLink(
                 item = ShelfItem(
@@ -2621,6 +2645,8 @@ fun BitChordDesktopApp() {
         when {
             browseId == LOCAL_DOWNLOADS_ID -> selectDestination(DesktopDestination.DOWNLOADS)
             browseId == LOCAL_MUSIC_ID -> selectDestination(DesktopDestination.LOCAL_MUSIC)
+            browseId == "remote:webdav" -> selectDestination(DesktopDestination.WEBDAV)
+            browseId == "remote:smb" -> selectDestination(DesktopDestination.SMB)
             browseId == SPOTIFY_LIBRARY_ID -> openSpotifyLibrary()
             // Spotify's tracks fill in below, as they are read and matched.
             browseId.startsWith(SPOTIFY_PAGE_PREFIX) -> showCollection(
@@ -3967,6 +3993,20 @@ fun BitChordDesktopApp() {
                         )
                     }
 
+                    if (showWebDavDialog) {
+                        DesktopWebDavDialog(
+                            onDismiss = { showWebDavDialog = false },
+                            onSaved = { showWebDavDialog = false },
+                        )
+                    }
+
+                    if (showSmbDialog) {
+                        DesktopSmbDialog(
+                            onDismiss = { showSmbDialog = false },
+                            onSaved = { showSmbDialog = false },
+                        )
+                    }
+
                     if (overlays.signIn) {
                         DesktopSignInDialog(
                             busy = signInBusy,
@@ -4377,6 +4417,8 @@ fun BitChordDesktopApp() {
                                         overlays.settingsPage = null
                                         overlays.settingsCategory = null
                                     },
+                                    onConfigureWebDav = { showWebDavDialog = true },
+                                    onConfigureSmb = { showSmbDialog = true },
                                 )
                                 DesktopSettingsPage.EQUALIZER -> DesktopEqualizerDialog(onDismiss = ::goBack)
                                 DesktopSettingsPage.AUDIO_OUTPUT -> DesktopAudioOutputDialog(onDismiss = ::goBack)
@@ -4781,6 +4823,38 @@ fun BitChordDesktopApp() {
                             contentPadding = contentPadding,
                             menu = { song -> songMenu(song) },
                         )
+                        destination == DesktopDestination.WEBDAV -> {
+                            val webdavSongs by produceState<List<Song>>(emptyList()) {
+                                value = DesktopWebDav.getSongs()
+                            }
+                            DesktopLocalMusicPage(
+                                songs = webdavSongs,
+                                onSongClick = { playSong(it, source = DesktopQueueSource("WebDAV", PlaybackSourceType.BROWSE)) },
+                                contentPadding = contentPadding,
+                                title = "WebDAV",
+                                subtitle = "Remote WebDAV music folder",
+                                emptyTitle = "No WebDAV music found",
+                                emptyDescription = "Configure your WebDAV server and check the connection.",
+                                persistenceKey = "webdav",
+                                menu = { song -> songMenu(song) },
+                            )
+                        }
+                        destination == DesktopDestination.SMB -> {
+                            val smbSongs by produceState<List<Song>>(emptyList()) {
+                                value = DesktopSmb.getSongs()
+                            }
+                            DesktopLocalMusicPage(
+                                songs = smbSongs,
+                                onSongClick = { playSong(it, source = DesktopQueueSource("SMB", PlaybackSourceType.BROWSE)) },
+                                contentPadding = contentPadding,
+                                title = "SMB / Windows Share",
+                                subtitle = "Network share music folder",
+                                emptyTitle = "No SMB music found",
+                                emptyDescription = "Configure your SMB network share and check the connection.",
+                                persistenceKey = "smb",
+                                menu = { song -> songMenu(song) },
+                            )
+                        }
                     }
                 }
                 }
@@ -6923,6 +6997,8 @@ private fun DesktopSettingsScreen(
     onOpenIntegrations: () -> Unit,
     onOpenLicenses: () -> Unit,
     onOpenReplay: () -> Unit,
+    onConfigureWebDav: () -> Unit = {},
+    onConfigureSmb: () -> Unit = {},
 ) {
     var editingSource by remember { mutableStateOf<DesktopSourceConfig?>(null) }
     val sourceProbeKey = sourceConfigs
@@ -7030,6 +7106,9 @@ private fun DesktopSettingsScreen(
                                         { onMoveSource(config, 1) }
                                     } else null,
                                 )
+                                if (config.kind == DesktopSourceKind.TIDAL && config.enabled) {
+                                    DesktopTidalInstancesSection()
+                                }
                             }
                             SettingsRow(
                                 BitChordIcons.Plus,
@@ -7097,6 +7176,62 @@ private fun DesktopSettingsScreen(
                                 dolbyAtmos && DesktopCodecs.supportsDolbyAtmos,
                                 { if (DesktopCodecs.supportsDolbyAtmos) onDolbyAtmosChange(it) },
                             )
+                            val persistence = remember { DesktopPersistence() }
+                            var directSource by remember { mutableStateOf(persistence.directSourceStream()) }
+                            SettingsToggle(
+                                "Direct source stream",
+                                "Stream directly from third-party sources without proxying",
+                                directSource,
+                                {
+                                    directSource = it
+                                    persistence.saveDirectSourceStream(it)
+                                },
+                            )
+                            var losslessStart by remember { mutableStateOf(persistence.losslessFromStart()) }
+                            SettingsToggle(
+                                "Lossless from start",
+                                "Always wait for the lossless stream to settle before starting playback",
+                                losslessStart,
+                                {
+                                    losslessStart = it
+                                    persistence.saveLosslessFromStart(it)
+                                },
+                            )
+                            var losslessDowngrade by remember { mutableStateOf(persistence.losslessDowngrade()) }
+                            SettingsToggle(
+                                "Lossless stall recovery",
+                                "Automatically fall back to standard stream if lossless stalls",
+                                losslessDowngrade,
+                                {
+                                    losslessDowngrade = it
+                                    persistence.saveLosslessDowngrade(it)
+                                },
+                            )
+                            var offlineMode by remember { mutableStateOf(persistence.offlineMode()) }
+                            SettingsToggle(
+                                "Offline mode",
+                                "Only play songs that are saved or cached locally",
+                                offlineMode,
+                                {
+                                    offlineMode = it
+                                    persistence.saveOfflineMode(it)
+                                },
+                            )
+                            var slackSeconds by remember { mutableStateOf(persistence.upgradeLengthSlackSeconds()) }
+                            Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                                Text("Length slack for track matching (${slackSeconds}s)", style = MaterialTheme.typography.bodyLarge)
+                                Text("Permitted duration difference when substituting alternative sources", color = DesktopSecondary, style = MaterialTheme.typography.bodySmall)
+                                DesktopBareSlider(
+                                    value = slackSeconds.toFloat(),
+                                    onValueChange = {
+                                        slackSeconds = it.roundToInt()
+                                        persistence.saveUpgradeLengthSlackSeconds(slackSeconds)
+                                    },
+                                    valueRange = 0f..15f,
+                                    steps = 14,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
                         }
                     }
                     item {
@@ -7606,6 +7741,23 @@ private fun DesktopSettingsScreen(
                             filterNonMusicAudio,
                             onFilterNonMusicAudioChange,
                         )
+                        val persistence = remember { DesktopPersistence() }
+                        var webdavUrl by remember { mutableStateOf(persistence.webdavUrl()) }
+                        var smbHost by remember { mutableStateOf(persistence.smbHost()) }
+                        SettingsRow(
+                            Icons.Rounded.Cloud,
+                            "WebDAV music folder",
+                            if (webdavUrl.isNotBlank()) "Connected to $webdavUrl" else "Configure remote WebDAV server",
+                        ) {
+                            onConfigureWebDav()
+                        }
+                        SettingsRow(
+                            Icons.Rounded.Folder,
+                            "SMB / Windows Share",
+                            if (smbHost.isNotBlank()) "Connected to \\\\$smbHost\\${persistence.smbShare()}" else "Configure local network share",
+                        ) {
+                            onConfigureSmb()
+                        }
                     }
                 }
 
@@ -7654,6 +7806,54 @@ private fun DesktopSettingsScreen(
                         ) {
                             DesktopArtworkCache.clear()
                             imagesCleared = true
+                        }
+                        var cacheLevel by remember { mutableStateOf(DesktopPersistence().losslessCacheLevel()) }
+                        if (settingsRowVisible("Lossless caching")) {
+                            Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                                Text("Lossless caching", style = MaterialTheme.typography.bodyLarge)
+                                Spacer(Modifier.height(4.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    com.music.bitchord.data.settings.LosslessCacheLevel.entries.forEach { level ->
+                                        FilterChip(
+                                            colors = desktopChipColors(),
+                                            selected = cacheLevel == level,
+                                            onClick = {
+                                                cacheLevel = level
+                                                DesktopPersistence().saveLosslessCacheLevel(level)
+                                            },
+                                            label = { Text(level.name) },
+                                        )
+                                    }
+                                }
+                                Text("Select which tiers are saved to disk during playback", color = DesktopSecondary, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        var smartPreload by remember { mutableStateOf(DesktopPersistence().smartPreload()) }
+                        SettingsToggle(
+                            "Smart preload",
+                            "Warm audio streams ahead of time for gapless playback",
+                            smartPreload,
+                            {
+                                smartPreload = it
+                                DesktopPersistence().saveSmartPreload(it)
+                            },
+                        )
+                        var improveCached by remember { mutableStateOf(DesktopPersistence().improveCachedSongs()) }
+                        SettingsToggle(
+                            "Improve cached songs",
+                            "Automatically upgrade previously cached songs when a higher tier is found",
+                            improveCached,
+                            {
+                                improveCached = it
+                                DesktopPersistence().saveImproveCachedSongs(it)
+                            },
+                        )
+                        SettingsRow(
+                            Icons.Rounded.Folder,
+                            "Open cache folder",
+                            DesktopMediaCache.directory.toString(),
+                        ) {
+                            DesktopMediaCache.openInExplorer()
                         }
                     }
                 }
@@ -7910,6 +8110,7 @@ private fun DesktopSourceSettingsRow(
             when (config.kind) {
                 DesktopSourceKind.ADDON -> Icons.Rounded.Extension
                 DesktopSourceKind.CUSTOM_MODULE, DesktopSourceKind.MODULE -> Icons.Rounded.Extension
+                DesktopSourceKind.TIDAL, DesktopSourceKind.MONOCHROME -> Icons.Rounded.GraphicEq
                 DesktopSourceKind.JIOSAAVN -> Icons.Rounded.GraphicEq
                 DesktopSourceKind.YOUTUBE -> Icons.Rounded.PlayCircle
             },

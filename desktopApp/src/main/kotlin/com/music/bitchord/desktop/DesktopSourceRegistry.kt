@@ -3,6 +3,7 @@ package com.music.bitchord.desktop
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.sources.SourceTrackKeys
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -100,6 +101,46 @@ internal object DesktopSourceRegistry {
         override suspend fun matches(song: Song): List<Song> = DesktopJioSaavn.matches(song)
     }
 
+    private class TidalAdapter(
+        override val config: DesktopSourceConfig,
+    ) : SourceAdapter {
+        private val source = DesktopTidalSource(config)
+        override val descriptor: DesktopSourceDescriptor get() = config.descriptor()
+
+        override fun owns(song: Song): Boolean =
+            SourceTrackKeys.sourceOf(song.videoId) == config.id
+
+        override suspend fun resolve(song: Song, quality: String?): Result<DesktopStream?> =
+            source.resolveStream(SourceTrackKeys.keyOf(song.videoId)).map { it }
+
+        override suspend fun matches(song: Song): List<Song> {
+            val query = song.title.ifBlank { return emptyList() }
+            val searchTitle = "$query ${song.artist}".trim()
+            val list = source.search(searchTitle).getOrDefault(emptyList())
+            return DesktopTrackMatcher.ranked(list, song)
+        }
+    }
+
+    private class MonochromeAdapter(
+        override val config: DesktopSourceConfig,
+    ) : SourceAdapter {
+        private val source = DesktopMonochromeSource(config)
+        override val descriptor: DesktopSourceDescriptor get() = config.descriptor()
+
+        override fun owns(song: Song): Boolean =
+            SourceTrackKeys.sourceOf(song.videoId) == config.id
+
+        override suspend fun resolve(song: Song, quality: String?): Result<DesktopStream?> =
+            source.resolveStream(SourceTrackKeys.keyOf(song.videoId)).map { it }
+
+        override suspend fun matches(song: Song): List<Song> {
+            val query = song.title.ifBlank { return emptyList() }
+            val searchTitle = "$query ${song.artist}".trim()
+            val list = source.search(searchTitle).getOrDefault(emptyList())
+            return DesktopTrackMatcher.ranked(list, song)
+        }
+    }
+
     private class YouTubeAdapter(
         override val config: DesktopSourceConfig,
     ) : SourceAdapter {
@@ -190,6 +231,8 @@ internal object DesktopSourceRegistry {
                     DesktopSourceKind.CUSTOM_MODULE,
                     DesktopSourceKind.MODULE,
                     -> ModuleAdapter(config)
+                    DesktopSourceKind.TIDAL -> TidalAdapter(config)
+                    DesktopSourceKind.MONOCHROME -> MonochromeAdapter(config)
                     DesktopSourceKind.JIOSAAVN -> JioAdapter(config)
                     DesktopSourceKind.YOUTUBE -> YouTubeAdapter(config)
                 }
@@ -221,6 +264,10 @@ internal object DesktopSourceRegistry {
             moduleReference != null -> available.firstOrNull {
                 it.config.kind == DesktopSourceKind.CUSTOM_MODULE || it.config.kind == DesktopSourceKind.MODULE
             }
+            SourceTrackKeys.sourceOf(song.videoId) != null -> {
+                val srcId = SourceTrackKeys.sourceOf(song.videoId)
+                available.firstOrNull { it.config.id == srcId }
+            }
             song.videoId.startsWith("jiosaavn:") -> available.firstOrNull { it.config.kind == DesktopSourceKind.JIOSAAVN }
             else -> null
         }
@@ -230,7 +277,7 @@ internal object DesktopSourceRegistry {
         // than refused the way a disabled source's row is.
         val heldBack = addonReference != null && owned == null &&
             configs().any { it.id == addonReference.sourceId && it.enabled && it.isComplete }
-        if (!heldBack && (addonReference != null || moduleReference != null || song.videoId.startsWith("jiosaavn:"))) {
+        if (!heldBack && (addonReference != null || moduleReference != null || SourceTrackKeys.sourceOf(song.videoId) != null || song.videoId.startsWith("jiosaavn:"))) {
             if (owned == null) error("The source for this track is disabled or no longer configured")
             // This path has nothing to race.
             DesktopTrackLog.log(
@@ -512,11 +559,12 @@ internal object DesktopSourceRegistry {
 
     /** The matching rows in the order they are worth opening. */
     internal fun preferred(matches: List<Song>, target: Song, wantsLossless: Boolean): List<Song> {
-        val sameLength = matches.filter { DesktopTrackMatcher.withinSeconds(it, target, SAME_RECORDING_SEC) }
+        val slack = DesktopPersistence().upgradeLengthSlackSeconds()
+        val sameLength = matches.filter { DesktopTrackMatcher.withinSeconds(it, target, slack) }
         val eligible = sameLength.ifEmpty { matches }
         if (!wantsLossless) return eligible
         // Stable, so the confidence order the matcher produced survives inside each tier.
-        return eligible.sortedByDescending { it.sourceQuality == DesktopModuleSource.LOSSLESS }
+        return eligible.sortedByDescending { it.sourceQuality == DesktopModuleSource.LOSSLESS || it.sourceQuality == "FLAC" }
     }
 
     /** Which of two renditions of the same recording is the better one. */
@@ -550,6 +598,7 @@ internal object DesktopSourceRegistry {
     fun hasYouTubeOriginal(song: Song): Boolean =
         DesktopAddonSource.parseTrack(song.videoId) == null &&
             DesktopModuleSource.parseTrack(song.videoId) == null &&
+            SourceTrackKeys.sourceOf(song.videoId) == null &&
             !song.videoId.startsWith("jiosaavn:") &&
             song.videoId.isNotBlank()
 
