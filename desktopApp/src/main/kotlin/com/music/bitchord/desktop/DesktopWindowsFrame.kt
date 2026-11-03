@@ -150,32 +150,37 @@ internal object DesktopWindowsFrame {
                                 if (bottom) return@WindowProcCallback LRESULT(HTBOTTOM.toLong())
                             }
 
-                            // Caption / Title bar hit testing
-                            val captionHeight = (32f * scale).toInt()
-                            if (y in rect.top until (rect.top + captionHeight) && !isNowPlaying) {
-                                val actionButtonsWidth = (142f * scale).toInt()
-                                val inActionButtons = x >= rect.right - actionButtonsWidth
-
-                                if (inActionButtons) {
-                                    if (snapLayoutsAllowed) {
-                                        val maxLeft = rect.right - ((46f * 2) * scale).toInt()
-                                        val maxRight = rect.right - (46f * scale).toInt()
-                                        if (x in maxLeft until maxRight) {
-                                            return@WindowProcCallback LRESULT(HTMAXBUTTON.toLong())
-                                        }
+                            // Snap Layouts on the Maximize button (Windows 11)
+                            if (snapLayoutsAllowed && !isNowPlaying) {
+                                val captionHeight = (32f * scale).toInt()
+                                if (y in rect.top until (rect.top + captionHeight)) {
+                                    val maxLeft = rect.right - ((46f * 2) * scale).toInt()
+                                    val maxRight = rect.right - (46f * scale).toInt()
+                                    if (x in maxLeft until maxRight) {
+                                        return@WindowProcCallback LRESULT(HTMAXBUTTON.toLong())
                                     }
-                                    return@WindowProcCallback LRESULT(HTCLIENT.toLong())
                                 }
-
-                                // Sidebar back button: roughly 160dp to 215dp from left
-                                val inBackButton = x in (rect.left + (160f * scale).toInt()) until (rect.left + (215f * scale).toInt())
-                                if (inBackButton) {
-                                    return@WindowProcCallback LRESULT(HTCLIENT.toLong())
-                                }
-
-                                return@WindowProcCallback LRESULT(HTCAPTION.toLong())
                             }
                         }
+                    }
+                    WM_BITCHORD_DRAG -> {
+                        // Runs on the native window thread, the only one whose mouse capture
+                        // (held by AWT since the press) ReleaseCapture can actually let go of.
+                        val primary = if (User32.INSTANCE.GetSystemMetrics(23 /* SM_SWAPBUTTON */) != 0) 0x02 else 0x01
+                        if ((User32.INSTANCE.GetAsyncKeyState(primary).toInt() and 0x8000) == 0) {
+                            return@WindowProcCallback LRESULT(0)
+                        }
+                        User32Extra.INSTANCE?.ReleaseCapture()
+                        User32.INSTANCE.DefWindowProc(hWnd, WM_SYSCOMMAND, WPARAM(SC_DRAGMOVE.toLong()), LPARAM(0))
+                        // The move loop swallowed the release; hand it back so Compose does not
+                        // think the button is still down.
+                        val point = WinDef.POINT()
+                        if (User32.INSTANCE.GetCursorPos(point)) {
+                            User32Extra.INSTANCE?.ScreenToClient(hWnd, point)
+                            val packed = ((point.y and 0xFFFF) shl 16) or (point.x and 0xFFFF)
+                            User32.INSTANCE.PostMessage(hWnd, WM_LBUTTONUP, WPARAM(0), LPARAM(packed.toLong()))
+                        }
+                        return@WindowProcCallback LRESULT(0)
                     }
                     WM_NCDESTROY -> {
                         currentHwnd = null
@@ -224,10 +229,7 @@ internal object DesktopWindowsFrame {
 
     fun startDrag(): Boolean {
         val hwnd = currentHwnd ?: return false
-        val user32 = User32.INSTANCE
-        val extra = User32Extra.INSTANCE
-        extra?.ReleaseCapture()
-        user32.SendMessage(hwnd, WM_NCLBUTTONDOWN, WPARAM(HTCAPTION.toLong()), LPARAM(0))
+        User32.INSTANCE.PostMessage(hwnd, WM_BITCHORD_DRAG, WPARAM(0), LPARAM(0))
         return true
     }
 
@@ -329,6 +331,7 @@ internal object DesktopWindowsFrame {
 
     private interface User32Extra : Library {
         fun CallWindowProcW(lpPrevWndFunc: Pointer, hWnd: HWND, uMsg: Int, wParam: WPARAM, lParam: LPARAM): LRESULT
+        fun DefWindowProcW(hWnd: HWND, uMsg: Int, wParam: WPARAM, lParam: LPARAM): LRESULT
         fun ReleaseCapture(): Boolean
         fun IsZoomed(hwnd: HWND): Boolean
         fun GetDpiForWindow(hwnd: HWND): Int
@@ -358,11 +361,14 @@ internal object DesktopWindowsFrame {
 
     private const val WM_NCCALCSIZE = 0x0083
     private const val WM_NCHITTEST = 0x0084
-    private const val WM_NCLBUTTONDOWN = 0x00A1
     private const val WM_NCDESTROY = 0x0082
+    private const val WM_SYSCOMMAND = 0x0112
+    private const val WM_LBUTTONUP = 0x0202
+    private const val WM_BITCHORD_DRAG = 0x8000 + 0x42
 
-    private const val HTCLIENT = 1
-    private const val HTCAPTION = 2
+    private const val SC_MOVE = 0xF010
+    private const val SC_DRAGMOVE = SC_MOVE or 0x0002 // HTCAPTION
+
     private const val HTMAXBUTTON = 9
     private const val HTLEFT = 10
     private const val HTRIGHT = 11
