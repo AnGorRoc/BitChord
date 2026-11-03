@@ -2,6 +2,7 @@ package com.music.bitchord.desktop
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -33,17 +34,23 @@ import kotlinx.coroutines.withContext
 
 /** A cached, theme-independent invite QR for a nearby phone to scan. */
 @Composable
-internal fun DesktopQrCode(content: String, size: Dp = 104.dp) {
+internal fun DesktopQrCode(
+    content: String,
+    modifier: Modifier = Modifier,
+    size: Dp = 160.dp,
+) {
     val density = LocalDensity.current
-    val quietZone = 9.dp
+    val quietZone = 10.dp
     val sidePx = with(density) { (size - quietZone * 2).roundToPx() }
     val image by produceState<ImageBitmap?>(null, content, sidePx) {
         value = withContext(Dispatchers.Default) { renderDesktopQr(content, sidePx, density) }
     }
     Box(
-        Modifier.size(size)
-            .clip(RoundedCornerShape(12.dp))
+        modifier
+            .size(size)
+            .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
+            .border(1.dp, Color.Black.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
             .padding(quietZone),
     ) {
         image?.let { Image(it, contentDescription = "Party invite QR code", modifier = Modifier.fillMaxSize()) }

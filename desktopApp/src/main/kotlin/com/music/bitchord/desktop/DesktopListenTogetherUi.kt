@@ -406,21 +406,71 @@ private fun PartyRoom(state: DesktopListenTogether.State, activity: List<PartyAc
 @Composable
 private fun RoomHero(state: DesktopListenTogether.State) {
     val invite = DesktopListenTogether.inviteUrl(state.code.orEmpty())
-    Row(Modifier.fillMaxWidth().desktopCardInset(RoundedCornerShape(16.dp)).padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text("PARTY CODE", color = DesktopSecondary, style = MaterialTheme.typography.labelSmall)
-            Text(state.code.orEmpty(), fontSize = 30.sp, fontWeight = FontWeight.Bold, letterSpacing = 6.sp)
-            Text(connectionLine(state), color = DesktopSecondary, style = MaterialTheme.typography.bodySmall)
-            Spacer(Modifier.height(6.dp))
-            Text("Scan from a phone or copy the invite link", color = DesktopSecondary, style = MaterialTheme.typography.bodySmall)
-        }
-        DesktopQrCode(invite)
-        Spacer(Modifier.width(10.dp))
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            TextButton(onClick = { DesktopExternalLinks.copy(invite) }) {
-                Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(17.dp))
-                Spacer(Modifier.width(7.dp))
-                Text("Copy invite")
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .desktopCardInset(RoundedCornerShape(16.dp))
+            .padding(vertical = 24.dp, horizontal = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            "PARTY CODE",
+            color = DesktopSecondary,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.sp,
+        )
+        Spacer(Modifier.height(16.dp))
+
+        // QR code always visible above the code
+        DesktopQrCode(invite, size = 160.dp)
+
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            state.code.orEmpty(),
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 8.sp,
+            textAlign = TextAlign.Center,
+        )
+
+        Spacer(Modifier.height(4.dp))
+        Text(
+            connectionLine(state),
+            color = DesktopSecondary,
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            "Scan from a phone or copy the invite link",
+            color = DesktopSecondary,
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
+        )
+
+        Spacer(Modifier.height(14.dp))
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(
+                onClick = { DesktopExternalLinks.copy(state.code.orEmpty()) },
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+            ) {
+                Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Copy code")
+            }
+            TextButton(
+                onClick = { DesktopExternalLinks.copy(invite) },
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+            ) {
+                Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Copy invite link")
             }
         }
     }

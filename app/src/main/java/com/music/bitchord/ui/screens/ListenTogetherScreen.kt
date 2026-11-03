@@ -50,6 +50,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import com.music.bitchord.ui.components.IosSwitch
+import com.music.bitchord.ui.components.QrCode
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -512,6 +513,7 @@ fun ListenTogetherScreen(
         } else {
             InAParty(
                 state = state,
+                inviteLink = inviteLinkFor(state.code.orEmpty()),
                 onCopy = { scope.launch { clipboard.copyText(state.code.orEmpty()) } },
                 onShare = { sheet = PartySheet.Invite },
                 onShareLink = shareInvite,
@@ -883,6 +885,7 @@ private fun CodeCell(
 @Composable
 private fun InAParty(
     state: ListenTogether.State,
+    inviteLink: String,
     onCopy: () -> Unit,
     onShare: () -> Unit,
     onShareLink: () -> Unit,
@@ -895,18 +898,35 @@ private fun InAParty(
         header = stringResource(R.string.listen_together_code),
         footer = stringResource(R.string.listen_together_code_footer),
     ) {
-        Text(
-            text = state.code.orEmpty(),
-            style = MaterialTheme.typography.displaySmall,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-            // Wide tracking because this is a string to be read out loud and
-            // typed by somebody else, not a word to be scanned.
-            letterSpacing = 8.sp,
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 18.dp, bottom = 14.dp),
-        )
+                .padding(vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            if (inviteLink.isNotBlank()) {
+                QrCode(
+                    content = inviteLink,
+                    size = 160.dp,
+                    modifier = Modifier.border(
+                        1.dp,
+                        Color.Black.copy(alpha = 0.08f),
+                        RoundedCornerShape(16.dp),
+                    ),
+                )
+                Spacer(Modifier.height(16.dp))
+            }
+            Text(
+                text = state.code.orEmpty(),
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 8.sp,
+                ),
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         RowDivider()
         SettingsRow(
             icon = SfIcons.ContentCopy,
