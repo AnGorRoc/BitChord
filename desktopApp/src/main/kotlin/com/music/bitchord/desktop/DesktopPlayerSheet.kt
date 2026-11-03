@@ -14,6 +14,12 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -101,6 +107,14 @@ internal fun DesktopPlayerSheet(
                         onClick = onDismiss,
                     ),
             )
+            // Apple Music's full-screen player closes from an X at its top-left corner.
+            DesktopToolbarButton(
+                onClick = onDismiss,
+                size = 34.dp,
+                modifier = Modifier.align(Alignment.TopStart).padding(start = 14.dp, top = 14.dp),
+            ) {
+                Icon(Icons.Rounded.Close, DesktopStrings["close", "Close"], tint = Color.White, modifier = Modifier.size(20.dp))
+            }
         }
     }
 }

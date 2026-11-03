@@ -3291,25 +3291,17 @@ fun BitChordDesktopApp() {
                         accountPlaylists = sidebarAccountPlaylists,
                         localPlaylists = playlists,
                         openedCollectionId = openedCollection?.browseId,
-                        query = query,
-                        onQueryChange = { text ->
-                            editQuery(text)
-                            if (destination != DesktopDestination.SEARCH || overlays.settingsPage != null) {
-                                selectDestination(DesktopDestination.SEARCH)
-                            }
-                        },
-                        onSearch = ::search,
                         onDestinationSelected = ::selectDestination,
                         onOpenAccountPlaylist = { openShelfItem(it, PLAYLISTS_SHELF) },
                         onOpenLocalPlaylist = ::openPlaylist,
                         onOpenSettings = ::openSettings,
-                        focusSearch = searchFocusRequested,
-                        onSearchFocused = { searchFocusRequested = false },
                         canGoBack = navHistory.isNotEmpty(),
                         onBack = ::goBack,
                         accountAvatar = activeAccount?.profiles?.firstOrNull { it.profileId == activeProfileId }?.avatar?.takeIf { it.isNotBlank() }
                             ?: activeAccount?.avatar?.takeIf { it.isNotBlank() }
                             ?: activeAccount?.profiles?.firstOrNull()?.avatar?.takeIf { it.isNotBlank() },
+                        accountName = activeAccount?.profiles?.firstOrNull { it.profileId == activeProfileId }?.name?.takeIf { it.isNotBlank() }
+                            ?: activeAccount?.name?.takeIf { it.isNotBlank() },
                         onOpenAccounts = { DesktopTrackLog.log("accounts: opening the switcher"); overlays.accounts = true },
                     )
                 },
@@ -4297,8 +4289,8 @@ fun BitChordDesktopApp() {
                             onHistoryClear = DesktopSearchHistory::clear,
                             onTypeaheadLongPress = ::openMenu,
                             contentPadding = sharedPagePadding,
-                            topPadding = 0.dp,
-                            showField = false,
+                            topPadding = 16.dp,
+                            showField = true,
                         )
                         destination == DesktopDestination.LIBRARY && libraryShowAll != null -> Column(Modifier.fillMaxSize()) {
                             // The phone keeps the grid's sort beside it, in the bar above; here it sits
@@ -4901,10 +4893,11 @@ internal fun DesktopToolbarButton(
     onClick: () -> Unit,
     enabled: Boolean = true,
     size: Dp = 36.dp,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     Box(
-        Modifier
+        modifier
             .size(size)
             .clip(CircleShape)
             .desktopHoverWash()
@@ -4925,45 +4918,17 @@ private fun DesktopSidebar(
     accountPlaylists: List<ShelfItem>,
     localPlaylists: List<DesktopPlaylist>,
     openedCollectionId: String?,
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit,
     onDestinationSelected: (DesktopDestination) -> Unit,
     onOpenAccountPlaylist: (ShelfItem) -> Unit,
     onOpenLocalPlaylist: (DesktopPlaylist) -> Unit,
     onOpenSettings: () -> Unit,
-    /** Search was picked: the sidebar's box is the page's field, so it takes the focus. */
-    focusSearch: Boolean,
-    onSearchFocused: () -> Unit,
-    /** The top bar is gone, so the way back and the account live at the head of the sidebar. */
+    /** The top bar is gone, so the way back lives at the head of the sidebar, beside the mark. */
     canGoBack: Boolean,
     onBack: () -> Unit,
     accountAvatar: String?,
+    accountName: String?,
     onOpenAccounts: () -> Unit,
 ) {
-    val searchFocusRequester = remember { FocusRequester() }
-    LaunchedEffect(focusSearch) {
-        if (focusSearch) {
-            runCatching { searchFocusRequester.requestFocus() }
-            onSearchFocused()
-        }
-    }
-    val windowInfo = LocalWindowInfo.current
-    var searchFocused by remember { mutableStateOf(false) }
-    var restoreSearchFocus by remember { mutableStateOf(false) }
-
-    LaunchedEffect(windowInfo.isWindowFocused) {
-        if (!windowInfo.isWindowFocused) {
-            restoreSearchFocus = searchFocused
-        } else if (restoreSearchFocus) {
-            // Let the desktop window finish its activation before asking Compose to put the native
-            // text input target back in focus.
-            yield()
-            searchFocusRequester.requestFocus()
-            restoreSearchFocus = false
-        }
-    }
-
     val titleBarEnabled by DesktopTitleBarSetting.enabled.collectAsState()
     val inlineCaption = DesktopPlatform.drawsOwnWindowFrame && !titleBarEnabled
     // Rows the listener has tucked away; keyed the same way the sidebar lists them.
@@ -4989,121 +4954,147 @@ private fun DesktopSidebar(
                     }
                 }
             }
-        Column(
-            Modifier.fillMaxSize().padding(start = 12.dp, end = 12.dp, top = if (inlineCaption) 4.dp else 16.dp, bottom = 16.dp),
-        ) {
-            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                DesktopToolbarButton(onClick = onBack, enabled = canGoBack, size = 30.dp) {
-                    Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
-                        DesktopStrings["back", "Back"],
-                        tint = if (canGoBack) Color.White else DesktopSecondary.copy(alpha = 0.40f),
-                        modifier = Modifier.size(19.dp),
-                    )
-                }
-                Spacer(Modifier.weight(1f))
-                DesktopAccountButton(avatar = accountAvatar, onClick = onOpenAccounts)
-            }
-            DesktopSearchField(
-                query = query,
-                onQueryChange = onQueryChange,
-                onSearch = onSearch,
-                focusRequester = searchFocusRequester,
-                onFocusChanged = { searchFocused = it },
-            )
-            Spacer(Modifier.height(20.dp))
-            DesktopSidebarItem(BitChordIcons.Home, DesktopStrings["home", "Home"], destination == DesktopDestination.LISTEN_NOW) {
-                onDestinationSelected(DesktopDestination.LISTEN_NOW)
-            }
-            DesktopSidebarItem(BitChordIcons.TabExplore, "Explore", destination == DesktopDestination.EXPLORE) {
-                onDestinationSelected(DesktopDestination.EXPLORE)
-            }
-            DesktopSidebarItem(BitChordIcons.TabLibrary, "Library", destination == DesktopDestination.LIBRARY) {
-                onDestinationSelected(DesktopDestination.LIBRARY)
-            }
-            DesktopSidebarItem(BitChordIcons.TabSearch, "Search", destination == DesktopDestination.SEARCH) {
-                onDestinationSelected(DesktopDestination.SEARCH)
-            }
-            Spacer(Modifier.height(6.dp))
-            HorizontalDivider(color = desktopChromeDivider())
-            Spacer(Modifier.height(12.dp))
-            if (HISTORY_KEY !in hiddenSidebar) {
-                DesktopSidebarItem(
-                    BitChordIcons.Clock,
-                    "History",
-                    destination == DesktopDestination.HISTORY,
-                    onClick = { onDestinationSelected(DesktopDestination.HISTORY) },
-                    onHide = { DesktopSidebarVisibility.hide(HISTORY_KEY, "History") },
-                )
-            }
-            val queued by DesktopDownloadQueue.active.collectAsState()
-            if (DOWNLOADS_KEY !in hiddenSidebar) {
-                DesktopSidebarItem(
-                    BitChordIcons.Download,
-                    if (queued.isEmpty()) "Downloads" else "Downloads · ${queued.size}",
-                    destination == DesktopDestination.DOWNLOADS,
-                    onClick = { onDestinationSelected(DesktopDestination.DOWNLOADS) },
-                    onHide = { DesktopSidebarVisibility.hide(DOWNLOADS_KEY, "Downloads") },
-                )
-            }
-            if (LOCAL_MUSIC_KEY !in hiddenSidebar) {
-                DesktopSidebarItem(
-                    BitChordIcons.Library,
-                    "Local Music",
-                    destination == DesktopDestination.LOCAL_MUSIC,
-                    onClick = { onDestinationSelected(DesktopDestination.LOCAL_MUSIC) },
-                    onHide = { DesktopSidebarVisibility.hide(LOCAL_MUSIC_KEY, "Local Music") },
-                )
-            }
-            Spacer(Modifier.height(6.dp))
-            HorizontalDivider(color = desktopChromeDivider())
-            Spacer(Modifier.height(12.dp))
-            val visibleAccount = accountPlaylists.filterNot { "account:${it.browseId}" in hiddenSidebar }
-            val visibleLocal = localPlaylists.filterNot { "local:${it.id}" in hiddenSidebar }
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                contentPadding = PaddingValues(bottom = 8.dp),
+            Column(
+                Modifier.fillMaxSize().padding(start = 12.dp, end = 12.dp, top = if (inlineCaption) 4.dp else 16.dp, bottom = 12.dp),
             ) {
-                items(visibleAccount, key = { "account:${it.browseId}" }) { playlist ->
-                    DesktopSidebarItem(
-                        Icons.AutoMirrored.Rounded.PlaylistPlay,
-                        playlist.title,
-                        openedCollectionId == playlist.browseId,
-                        onClick = { onOpenAccountPlaylist(playlist) },
-                        onHide = {
-                            DesktopSidebarVisibility.hide("account:${playlist.browseId}", playlist.title)
-                        },
+                // Apple Music opens its sidebar with the wordmark; here, the mark and the way back.
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Image(
+                        painter = painterResource(Res.drawable.logo_mark),
+                        contentDescription = "BitChord",
+                        modifier = Modifier.size(width = 28.dp, height = 18.dp),
                     )
-                }
-                items(visibleLocal, key = { "local:${it.id}" }) { playlist ->
-                    DesktopSidebarItem(
-                        Icons.AutoMirrored.Rounded.PlaylistPlay,
-                        playlist.title,
-                        openedCollectionId == playlist.id,
-                        onClick = { onOpenLocalPlaylist(playlist) },
-                        onHide = { DesktopSidebarVisibility.hide("local:${playlist.id}", playlist.title) },
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "BitChord",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
                     )
-                }
-                if (visibleAccount.isEmpty() && visibleLocal.isEmpty()) {
-                    item {
-                        Text(
-                            "Your playlists will appear here",
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
-                            color = DesktopSecondary.copy(alpha = 0.68f),
-                            style = MaterialTheme.typography.bodySmall,
+                    DesktopToolbarButton(onClick = onBack, enabled = canGoBack, size = 28.dp) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            DesktopStrings["back", "Back"],
+                            tint = if (canGoBack) Color.White else DesktopSecondary.copy(alpha = 0.40f),
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
+                // Search is a destination like the others, as in Apple Music: the page carries its
+                // own field, so the sidebar has no box to type into.
+                DesktopSidebarItem(BitChordIcons.TabSearch, DesktopStrings["search", "Search"], destination == DesktopDestination.SEARCH) {
+                    onDestinationSelected(DesktopDestination.SEARCH)
+                }
+                DesktopSidebarItem(BitChordIcons.Home, DesktopStrings["home", "Home"], destination == DesktopDestination.LISTEN_NOW) {
+                    onDestinationSelected(DesktopDestination.LISTEN_NOW)
+                }
+                DesktopSidebarItem(BitChordIcons.TabExplore, DesktopStrings["explore", "Explore"], destination == DesktopDestination.EXPLORE) {
+                    onDestinationSelected(DesktopDestination.EXPLORE)
+                }
+                DesktopSidebarSection(DesktopStrings["library", "Library"])
+                DesktopSidebarItem(BitChordIcons.TabLibrary, DesktopStrings["library", "Library"], destination == DesktopDestination.LIBRARY) {
+                    onDestinationSelected(DesktopDestination.LIBRARY)
+                }
+                if (HISTORY_KEY !in hiddenSidebar) {
+                    DesktopSidebarItem(
+                        BitChordIcons.Clock,
+                        "History",
+                        destination == DesktopDestination.HISTORY,
+                        onClick = { onDestinationSelected(DesktopDestination.HISTORY) },
+                        onHide = { DesktopSidebarVisibility.hide(HISTORY_KEY, "History") },
+                    )
+                }
+                val queued by DesktopDownloadQueue.active.collectAsState()
+                if (DOWNLOADS_KEY !in hiddenSidebar) {
+                    DesktopSidebarItem(
+                        BitChordIcons.Download,
+                        if (queued.isEmpty()) "Downloads" else "Downloads Â· ${queued.size}",
+                        destination == DesktopDestination.DOWNLOADS,
+                        onClick = { onDestinationSelected(DesktopDestination.DOWNLOADS) },
+                        onHide = { DesktopSidebarVisibility.hide(DOWNLOADS_KEY, "Downloads") },
+                    )
+                }
+                if (LOCAL_MUSIC_KEY !in hiddenSidebar) {
+                    DesktopSidebarItem(
+                        BitChordIcons.Library,
+                        "Local Music",
+                        destination == DesktopDestination.LOCAL_MUSIC,
+                        onClick = { onDestinationSelected(DesktopDestination.LOCAL_MUSIC) },
+                        onHide = { DesktopSidebarVisibility.hide(LOCAL_MUSIC_KEY, "Local Music") },
+                    )
+                }
+                DesktopSidebarSection(DesktopStrings["playlists", "Playlists"])
+                val visibleAccount = accountPlaylists.filterNot { "account:${it.browseId}" in hiddenSidebar }
+                val visibleLocal = localPlaylists.filterNot { "local:${it.id}" in hiddenSidebar }
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentPadding = PaddingValues(bottom = 8.dp),
+                ) {
+                    items(visibleAccount, key = { "account:${it.browseId}" }) { playlist ->
+                        DesktopSidebarItem(
+                            Icons.AutoMirrored.Rounded.PlaylistPlay,
+                            playlist.title,
+                            openedCollectionId == playlist.browseId,
+                            onClick = { onOpenAccountPlaylist(playlist) },
+                            onHide = {
+                                DesktopSidebarVisibility.hide("account:${playlist.browseId}", playlist.title)
+                            },
+                        )
+                    }
+                    items(visibleLocal, key = { "local:${it.id}" }) { playlist ->
+                        DesktopSidebarItem(
+                            Icons.AutoMirrored.Rounded.PlaylistPlay,
+                            playlist.title,
+                            openedCollectionId == playlist.id,
+                            onClick = { onOpenLocalPlaylist(playlist) },
+                            onHide = { DesktopSidebarVisibility.hide("local:${playlist.id}", playlist.title) },
+                        )
+                    }
+                    if (visibleAccount.isEmpty() && visibleLocal.isEmpty()) {
+                        item {
+                            Text(
+                                "Your playlists will appear here",
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
+                                color = DesktopSecondary.copy(alpha = 0.68f),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+                if (hiddenSidebar.isNotEmpty()) {
+                    DesktopSidebarRestoreRow(hiddenSidebar)
+                }
+                DesktopSidebarItem(Icons.Rounded.Settings, "Settings", settingsOpen) {
+                    onOpenSettings()
+                }
+                // Apple Music ends its sidebar on the listener: photo and name, one click to switch.
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(7.dp))
+                        .desktopHoverFill()
+                        .clickable(onClick = onOpenAccounts)
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    DesktopAccountButton(avatar = accountAvatar, onClick = onOpenAccounts)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        accountName?.takeIf { it.isNotBlank() } ?: DesktopStrings["accounts", "Account"],
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
-            HorizontalDivider(color = desktopChromeDivider())
-            Spacer(Modifier.height(8.dp))
-            if (hiddenSidebar.isNotEmpty()) {
-                DesktopSidebarRestoreRow(hiddenSidebar)
-            }
-            DesktopSidebarItem(Icons.Rounded.Settings, "Settings", settingsOpen) {
-                onOpenSettings()
-            }
-        }
         }
         Box(
             Modifier
@@ -5113,6 +5104,19 @@ private fun DesktopSidebar(
                 .background(desktopChromeDivider()),
         )
     }
+}
+
+/** Apple Music's small grey caption over a group of sidebar rows. */
+@Composable
+private fun DesktopSidebarSection(title: String) {
+    Text(
+        title,
+        modifier = Modifier.fillMaxWidth().padding(start = 9.dp, top = 18.dp, bottom = 6.dp),
+        color = DesktopSecondary.copy(alpha = 0.80f),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold,
+        maxLines = 1,
+    )
 }
 
 @Composable

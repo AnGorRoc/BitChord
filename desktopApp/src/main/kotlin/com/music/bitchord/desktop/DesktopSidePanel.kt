@@ -73,17 +73,19 @@ internal fun DesktopSidePanelColumn(
                         Box(Modifier.fillMaxSize().desktopChromeGlass())
                     }
                     Column(Modifier.fillMaxSize()) {
-                        Row(
+                        // Apple Music's lyrics column carries no title or close button: the capsule's own
+                        // toggle (or Escape) puts it away, so the words get the whole height.
+                        if (which == DesktopSidePanel.QUEUE) Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(if (which == DesktopSidePanel.LYRICS) HEADER_HEIGHT else QUEUE_HEADER_HEIGHT)
+                                .height(QUEUE_HEADER_HEIGHT)
                                 .padding(start = 18.dp, end = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             // The queue heads itself ("Queue", then its sections); only the lyrics
                             // need a name over them.
                             Text(
-                                text = if (which == DesktopSidePanel.LYRICS) DesktopStrings["lyrics", "Lyrics"] else "",
+                                text = "",
                                 color = Color.White,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -118,7 +120,6 @@ internal fun DesktopSidePanelColumn(
 }
 
 private val SIDE_PANEL_WIDTH = 360.dp
-private val HEADER_HEIGHT = 46.dp
 private val QUEUE_HEADER_HEIGHT = 30.dp
 private const val SLIDE_MS = 260
 private const val CROSSFADE_MS = 180
