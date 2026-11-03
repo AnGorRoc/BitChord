@@ -8,9 +8,11 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,10 +20,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -107,13 +112,29 @@ internal fun DesktopPlayerSheet(
                         onClick = onDismiss,
                     ),
             )
-            // Apple Music's full-screen player closes from an X at its top-left corner.
-            DesktopToolbarButton(
-                onClick = onDismiss,
-                size = 34.dp,
+            val fullScreen by DesktopWindowMode.fullScreen.collectAsState()
+            Row(
                 modifier = Modifier.align(Alignment.TopStart).padding(start = 14.dp, top = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.Close, DesktopStrings["close", "Close"], tint = Color.White, modifier = Modifier.size(20.dp))
+                DesktopToolbarButton(
+                    onClick = onDismiss,
+                    size = 34.dp,
+                ) {
+                    Icon(Icons.Rounded.Close, DesktopStrings["close", "Close"], tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+                DesktopToolbarButton(
+                    onClick = { DesktopWindowMode.toggle() },
+                    size = 34.dp,
+                ) {
+                    Icon(
+                        if (fullScreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                        if (fullScreen) DesktopStrings["exit_fullscreen", "Exit full screen"] else DesktopStrings["fullscreen", "Full screen"],
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
             }
         }
     }

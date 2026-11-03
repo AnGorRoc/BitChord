@@ -10,6 +10,7 @@ internal object DesktopWindowMode {
     private val _placement = MutableStateFlow(WindowPlacement.Floating)
     private val _fullScreen = MutableStateFlow(false)
     private val _maximized = MutableStateFlow(false)
+    private var previousPlacement = WindowPlacement.Floating
 
     /** What the window's own `placement` is driven from. */
     val placement: StateFlow<WindowPlacement> = _placement
@@ -20,15 +21,6 @@ internal object DesktopWindowMode {
     /** Whether the window is maximized, for the caption button's own glyph. */
     val maximized: StateFlow<Boolean> = _maximized
 
-    /**
-     * The placement the player's full-screen button asks for.
-     *
-     * Maximized on Windows, not Fullscreen: Compose routes Fullscreen through Skiko's layer, which
-     * swaps the rendering surface and there leaves the whole screen white.
-     */
-    private val fillsScreen: WindowPlacement =
-        if (DesktopPlatform.drawsOwnWindowFrame || DesktopPlatform.isWindows) WindowPlacement.Maximized else WindowPlacement.Fullscreen
-
     fun toggle() = setFullScreen(!_fullScreen.value)
 
     /**
@@ -36,10 +28,10 @@ internal object DesktopWindowMode {
      * double-clicking the title bar has always done.
      */
     fun toggleMaximized() {
-        if (DesktopPlatform.isWindows && DesktopPlatform.drawsOwnWindowFrame && _fullScreen.value && DesktopWindowsFrame.setFullscreen(false)) {
-            DesktopWindowBackdrop.apply()
+        if (_fullScreen.value) {
+            setFullScreen(false)
+            return
         }
-        _fullScreen.value = false
         set(if (_placement.value == WindowPlacement.Maximized) WindowPlacement.Floating else WindowPlacement.Maximized)
     }
 
@@ -54,27 +46,38 @@ internal object DesktopWindowMode {
     /** Takes the window's word for how it is sitting, rather than this object's. */
     fun adopt(placement: WindowPlacement) {
         if (placement == _placement.value) return
-        if (placement == WindowPlacement.Floating) _fullScreen.value = false
-        set(placement)
+        when (placement) {
+            WindowPlacement.Floating -> {
+                _fullScreen.value = false
+                _maximized.value = false
+            }
+            WindowPlacement.Maximized -> {
+                _fullScreen.value = false
+                _maximized.value = true
+            }
+            WindowPlacement.Fullscreen -> {
+                _fullScreen.value = true
+                _maximized.value = false
+            }
+        }
+        _placement.value = placement
     }
 
     private fun setFullScreen(on: Boolean) {
         _fullScreen.value = on
-        // On Windows the only thing that covers a taskbar told to stay on top is a native borderless
-        // window raised above it; no Compose placement does, and true Fullscreen paints the screen
-        // white. With that in place the window's placement is left as it was — it is the Win32 style
-        // that changes, not the placement.
-        if (DesktopPlatform.isWindows && DesktopPlatform.drawsOwnWindowFrame && DesktopWindowsFrame.setFullscreen(on)) {
-            // The native window resets DWM's frame margin on the way out; the chosen material goes
-            // back over it so the window is exactly as it was before fullscreen.
-            if (!on) DesktopWindowBackdrop.apply()
-            return
+        if (on) {
+            if (_placement.value != WindowPlacement.Fullscreen) {
+                previousPlacement = _placement.value
+            }
+            set(WindowPlacement.Fullscreen)
+        } else {
+            set(if (previousPlacement == WindowPlacement.Maximized) WindowPlacement.Maximized else WindowPlacement.Floating)
         }
-        set(if (on) fillsScreen else WindowPlacement.Floating)
     }
 
     private fun set(placement: WindowPlacement) {
         _placement.value = placement
         _maximized.value = placement == WindowPlacement.Maximized
+        _fullScreen.value = placement == WindowPlacement.Fullscreen
     }
 }

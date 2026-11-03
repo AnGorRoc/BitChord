@@ -24,8 +24,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.drag
@@ -44,18 +47,20 @@ import java.awt.MouseInfo
 /** The strip where the system's title bar would have been. */
 @Composable
 internal fun DesktopTitleBar() {
-    // Collected rather than read: [DesktopTitleBarSetting.active] is a plain call, so a composable
-    // that only asks it never learns the answer changed.
     val enabled by DesktopTitleBarSetting.enabled.collectAsState()
     if (!DesktopPlatform.drawsOwnWindowFrame || !enabled) return
     DesktopTitleBarDragArea(
         Modifier
             .fillMaxWidth()
-            .height(CAPTION_HEIGHT)
+            .height(WINDOW_CAPTION_HEIGHT)
             .desktopWindowGlass(),
     ) {
         Box(Modifier.fillMaxSize()) {
-            DesktopWindowButtons(Modifier.align(Alignment.CenterStart))
+            if (DesktopPlatform.isMac) {
+                DesktopWindowButtons(Modifier.align(Alignment.CenterStart))
+            } else {
+                DesktopWindowsCaptionButtons(Modifier.align(Alignment.CenterEnd))
+            }
         }
     }
 }
@@ -100,20 +105,23 @@ internal fun DesktopTitleBarDragArea(
         Box(modifier) { content() }
         return
     }
-    // Behind the content rather than around it. Wrapped around it, the drag area saw every press
-    // in the toolbar too — dragging the volume slider moved the window with it. As a sibling
-    // underneath, anything with its own pointer input (buttons, sliders) is hit first and the
-    // press never reaches here; only empty toolbar falls through to move the window.
     Box(modifier) {
         Box(Modifier.matchParentSize().captionPress(scope, actions))
         content()
     }
 }
 
-/** The caption buttons. In the title bar when there is one, otherwise on the toolbar. */
+/** The caption buttons on macOS (traffic lights). */
 @Composable
 internal fun DesktopWindowButtons(modifier: Modifier = Modifier) {
     if (!DesktopPlatform.drawsOwnWindowFrame) return
+    if (DesktopPlatform.isMac) {
+        DesktopMacWindowButtons(modifier)
+    }
+}
+
+@Composable
+internal fun DesktopMacWindowButtons(modifier: Modifier = Modifier) {
     val actions = LocalDesktopWindowActions.current ?: return
     val maximized by DesktopWindowMode.maximized.collectAsState()
     val windowInfo = androidx.compose.ui.platform.LocalWindowInfo.current
@@ -160,8 +168,6 @@ internal fun DesktopWindowButtons(modifier: Modifier = Modifier) {
         ) { glyph ->
             val reach = GLYPH_HALF.toPx()
             val line = HAIRLINE.toPx()
-            // The opposing corner marks used by macOS' green zoom control. They remain legible at
-            // 100% Windows scaling, unlike a tiny outlined square.
             drawLine(glyph, Offset(center.x - reach, center.y + reach), Offset(center.x + reach, center.y - reach), line, StrokeCap.Round)
             drawLine(glyph, Offset(center.x + reach, center.y - reach), Offset(center.x + 1.dp.toPx(), center.y - reach), line, StrokeCap.Round)
             drawLine(glyph, Offset(center.x + reach, center.y - reach), Offset(center.x + reach, center.y - 1.dp.toPx()), line, StrokeCap.Round)
@@ -170,6 +176,130 @@ internal fun DesktopWindowButtons(modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** Standard Windows caption buttons: Minimize, Maximize/Restore, Close. */
+@Composable
+internal fun DesktopWindowsCaptionButtons(
+    modifier: Modifier = Modifier,
+    alpha: Float = 1f,
+) {
+    if (alpha <= 0.001f) return
+    val actions = LocalDesktopWindowActions.current ?: return
+    val maximized by DesktopWindowMode.maximized.collectAsState()
+    val fullScreen by DesktopWindowMode.fullScreen.collectAsState()
+
+    Row(
+        modifier = modifier
+            .height(WINDOW_CAPTION_HEIGHT)
+            .graphicsLayer { this.alpha = alpha },
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        WindowsCaptionButton(
+            label = "Minimize",
+            onClick = actions.minimize,
+            isClose = false,
+        ) { glyphColor ->
+            val stroke = 1.dp.toPx()
+            val half = 5.dp.toPx()
+            drawLine(
+                color = glyphColor,
+                start = Offset(center.x - half, center.y),
+                end = Offset(center.x + half, center.y),
+                strokeWidth = stroke,
+                cap = StrokeCap.Square,
+            )
+        }
+        WindowsCaptionButton(
+            label = if (maximized || fullScreen) "Restore" else "Maximize",
+            onClick = actions.toggleMaximize,
+            isClose = false,
+        ) { glyphColor ->
+            val stroke = 1.dp.toPx()
+            val isRestored = maximized || fullScreen
+            if (!isRestored) {
+                val half = 5.dp.toPx()
+                drawRect(
+                    color = glyphColor,
+                    topLeft = Offset(center.x - half, center.y - half),
+                    size = Size(10.dp.toPx(), 10.dp.toPx()),
+                    style = Stroke(width = stroke),
+                )
+            } else {
+                val half = 4.dp.toPx()
+                val offset = 2.dp.toPx()
+                // Back square
+                drawLine(glyphColor, Offset(center.x - half + offset, center.y - half - offset), Offset(center.x + half + offset, center.y - half - offset), stroke)
+                drawLine(glyphColor, Offset(center.x + half + offset, center.y - half - offset), Offset(center.x + half + offset, center.y + half - offset), stroke)
+                drawLine(glyphColor, Offset(center.x + half, center.y + half - offset), Offset(center.x + half + offset, center.y + half - offset), stroke)
+                drawLine(glyphColor, Offset(center.x - half + offset, center.y - half - offset), Offset(center.x - half + offset, center.y - half), stroke)
+                // Front square
+                drawRect(
+                    color = glyphColor,
+                    topLeft = Offset(center.x - half - 1.dp.toPx(), center.y - half + 1.dp.toPx()),
+                    size = Size(8.dp.toPx(), 8.dp.toPx()),
+                    style = Stroke(width = stroke),
+                )
+            }
+        }
+        WindowsCaptionButton(
+            label = "Close",
+            onClick = actions.close,
+            isClose = true,
+        ) { glyphColor ->
+            val reach = 4.5.dp.toPx()
+            val stroke = 1.dp.toPx()
+            drawLine(
+                color = glyphColor,
+                start = Offset(center.x - reach, center.y - reach),
+                end = Offset(center.x + reach, center.y + reach),
+                strokeWidth = stroke,
+                cap = StrokeCap.Square,
+            )
+            drawLine(
+                color = glyphColor,
+                start = Offset(center.x + reach, center.y - reach),
+                end = Offset(center.x - reach, center.y + reach),
+                strokeWidth = stroke,
+                cap = StrokeCap.Square,
+            )
+        }
+    }
+}
+
+@Composable
+private fun WindowsCaptionButton(
+    label: String,
+    onClick: () -> Unit,
+    isClose: Boolean,
+    glyph: androidx.compose.ui.graphics.drawscope.DrawScope.(Color) -> Unit,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val bgColor = when {
+        isClose && hovered -> Color(0xFFE81123)
+        hovered -> Color.White.copy(alpha = 0.09f)
+        else -> Color.Transparent
+    }
+    val glyphColor = if (isClose && hovered) Color.White else Color.White.copy(alpha = 0.88f)
+
+    Box(
+        modifier = Modifier
+            .size(width = 46.dp, height = WINDOW_CAPTION_HEIGHT)
+            .background(bgColor)
+            .hoverable(interaction)
+            .pointerHoverIcon(PointerIcon.Default)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            )
+            .semantics { contentDescription = label }
+            .drawBehind { glyph(glyphColor) },
+    )
+}
+
+internal val WINDOW_CAPTION_HEIGHT = 32.dp
 
 @Composable
 private fun MacCaptionButton(
@@ -186,8 +316,6 @@ private fun MacCaptionButton(
         Modifier
             .size(CAPTION_TOUCH_SIZE)
             .hoverable(interaction)
-            // The arrow, not the hand: this is window furniture, and the pointer says so before the
-            // click does.
             .pointerHoverIcon(PointerIcon.Default)
             .clickable(
                 interactionSource = interaction,
@@ -199,19 +327,12 @@ private fun MacCaptionButton(
                 drawCircle(buttonColor, radius = MAC_DOT_RADIUS.toPx())
                 if (hovered) glyph(MAC_GLYPH)
             },
-        contentAlignment = Alignment.Center,
     ) {}
 }
 
-/**
- * The platform's own caption metrics, which is what makes these read as the window's controls
- * rather than the application's.
- */
 private val CAPTION_TOUCH_SIZE = 22.dp
 private val CAPTION_HEIGHT = 24.dp
 private val MAC_DOT_RADIUS = 6.dp
-
-/** Half the width of a glyph, and the weight every one of them is drawn at. */
 private val GLYPH_HALF = 2.5.dp
 private val HAIRLINE = 0.75.dp
 
@@ -220,17 +341,6 @@ private val MAC_MINIMIZE = Color(0xFFFFBD2E)
 private val MAC_MAXIMIZE = Color(0xFF28C840)
 private val MAC_GLYPH = Color(0xB3000000)
 
-/**
- * A press on empty caption: moves the window, and a second one in quick succession maximizes it,
- * the way the system caption always has.
- *
- * On Windows the move is handed to the system ([DesktopWindowsFrame.startDrag]), which runs its own
- * move loop — DWM slides the window, Aero Snap works, and no edge is left exposed to paint white.
- * On macOS it is handed to AppKit via [DesktopMacFrame.startDrag] for smooth ProMotion dragging.
- * The double click is counted here rather than left to Windows: the area is client area as far as
- * Windows knows, so it never sends the caption's own double click. Without the native frame the
- * window is moved from the pointer, as WindowDraggableArea did.
- */
 private fun Modifier.captionPress(scope: WindowScope, actions: DesktopWindowActions?): Modifier =
     pointerInput(scope, actions) {
         var lastPressAt = 0L

@@ -3172,6 +3172,7 @@ fun BitChordDesktopApp() {
             DesktopFrame(
                 // The phone's page is black, not the near-black of its cards.
                 containerColor = DesktopBackground,
+                isNowPlaying = overlays.nowPlaying && selectedSong != null,
                 // Only Replay dresses itself unless ambient backdrop is on; everywhere else the chrome sits on the plain surface.
                 backdrop = { transparentBase ->
                     val ambientArtworkUrl = replaySummary.songs.firstOrNull()?.song?.thumbnailUrl
@@ -5081,7 +5082,7 @@ private fun DesktopSidebar(
         Column(Modifier.fillMaxSize()) {
             // The sidebar runs to the top of the window, so its head is the window's caption: the
             // three buttons, and room to take hold of the window by.
-            if (inlineCaption) {
+            if (DesktopPlatform.isMac && inlineCaption) {
                 DesktopTitleBarDragArea(Modifier.fillMaxWidth().height(SIDEBAR_CAPTION_HEIGHT)) {
                     Box(
                         Modifier
@@ -5094,7 +5095,7 @@ private fun DesktopSidebar(
                 }
             }
             Column(
-                Modifier.fillMaxSize().padding(start = 12.dp, end = 12.dp, top = if (inlineCaption) 4.dp else 16.dp, bottom = 12.dp),
+                Modifier.fillMaxSize().padding(start = 12.dp, end = 12.dp, top = if (DesktopPlatform.isMac && inlineCaption) 4.dp else 14.dp, bottom = 12.dp),
             ) {
                 // Apple Music opens its sidebar with the wordmark; here, the mark and the way back.
                 Row(
@@ -5558,6 +5559,7 @@ internal fun DesktopSearchField(
 private fun DesktopFrame(
     containerColor: Color,
     modifier: Modifier = Modifier,
+    isNowPlaying: Boolean = false,
     /**
      * The open page's own colours, painted across the whole window rather than only the content
      * area, so the title bar, top bar and sidebar take their tint from the page they are framing
@@ -5594,63 +5596,87 @@ private fun DesktopFrame(
             // Both sources of the same state: the chrome blurs the backdrop behind it, and the
             // floating bottom bar blurs the page scrolling under it.
             if (!glass) Box(Modifier.fillMaxSize().hazeSource(haze)) { backdrop(false) }
-            Column(Modifier.fillMaxSize()) {
-                // Above everything, and outside the box the rest of the window is drawn in, because
-                // that is what a title bar is.
-                DesktopTitleBar()
-                Box(Modifier.fillMaxWidth().weight(1f)) {
-                    BoxWithConstraints(Modifier.fillMaxSize()) {
-                        val compact = maxWidth < 980.dp
-                        // The sidebar runs the full height of the window, its head the window's
-                        // caption; the player's bar and the page share the column beside it.
-                        Row(Modifier.fillMaxSize()) {
-                            if (!compact) sidebar()
-                            Column(Modifier.weight(1f).fillMaxHeight()) {
-                            // Apple Music has no top bar on a wide window: the player is the floating capsule below.
-                            if (compact) topBar(compact)
-                            Row(Modifier.fillMaxWidth().weight(1f)) {
-                                Box(
-                                    Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                        .then(
-                                            if (glass && !materialBehindApp) {
-                                                Modifier.background(containerColor)
-                                            } else {
-                                                Modifier
-                                            },
+
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val compact = maxWidth < 980.dp
+                // The sidebar runs the full height of the window, its head reaching the top edge;
+                // the player's bar and the page share the column beside it.
+                Row(Modifier.fillMaxSize()) {
+                    if (!compact) sidebar()
+                    Column(Modifier.weight(1f).fillMaxHeight()) {
+                        if (DesktopPlatform.drawsOwnWindowFrame && !DesktopPlatform.isMac) {
+                            DesktopTitleBarDragArea(
+                                Modifier.fillMaxWidth().height(WINDOW_CAPTION_HEIGHT),
+                            )
+                        }
+                        // Apple Music has no top bar on a wide window: the player is the floating capsule below.
+                        if (compact) topBar(compact)
+                        Row(Modifier.fillMaxWidth().weight(1f)) {
+                            Box(
+                                Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .then(
+                                        if (glass && !materialBehindApp) {
+                                            Modifier.background(containerColor)
+                                        } else {
+                                            Modifier
+                                        },
+                                    ),
+                            ) {
+                                Box(Modifier.fillMaxSize().hazeSource(haze)) {
+                                    if (glass) backdrop(materialBehindApp)
+                                    content(
+                                        PaddingValues(
+                                            start = 0.dp,
+                                            end = 0.dp,
+                                            // Room for the bar that floats over this, so the
+                                            // last row can still be scrolled clear of it.
+                                            bottom = if (compact) 128.dp else 104.dp,
                                         ),
-                                ) {
-                                    Box(Modifier.fillMaxSize().hazeSource(haze)) {
-                                        if (glass) backdrop(materialBehindApp)
-                                        content(
-                                            PaddingValues(
-                                                start = 0.dp,
-                                                end = 0.dp,
-                                                // Room for the bar that floats over this, so the
-                                                // last row can still be scrolled clear of it.
-                                                bottom = if (compact) 128.dp else 104.dp,
-                                            ),
-                                        )
-                                    }
-                                    Box(Modifier.align(Alignment.BottomCenter)) { bottomBar(compact) }
+                                    )
                                 }
-                                Box(
-                                    Modifier
-                                        .fillMaxHeight()
-                                        .then(
-                                            if (glass && !materialBehindApp) {
-                                                Modifier.background(containerColor)
-                                            } else {
-                                                Modifier
-                                            },
-                                        ),
-                                ) { trailing() }
+                                Box(Modifier.align(Alignment.BottomCenter)) { bottomBar(compact) }
                             }
-                            }
+                            Box(
+                                Modifier
+                                    .fillMaxHeight()
+                                    .then(
+                                        if (glass && !materialBehindApp) {
+                                            Modifier.background(containerColor)
+                                        } else {
+                                            Modifier
+                                        },
+                                    ),
+                            ) { trailing() }
                         }
                     }
-                    overlay()
+                }
+            }
+            overlay()
+
+            if (DesktopPlatform.drawsOwnWindowFrame && !DesktopPlatform.isMac) {
+                val interactionSource = remember { MutableInteractionSource() }
+                val captionHovered by interactionSource.collectIsHoveredAsState()
+                val targetAlpha = if (isNowPlaying) {
+                    if (captionHovered) 1f else 0f
+                } else {
+                    1f
+                }
+                val captionAlpha by animateFloatAsState(
+                    targetValue = targetAlpha,
+                    animationSpec = tween(durationMillis = 200),
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(width = 142.dp, height = WINDOW_CAPTION_HEIGHT)
+                        .hoverable(interactionSource),
+                    contentAlignment = Alignment.TopEnd,
+                ) {
+                    DesktopWindowsCaptionButtons(
+                        alpha = captionAlpha,
+                    )
                 }
             }
         }

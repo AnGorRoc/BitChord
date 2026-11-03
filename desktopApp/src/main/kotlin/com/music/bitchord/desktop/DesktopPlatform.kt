@@ -13,8 +13,6 @@ internal object DesktopPlatform {
 
     /**
      * Whether the application draws the window's own frame instead of the system drawing it.
-     * macOS draws its own unified title frame, while Windows and Linux use the standard native
-     * operating system window frame and title bar.
      */
-    val drawsOwnWindowFrame: Boolean = isMac
+    val drawsOwnWindowFrame: Boolean = isWindows || isMac
 }
