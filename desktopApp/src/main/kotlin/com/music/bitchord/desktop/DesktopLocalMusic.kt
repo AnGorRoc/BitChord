@@ -1,6 +1,8 @@
 package com.music.bitchord.desktop
 
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.download.AudioFileMetadata
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -10,9 +12,12 @@ import java.util.Locale
 import kotlin.io.path.extension
 import kotlin.io.path.nameWithoutExtension
 
-/** Finds ordinary audio files without requiring an Android MediaStore. */
+/** Finds ordinary audio files without requiring an Android MediaStore, reading embedded tags and covers. */
 object DesktopLocalMusic {
     private val supportedExtensions = setOf("aac", "flac", "m4a", "mp3", "ogg", "wav", "webm")
+
+    private val artworkCacheDir: File
+        get() = File(System.getProperty("user.home"), ".bitchord").also { it.mkdirs() }
 
     fun scan(): List<Song> {
         val filterNonMusic = DesktopPersistence().boolean(KEY_FILTER_NON_MUSIC_AUDIO, false)
@@ -23,13 +28,6 @@ object DesktopLocalMusic {
             .sortedBy { it.title.lowercase() }
     }
 
-    /**
-     * Where to look: the chosen folder, or the usual two when none has been chosen.
-     *
-     * Android's equivalent is a document tree the listener grants, with "all audio folders" as the
-     * unset state. There is no such permission on a desktop, so an unset folder means the two
-     * places music actually lands.
-     */
     internal fun roots(): List<Path> {
         val chosen = folder()
         if (chosen != null) return listOf(chosen)
@@ -52,14 +50,8 @@ object DesktopLocalMusic {
 
     internal const val KEY_LOCAL_MUSIC_FOLDER = "local_music_folder"
 
-    /**
-     * Asks for a folder with the platform's own chooser.
-     *
-     * Swing's, not a drawn one: this is a file-system question, and the desktop already has an
-     * answer for it that knows about bookmarks, hidden files and network mounts.
-     */
     fun chooseFolder(): Path? = runCatching {
-        val chooser = javax.swing.JFileChooser(folder()?.toFile() ?: java.io.File(System.getProperty("user.home")))
+        val chooser = javax.swing.JFileChooser(folder()?.toFile() ?: File(System.getProperty("user.home")))
         chooser.fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY
         chooser.dialogTitle = "Local music folder"
         if (chooser.showOpenDialog(null) != javax.swing.JFileChooser.APPROVE_OPTION) return null
@@ -77,12 +69,6 @@ object DesktopLocalMusic {
         }
     }
 
-    /**
-     * Android reads MediaStore's `IS_MUSIC`, `IS_ALARM`, `IS_NOTIFICATION` and `IS_RINGTONE` flags
-     * and a 30-second floor. A filesystem states none of that, so the same intent is read off the
-     * name, the folder and the size — a clip short enough to be a system sound is a small file,
-     * and probing every track's real duration would mean decoding the whole library on every scan.
-     */
     internal fun isMusic(path: Path): Boolean {
         if (path.extension.lowercase(Locale.ROOT) == "wav") return false
         if (runCatching { Files.size(path) }.getOrDefault(Long.MAX_VALUE) < MIN_MUSIC_BYTES) return false
@@ -90,16 +76,11 @@ object DesktopLocalMusic {
         return NON_MUSIC_MARKERS.none { it in haystack }
     }
 
-    /** Folders and names that hold something other than music. */
     private val NON_MUSIC_MARKERS = listOf(
         "/ringtones/", "/notifications/", "/alarms/", "/ui/", "/recordings/", "/voice recorder/",
         "voice note", "voicenote", "recording", "ringtone", "notification", "alarm",
     )
 
-    /**
-     * The size below which a file cannot hold thirty seconds of music — thirty seconds of even a
-     * 64 kbps stream is a quarter of a megabyte.
-     */
     private const val MIN_MUSIC_BYTES = 240L * 1024
 
     internal const val KEY_FILTER_NON_MUSIC_AUDIO = "filter_non_music_audio"
@@ -113,6 +94,9 @@ object DesktopLocalMusic {
         val added = attributes?.creationTime()?.toInstant() ?: modified ?: Instant.now()
         val identity = absolutePath.toString()
         val parsed = parseFileName(nameWithoutExtension)
+        val embedded = runCatching { AudioFileMetadata.read(absolutePath, artworkCacheDir) }.getOrNull()
+        val tags = embedded?.first
+        val coverUri = embedded?.second
         val codec = extension.lowercase(Locale.ROOT).let { value ->
             when (value) {
                 "flac" -> "FLAC"
@@ -125,9 +109,11 @@ object DesktopLocalMusic {
         }
         return Song(
             videoId = "local:$identity",
-            title = parsed.title,
-            artist = parsed.artist,
-            thumbnailUrl = null,
+            title = tags?.title?.takeIf(String::isNotBlank) ?: parsed.title,
+            artist = tags?.artist?.takeIf(String::isNotBlank) ?: parsed.artist,
+            thumbnailUrl = coverUri,
+            albumName = tags?.album?.takeIf(String::isNotBlank),
+            trackNumber = tags?.trackNumber,
             localUri = absolutePath.toUri().toString(),
             localPath = absolutePath.toString(),
             localDateAddedSeconds = added.epochSecond,

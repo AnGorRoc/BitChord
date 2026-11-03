@@ -77,7 +77,7 @@ internal object DesktopEmbeddedLyrics {
             head.startsWith(FLAC_MAGIC) -> flac(head)
             head.startsWith(MATROSKA_MAGIC) -> matroska(head)
             head.isMp4() -> mp4(head)
-            else -> null
+            else -> com.music.bitchord.download.AudioFileMetadata.readId3Lyrics(head)
         }
         return found?.takeIf(String::isNotBlank)
     }

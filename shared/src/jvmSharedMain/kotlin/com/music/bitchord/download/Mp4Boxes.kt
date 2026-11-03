@@ -2,10 +2,9 @@ package com.music.bitchord.download
 
 /**
  * The box walking [Mp4Sidx] and [ManifestFile] share: read-only, bounds-checked,
- * and quiet about anything malformed — a box that does not fit its parent ends
- * the list rather than throwing, so each caller decides what a short list means.
+ * and quiet about anything malformed.
  */
-internal object Mp4Boxes {
+object Mp4Boxes {
 
     class Box(val offset: Int, val headerLen: Int, val size: Int, val type: String) {
         val content get() = offset + headerLen
@@ -35,14 +34,12 @@ internal object Mp4Boxes {
     fun child(bytes: ByteArray, parent: Box, type: String): Box? =
         boxes(bytes, parent.content, parent.end).firstOrNull { it.type == type }
 
-    /** Follows [path] down from the top level, one child type per step. */
     fun find(bytes: ByteArray, vararg path: String): Box? {
         var box = boxes(bytes).firstOrNull { it.type == path.first() } ?: return null
         for (type in path.drop(1)) box = child(bytes, box, type) ?: return null
         return box
     }
 
-    /** The 24-bit flags of a FullBox. */
     fun flags(b: ByteArray, box: Box): Int = readU32(b, box.content).toInt() and 0xFFFFFF
 
     fun readU32(b: ByteArray, off: Int): Long =
@@ -63,12 +60,6 @@ internal object Mp4Boxes {
         for (i in 0 until 8) b[off + i] = ((value shr (8 * (7 - i))) and 0xFF).toByte()
     }
 
-    /**
-     * One track's samples within a `moof`: where each sits in the segment and
-     * how long it lasts. Only the track [trackId] is read; a `base_data_offset`
-     * (an absolute file position, meaningless once the segment stands alone)
-     * returns null rather than a guess.
-     */
     class Sample(val offset: Int, val size: Int, val duration: Long)
 
     fun samples(bytes: ByteArray, moof: Box, trackId: Long, trexDuration: Long, trexSize: Long): List<Sample>? {
@@ -84,8 +75,6 @@ internal object Mp4Boxes {
             val defaultDuration = if (tf and 0x8 != 0) readU32(bytes, p).also { p += 4 } else trexDuration
             val defaultSize = if (tf and 0x10 != 0) readU32(bytes, p) else trexSize
 
-            // Without a data_offset, samples follow on from the end of the
-            // previous run — the first run's from the start of the next mdat.
             var cursor = boxes(bytes, moof.end, bytes.size).firstOrNull { it.type == "mdat" }?.content ?: return null
             for (trun in parts.filter { it.type == "trun" }) {
                 val f = flags(bytes, trun)

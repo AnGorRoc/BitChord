@@ -5,26 +5,6 @@ import com.music.bitchord.data.lyrics.WORD_LYRICS_FIELD
 /**
  * Appends Matroska `Tags` and `Attachments` elements — title, artist, album,
  * lyrics, cover — to an already-downloaded WebM file, in place.
- *
- * The insertion is always a plain append at the end of the file, never a
- * splice in the middle, which is what makes this simpler than [Mp4Tagger]:
- * a downloaded track is one `EBML` header followed by one `Segment`, and
- * `Tags`/`Attachments` are ordinary children of that `Segment` with nothing
- * else addressing them by absolute offset (unlike MP4's `stco`/`co64`, an
- * optional `SeekHead` records where things are, but it is advisory — a
- * player without an entry for `Tags` in it still finds the element by
- * reading on, which is exactly what appending at the end relies on).
- *
- * The one field that can need touching is `Segment`'s own size, if it
- * declared one — a WebM served as a live remux typically declares it
- * "unknown" (an all-ones size, meaning "read to the end"), in which case
- * appending needs no further change at all. A declared size is only ever
- * widened in place, keeping its original byte width, because growing that
- * width would shift the size field itself and everything after it — the
- * same offset cascade [Mp4Tagger] exists to handle, which nothing here
- * reaches for. If the value doesn't fit the existing width, or the file
- * doesn't match the single-header/single-segment shape this assumes, the
- * input comes back unchanged rather than guessed at.
  */
 object WebmTagger {
 
@@ -53,7 +33,6 @@ object WebmTagger {
         lyrics: String?,
         cover: ByteArray?,
         coverMime: String,
-        /** The A2 form, under a name of this app's own — see [WORD_LYRICS_FIELD]. */
         wordLyrics: String? = null,
     ): ByteArray = runCatching {
         insert(bytes, buildTail(title, artist, album, lyrics, cover, coverMime, wordLyrics))
@@ -76,9 +55,6 @@ object WebmTagger {
             return out
         }
 
-        // A declared size only matches this shape when it accounts for every
-        // byte already in the file — anything else (trailing padding, more
-        // top-level elements after Segment) isn't a layout worth guessing at.
         val declaredEnd = segmentContentStart + segmentSize.value
         if (declaredEnd != bytes.size.toLong()) return bytes
 
@@ -107,16 +83,9 @@ object WebmTagger {
         if (title.isNotBlank()) simple += simpleTag("TITLE", title)
         if (artist.isNotBlank()) simple += simpleTag("ARTIST", artist)
         if (!album.isNullOrBlank()) simple += simpleTag("ALBUM", album)
-        // `LYRICS` is Matroska's own name for the field, and `TagString` is a
-        // UTF-8 element with an explicit length — so the LRC's newlines need no
-        // escaping and there is no ceiling worth worrying about here.
         if (!lyrics.isNullOrBlank()) simple += simpleTag("LYRICS", lyrics)
-        // Beside `LYRICS`, never instead of it: a SimpleTag with a name a
-        // player doesn't know is skipped, so the portable field is untouched.
         if (!wordLyrics.isNullOrBlank()) simple += simpleTag(WORD_LYRICS_FIELD, wordLyrics)
         if (simple.isNotEmpty()) {
-            // An empty Targets applies the tag to the whole file — there is no
-            // track/chapter to single out in a lone-audio-stream download.
             val targets = elem(ID_TARGETS, ByteArray(0))
             val tagPayload = simple.fold(targets) { acc, s -> acc + s }
             out += elem(ID_TAGS, elem(ID_TAG, tagPayload))
@@ -126,8 +95,6 @@ object WebmTagger {
             val fileName = elem(ID_FILENAME, "cover.jpg".toByteArray(Charsets.UTF_8))
             val description = elem(ID_FILEDESCRIPTION, "Cover (front)".toByteArray(Charsets.UTF_8))
             val fileMime = elem(ID_FILEMIMETYPE, coverMime.toByteArray(Charsets.US_ASCII))
-            // A fixed id is fine: one attachment, and nothing here needs to
-            // reference it back from a Tag.
             val fileUid = elem(ID_FILEUID, byteArrayOf(0, 0, 0, 0, 0, 0, 0, 1))
             val fileData = elem(ID_FILEDATA, cover)
             val attachedFile = elem(ID_ATTACHEDFILE, fileName + description + fileMime + fileUid + fileData)
@@ -148,12 +115,6 @@ object WebmTagger {
 
     private class Size(val value: Long, val width: Int, val isUnknown: Boolean)
 
-    /**
-     * An EBML variable-length integer: the position of the highest set bit in
-     * the first byte gives the width (1-8 bytes), and the remaining bits
-     * across all of them are the value. A value using every one of those bits
-     * (all ones) is the reserved "unknown length" marker.
-     */
     private fun readSize(bytes: ByteArray, offset: Int): Size? {
         if (offset >= bytes.size) return null
         val first = bytes[offset].toInt() and 0xFF
@@ -170,7 +131,6 @@ object WebmTagger {
         return Size(value, width, value == maxVal)
     }
 
-    /** The narrowest vint that fits [value], reserving the all-ones value as "unknown". */
     private fun encodeVint(value: Long): ByteArray {
         var width = 1
         while (width < 8 && value > (1L shl (7 * width)) - 2) width++

@@ -82,6 +82,22 @@ class DesktopPersistence {
 
     fun saveDownloads(songs: List<Song>) = writeSongs(KEY_DOWNLOADS, songs)
 
+    fun downloadedCollections(): Map<String, com.music.bitchord.download.SavedCollection> {
+        val raw = string(KEY_DOWNLOADED_COLLECTIONS, "")
+        if (raw.isBlank()) return emptyMap()
+        return runCatching {
+            sourceJson.decodeFromString<Map<String, com.music.bitchord.download.SavedCollection>>(raw)
+        }.getOrDefault(emptyMap())
+    }
+
+    fun saveDownloadedCollections(collections: Map<String, com.music.bitchord.download.SavedCollection>) {
+        saveString(KEY_DOWNLOADED_COLLECTIONS, sourceJson.encodeToString(collections))
+    }
+
+    fun autoDownloadPlaylists(): Boolean = boolean(KEY_AUTO_DOWNLOAD_PLAYLISTS, false)
+
+    fun saveAutoDownloadPlaylists(enabled: Boolean) = saveBoolean(KEY_AUTO_DOWNLOAD_PLAYLISTS, enabled)
+
     fun playlists(): List<DesktopPlaylist> = readLines(KEY_PLAYLISTS).mapNotNull(::decodePlaylist)
 
     fun savePlaylists(playlists: List<DesktopPlaylist>) = writeLines(KEY_PLAYLISTS, playlists.map(DesktopPlaylist::toPreferenceLine))
@@ -250,6 +266,7 @@ class DesktopPersistence {
         song.localDateModifiedSeconds?.toString().orEmpty(),
         song.sourceQuality.orEmpty(),
         song.isExplicit?.toString().orEmpty(),
+        song.trackNumber?.toString().orEmpty(),
     ).joinToString(DELIMITER, transform = ::encode)
 
     private fun decodeSong(value: String): Song? {
@@ -275,6 +292,7 @@ class DesktopPersistence {
             localDateModifiedSeconds = fields.getOrNull(15)?.toLongOrNull(),
             sourceQuality = fields.getOrNull(16)?.ifBlank { null },
             isExplicit = fields.getOrNull(17)?.toBooleanStrictOrNull(),
+            trackNumber = fields.getOrNull(18)?.toIntOrNull(),
         )
     }
 
@@ -299,6 +317,8 @@ class DesktopPersistence {
         const val KEY_HISTORY = "history"
         const val KEY_QUEUE = "queue"
         const val KEY_DOWNLOADS = "downloads"
+        const val KEY_DOWNLOADED_COLLECTIONS = "downloaded_collections"
+        const val KEY_AUTO_DOWNLOAD_PLAYLISTS = "auto_download_playlists"
         const val KEY_PLAYLISTS = "playlists"
         const val KEY_MODULE_INDEX_URL = "module_index_url"
         private const val KEY_ORIGINAL_VERSIONS = "original_versions"
@@ -343,6 +363,7 @@ private fun DesktopPlaylist.toPreferenceLine(): String = listOf(
             song.localDateModifiedSeconds?.toString().orEmpty(),
             song.sourceQuality.orEmpty(),
             song.isExplicit?.toString().orEmpty(),
+            song.trackNumber?.toString().orEmpty(),
         ).joinToString("|", transform = { field ->
             Base64.getUrlEncoder().withoutPadding().encodeToString(field.toByteArray(StandardCharsets.UTF_8))
         })

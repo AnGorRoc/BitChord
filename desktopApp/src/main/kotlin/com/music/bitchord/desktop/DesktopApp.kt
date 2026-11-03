@@ -34,6 +34,14 @@ import com.music.bitchord.ui.screens.LibraryScreen
 import com.music.bitchord.ui.screens.MoodGenrePlaylistsScreen
 import com.music.bitchord.ui.screens.SearchScreen
 import com.music.bitchord.data.NerdStats
+import com.music.bitchord.data.LocalGroup
+import com.music.bitchord.data.LocalGroups
+import com.music.bitchord.data.matchesSearch
+import com.music.bitchord.data.sortedForAlbum
+import com.music.bitchord.data.artwork.ArtworkFileDownload
+import com.music.bitchord.download.DOWNLOAD_PLAYLIST_PREFIX
+import com.music.bitchord.download.DownloadTarget
+import com.music.bitchord.download.downloadPageIdFor
 import com.music.bitchord.data.TopPicks
 import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.TopPick
@@ -1252,6 +1260,18 @@ fun BitChordDesktopApp() {
 
     /** Everything on a page, in the order it is listed. */
     fun downloadAll(songs: List<Song>) {
+        openedCollection?.let { collection ->
+            DesktopDownloadManager.rememberCollection(
+                DownloadTarget(
+                    id = collection.browseId,
+                    title = collection.title,
+                    subtitle = collection.subtitle,
+                    thumbnailUrl = collection.thumbnailUrl,
+                    playlist = collection.type == BrowseType.PLAYLIST,
+                ),
+                songs,
+            )
+        }
         val have = downloads.map(Song::videoId).toSet()
         DesktopDownloadQueue.enqueueAll(
             songs.filterNot { it.videoId in have || it.localPath != null || it.isUnresolvedSpotify },
@@ -1601,6 +1621,7 @@ fun BitChordDesktopApp() {
             if (current.id == playlist.id) current.copy(songs = (current.songs + song).distinctBy(Song::videoId)) else current
         }
         persistence.savePlaylists(playlists)
+        DesktopDownloadManager.autoDownload(playlist.id, song, downloads.mapTo(HashSet(), Song::videoId))
         playlistTarget = null
     }
 
@@ -1610,7 +1631,12 @@ fun BitChordDesktopApp() {
         playlistError = null
         scope.launch {
             DesktopSearchClient.addToPlaylist(playlist.playlistId, listOf(song.videoId))
-                .onSuccess { closePlaylistDialogs() }
+                .onSuccess {
+                    val have = downloads.mapTo(HashSet(), Song::videoId)
+                    DesktopDownloadManager.autoDownload(playlist.playlistId, song, have)
+                    DesktopDownloadManager.autoDownload("VL${playlist.playlistId}", song, have)
+                    closePlaylistDialogs()
+                }
                 .onFailure {
                     DesktopTrackLog.log("playlist: could not add ${song.videoId}: ${it.message}")
                     playlistBusy = false
@@ -2566,8 +2592,8 @@ fun BitChordDesktopApp() {
      * account — the desktop's counterpart of the phone's downloaded releases, and like them
      * reachable from nowhere else.
      */
-    val libraryDeviceItems = remember(playlists) {
-        playlists.map { playlist ->
+    val libraryDeviceItems = remember(playlists, downloads) {
+        val localPlaylistItems = playlists.map { playlist ->
             ShelfItem(
                 title = playlist.title,
                 subtitle = "Playlist • ${playlist.songs.size} songs",
@@ -2576,6 +2602,17 @@ fun BitChordDesktopApp() {
                 browseId = LOCAL_PLAYLIST_PREFIX + playlist.id,
             )
         }
+        val downloadedCollections = DesktopDownloadManager.collectionsAmong(downloads).map { entry ->
+            val kind = if (entry.playlist) "Playlist" else "Album"
+            ShelfItem(
+                title = entry.title,
+                subtitle = "$kind • ${entry.songs.size} songs",
+                thumbnailUrl = entry.thumbnailUrl ?: entry.songs.firstOrNull()?.thumbnailUrl,
+                videoId = null,
+                browseId = downloadPageIdFor(entry.id),
+            )
+        }
+        localPlaylistItems + downloadedCollections
     }
 
     /** A Library card: a folder is a page of this app's, a local playlist is opened from here. */
@@ -2599,6 +2636,23 @@ fun BitChordDesktopApp() {
             )
             browseId.startsWith(LOCAL_PLAYLIST_PREFIX) ->
                 playlists.firstOrNull { it.id == browseId.removePrefix(LOCAL_PLAYLIST_PREFIX) }?.let(::openPlaylist)
+            browseId.startsWith(DOWNLOAD_PLAYLIST_PREFIX) -> {
+                val targetId = browseId.removePrefix(DOWNLOAD_PLAYLIST_PREFIX)
+                DesktopDownloadManager.collectionsAmong(downloads)
+                    .firstOrNull { it.id == targetId }
+                    ?.let { entry ->
+                        showCollection(
+                            DesktopCollection(
+                                browseId = entry.id,
+                                title = entry.title,
+                                subtitle = entry.subtitle,
+                                thumbnailUrl = entry.thumbnailUrl ?: entry.songs.firstOrNull()?.thumbnailUrl,
+                                type = if (entry.playlist) BrowseType.PLAYLIST else BrowseType.ALBUM,
+                                songs = entry.songs,
+                            ),
+                        )
+                    }
+            }
             else -> openShelfItem(item)
         }
     }
@@ -6477,6 +6531,7 @@ private fun DesktopLocalMusicPage(
     menu: (@Composable (Song) -> Unit)? = null,
 ) {
     val persistence = remember { DesktopPersistence() }
+    val isLocalMusic = persistenceKey == "local"
     var selectedTab by remember(persistenceKey) { mutableStateOf(0) }
     var searchQuery by remember(persistenceKey) { mutableStateOf("") }
     var view by remember(persistenceKey) {
@@ -6495,20 +6550,39 @@ private fun DesktopLocalMusicPage(
             }.getOrDefault(DesktopLibrarySort.TITLE_ASC),
         )
     }
-    var drillDown by remember(persistenceKey) { mutableStateOf<Pair<String, List<Song>>?>(null) }
+    var drillDown by remember(persistenceKey) { mutableStateOf<LocalGroup?>(null) }
+    var createOfflinePlaylistOpen by remember { mutableStateOf(false) }
+    var newOfflinePlaylistName by remember { mutableStateOf("") }
+    val offlinePlaylists by DesktopOfflinePlaylists.playlists.collectAsState()
+    val folderId = if (isLocalMusic) LOCAL_MUSIC_ID else LOCAL_DOWNLOADS_ID
+    val downloadedCollections = remember(songs, isLocalMusic) {
+        if (isLocalMusic) emptyList() else DesktopDownloadManager.collectionsAmong(songs)
+    }
+
     val filteredSongs = remember(songs, sort, searchQuery) {
         songs.sortedForDesktopLibrary(sort).filter { song ->
             searchQuery.isBlank() || song.title.contains(searchQuery, true) || song.artist.contains(searchQuery, true) ||
                 song.albumName.orEmpty().contains(searchQuery, true)
         }
     }
-    val artists = remember(filteredSongs) {
-        filteredSongs.groupBy { it.artist.ifBlank { "On This Computer" } }
-            .entries.sortedBy { it.key.lowercase() }
+    val albums = remember(folderId, songs, downloadedCollections, searchQuery) {
+        LocalGroups.albumsOf(folderId, songs, downloadedCollections).filter { it.matchesSearch(searchQuery) }
     }
-    val albums = remember(filteredSongs) {
-        filteredSongs.groupBy { it.albumName?.takeIf(String::isNotBlank) ?: "Unknown Album" }
-            .entries.sortedBy { it.key.lowercase() }
+    val artists = remember(folderId, songs, searchQuery) {
+        LocalGroups.artistsOf(folderId, songs).filter { it.matchesSearch(searchQuery) }
+    }
+    val folders = remember(folderId, songs, searchQuery) {
+        LocalGroups.foldersOf(folderId, songs).filter { it.matchesSearch(searchQuery) }
+    }
+    val offlinePlaylistGroups = remember(offlinePlaylists, searchQuery) {
+        offlinePlaylists.map { it.toGroup() }.filter { it.matchesSearch(searchQuery) }
+    }
+    val tabs = remember(isLocalMusic) {
+        if (isLocalMusic) {
+            listOf("Songs", "Albums", "Artists", "Folders", "Playlists")
+        } else {
+            listOf("Songs", "Albums", "Artists", "Folders")
+        }
     }
     DesktopPageScaffold(contentPadding) {
         Column(
@@ -6523,6 +6597,16 @@ private fun DesktopLocalMusicPage(
                     placeholder = DesktopStrings["d_search_your_music", "Search your music"],
                 )
                 Spacer(Modifier.width(10.dp))
+                if (isLocalMusic && selectedTab == 4) {
+                    TextButton(onClick = {
+                        newOfflinePlaylistName = ""
+                        createOfflinePlaylistOpen = true
+                    }) {
+                        Icon(BitChordIcons.Plus, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(DesktopStrings["new_playlist", "New playlist"])
+                    }
+                }
                 TextButton(onClick = {
                     sort = when (sort) {
                         DesktopLibrarySort.TITLE_ASC -> DesktopLibrarySort.TITLE_DESC
@@ -6542,27 +6626,100 @@ private fun DesktopLocalMusicPage(
                 }
             }
             Spacer(Modifier.height(10.dp))
-            TabRow(selectedTabIndex = selectedTab, containerColor = Color.Transparent) {
-                listOf("Songs", "Artists", "Albums").forEachIndexed { index, label ->
-                    Tab(selected = selectedTab == index, onClick = { selectedTab = index }, text = { Text(label) })
+            TabRow(selectedTabIndex = selectedTab.coerceIn(0, tabs.lastIndex), containerColor = Color.Transparent) {
+                tabs.forEachIndexed { index, label ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = {
+                            selectedTab = index
+                            drillDown = null
+                        },
+                        text = { Text(label) },
+                    )
                 }
             }
             Spacer(Modifier.height(8.dp))
-            if (songs.isEmpty()) {
+            if (songs.isEmpty() && !(isLocalMusic && selectedTab == 4 && offlinePlaylistGroups.isNotEmpty())) {
                 DesktopEmptyPage(emptyIcon, emptyTitle, emptyDescription)
             } else if (drillDown != null) {
+                val activeGroup = drillDown!!
+                val groupSongs = remember(activeGroup, selectedTab) {
+                    if (selectedTab == 1) activeGroup.songs.sortedForAlbum() else activeGroup.songs
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { drillDown = null }) { Icon(Icons.Rounded.ArrowBack, DesktopStrings["back", "Back"]) }
-                    Text(drillDown!!.first, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Column(Modifier.weight(1f)) {
+                        Text(activeGroup.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                        if (activeGroup.subtitle.isNotBlank()) {
+                            Text(activeGroup.subtitle, color = DesktopSecondary, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    if (isLocalMusic && selectedTab == 4 && !activeGroup.browseId.endsWith(DesktopOfflinePlaylists.LIKED_ID)) {
+                        IconButton(onClick = {
+                            DesktopOfflinePlaylists.delete(activeGroup.browseId)
+                            drillDown = null
+                        }) {
+                            Icon(Icons.Rounded.Delete, DesktopStrings["delete", "Delete"], tint = DesktopSecondary)
+                        }
+                    }
                 }
                 Spacer(Modifier.height(6.dp))
-                DesktopLibrarySongContent(drillDown!!.second, view, onSongClick, menu)
+                DesktopLibrarySongContent(
+                    songs = groupSongs,
+                    view = view,
+                    onSongClick = onSongClick,
+                    menu = menu,
+                    offlineLikes = isLocalMusic,
+                    offlinePlaylists = offlinePlaylists,
+                )
             } else when (selectedTab) {
-                0 -> DesktopLibrarySongContent(filteredSongs, view, onSongClick, menu)
-                1 -> DesktopLibraryGroupingContent(artists, view, onGroupClick = { drillDown = it })
-                else -> DesktopLibraryGroupingContent(albums, view, onGroupClick = { drillDown = it })
+                0 -> DesktopLibrarySongContent(
+                    songs = filteredSongs,
+                    view = view,
+                    onSongClick = onSongClick,
+                    menu = menu,
+                    offlineLikes = isLocalMusic,
+                    offlinePlaylists = offlinePlaylists,
+                )
+                1 -> DesktopLibraryGroupingContent(albums, view, circleArtwork = false, onGroupClick = { drillDown = it })
+                2 -> DesktopLibraryGroupingContent(artists, view, circleArtwork = true, onGroupClick = { drillDown = it })
+                3 -> DesktopLibraryGroupingContent(folders, view, circleArtwork = false, onGroupClick = { drillDown = it })
+                else -> DesktopLibraryGroupingContent(offlinePlaylistGroups, view, circleArtwork = false, onGroupClick = { drillDown = it })
             }
         }
+    }
+    if (createOfflinePlaylistOpen) {
+        AlertDialog(
+            onDismissRequest = { createOfflinePlaylistOpen = false },
+            containerColor = DesktopSurface,
+            title = { Text(DesktopStrings["new_playlist", "New playlist"]) },
+            text = {
+                OutlinedTextField(
+                    value = newOfflinePlaylistName,
+                    onValueChange = { newOfflinePlaylistName = it },
+                    singleLine = true,
+                    label = { Text(DesktopStrings["playlist_name", "Playlist name"]) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                Button(
+                    enabled = newOfflinePlaylistName.isNotBlank(),
+                    onClick = {
+                        DesktopOfflinePlaylists.create(newOfflinePlaylistName)
+                        createOfflinePlaylistOpen = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = DesktopAccent, contentColor = Color.Black),
+                ) {
+                    Text(DesktopStrings["create", "Create"])
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { createOfflinePlaylistOpen = false }) {
+                    Text(DesktopStrings["cancel", "Cancel"])
+                }
+            },
+        )
     }
 }
 
@@ -6579,7 +6736,12 @@ private fun DesktopLibrarySongContent(
     view: DesktopLibraryView,
     onSongClick: (Song) -> Unit,
     menu: (@Composable (Song) -> Unit)? = null,
+    offlineLikes: Boolean = false,
+    offlinePlaylists: List<OfflinePlaylist> = emptyList(),
 ) {
+    val likedOfflineIds = remember(offlinePlaylists) {
+        offlinePlaylists.firstOrNull { it.isLiked }?.songs?.mapTo(HashSet(), Song::videoId).orEmpty()
+    }
     if (songs.isEmpty()) {
         DesktopEmptyPage(BitChordIcons.Search, "No matching music", "Try a different search.")
     } else if (view == DesktopLibraryView.GRID) {
@@ -6610,9 +6772,9 @@ private fun DesktopLibrarySongContent(
                 DesktopSongRow(
                     song,
                     isCurrent = isCurrentRow(song),
-                    liked = false,
+                    liked = offlineLikes && (song.videoId in likedOfflineIds || DesktopOfflinePlaylists.isLiked(song)),
                     onClick = onSongClick,
-                    onToggleLike = null,
+                    onToggleLike = if (offlineLikes) ({ DesktopOfflinePlaylists.toggleLike(it) }) else null,
                     downloaded = song.localPath != null,
                     menu = menu,
                 )
@@ -6623,10 +6785,12 @@ private fun DesktopLibrarySongContent(
 
 @Composable
 private fun DesktopLibraryGroupingContent(
-    groups: List<Map.Entry<String, List<Song>>>,
+    groups: List<LocalGroup>,
     view: DesktopLibraryView,
-    onGroupClick: (Pair<String, List<Song>>) -> Unit,
+    circleArtwork: Boolean = false,
+    onGroupClick: (LocalGroup) -> Unit,
 ) {
+    val artShape = if (circleArtwork) CircleShape else RoundedCornerShape(12.dp)
     if (groups.isEmpty()) {
         DesktopEmptyPage(BitChordIcons.Search, "Nothing here yet", "Music will be grouped as it is added.")
     } else if (view == DesktopLibraryView.GRID) {
@@ -6637,12 +6801,12 @@ private fun DesktopLibraryGroupingContent(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            gridItems(groups, key = { it.key }) { group ->
-                Column(Modifier.fillMaxWidth().clickable { onGroupClick(group.key to group.value) }) {
-                    DesktopArtwork(group.value.firstOrNull()?.thumbnailUrl, Modifier.fillMaxWidth().height(150.dp).clip(CircleShape))
+            gridItems(groups, key = { it.browseId }) { group ->
+                Column(Modifier.fillMaxWidth().clickable { onGroupClick(group) }) {
+                    DesktopArtwork(group.thumbnailUrl, Modifier.fillMaxWidth().height(150.dp).clip(artShape))
                     Spacer(Modifier.height(7.dp))
-                    Text(group.key, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                    Text("${group.value.size} songs", color = DesktopSecondary, style = MaterialTheme.typography.bodySmall)
+                    Text(group.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                    Text(group.subtitle.ifBlank { "${group.songs.size} songs" }, color = DesktopSecondary, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -6652,16 +6816,16 @@ private fun DesktopLibraryGroupingContent(
             contentPadding = pagePadding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            items(groups, key = { it.key }) { group ->
+            items(groups, key = { it.browseId }) { group ->
                 Row(
-                    Modifier.fillMaxWidth().clickable { onGroupClick(group.key to group.value) }.padding(vertical = 8.dp),
+                    Modifier.fillMaxWidth().clickable { onGroupClick(group) }.padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    DesktopArtwork(group.value.firstOrNull()?.thumbnailUrl, Modifier.size(54.dp).clip(CircleShape))
+                    DesktopArtwork(group.thumbnailUrl, Modifier.size(54.dp).clip(artShape))
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(group.key, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                        Text("${group.value.size} songs", color = DesktopSecondary, style = MaterialTheme.typography.bodySmall)
+                        Text(group.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                        Text(group.subtitle.ifBlank { "${group.songs.size} songs" }, color = DesktopSecondary, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Icon(BitChordIcons.Play, DesktopStrings["open", "Open"], tint = DesktopSecondary)
                 }
@@ -6950,6 +7114,9 @@ private fun DesktopSettingsScreen(
 
                 if (shows(DesktopSettingsCategory.DOWNLOADS)) item {
                     SettingsGroup(DesktopStrings["downloads", "Downloads"]) {
+                        var downloadFolderLabel by remember { mutableStateOf(DesktopDownloadManager.folderLabel()) }
+                        var hasCustomDownloadFolder by remember { mutableStateOf(DesktopDownloadManager.customFolder() != null) }
+                        var autoDownloadPlaylists by remember { mutableStateOf(DesktopPersistence().autoDownloadPlaylists()) }
                         if (settingsRowVisible(DesktopStrings["download_quality", "Download quality"])) {
                             Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
                                 Text(DesktopStrings["download_quality", "Download quality"], fontWeight = FontWeight.Medium)
@@ -6976,6 +7143,40 @@ private fun DesktopSettingsScreen(
                                 )
                             }
                         }
+                        SettingsRow(
+                            Icons.Rounded.Folder,
+                            DesktopStrings["download_folder", "Download folder"],
+                            downloadFolderLabel,
+                        ) {
+                            DesktopDownloadManager.chooseFolder()?.let { chosen ->
+                                DesktopDownloadManager.setFolder(chosen)
+                                downloadFolderLabel = DesktopDownloadManager.folderLabel()
+                                hasCustomDownloadFolder = DesktopDownloadManager.customFolder() != null
+                            }
+                        }
+                        if (hasCustomDownloadFolder) {
+                            SettingsRow(
+                                BitChordIcons.Download,
+                                DesktopStrings["use_default_download_folder", "Use default download folder"],
+                                "~/Music/BitChord",
+                            ) {
+                                DesktopDownloadManager.setFolder(null)
+                                downloadFolderLabel = DesktopDownloadManager.folderLabel()
+                                hasCustomDownloadFolder = false
+                            }
+                        }
+                        SettingsToggle(
+                            DesktopStrings["auto_download_playlists", "Auto-download playlists"],
+                            DesktopStrings[
+                                "auto_download_playlists_subtitle",
+                                "Automatically download new songs added to playlists you have already downloaded",
+                            ],
+                            autoDownloadPlaylists,
+                            { enabled ->
+                                autoDownloadPlaylists = enabled
+                                DesktopPersistence().saveAutoDownloadPlaylists(enabled)
+                            },
+                        )
                     }
                 }
 
@@ -7921,6 +8122,7 @@ private fun DesktopCollectionPage(
     contentPadding: PaddingValues,
 ) {
     val songs = collection.songs
+    val scope = rememberCoroutineScope()
     // The phone's "search this list": a filter over the rows already loaded.
     var searching by remember(collection.browseId) { mutableStateOf(false) }
     var listQuery by remember(collection.browseId) { mutableStateOf("") }
@@ -8088,6 +8290,30 @@ private fun DesktopCollectionPage(
                                             onDownloadAll(songs)
                                         },
                                     )
+                                    val coverUrl = collection.thumbnailUrl ?: songs.firstOrNull()?.thumbnailUrl
+                                    if (!coverUrl.isNullOrBlank()) {
+                                        DropdownMenuItem(
+                                            text = { Text(DesktopStrings["save_artwork", "Save artwork"]) },
+                                            leadingIcon = { Icon(Icons.Rounded.Palette, null) },
+                                            onClick = {
+                                                moreOpen = false
+                                                scope.launch {
+                                                    ArtworkFileDownload.saveToFolder(
+                                                        Song(
+                                                            videoId = collection.browseId,
+                                                            title = collection.title,
+                                                            artist = credit,
+                                                            thumbnailUrl = coverUrl,
+                                                        ),
+                                                    ).onSuccess { savedFile ->
+                                                        DesktopPlayerHost.showMessage("Saved artwork to ${savedFile.parentFile?.name ?: "Pictures"}/${savedFile.name}")
+                                                    }.onFailure { err ->
+                                                        DesktopPlayerHost.showMessage(err.message ?: "Could not save artwork")
+                                                    }
+                                                }
+                                            },
+                                        )
+                                    }
                                     onTogglePin?.let { togglePin ->
                                         DropdownMenuItem(
                                             text = {

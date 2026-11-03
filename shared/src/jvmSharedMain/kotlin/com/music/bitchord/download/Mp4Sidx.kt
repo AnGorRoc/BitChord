@@ -9,25 +9,6 @@ import com.music.bitchord.download.Mp4Boxes.writeU64
 
 /**
  * Gives a fragmented MP4 the segment index its player needs in order to seek.
- *
- * A fragmented MP4 — `moov` with no samples in it, then a run of `moof`+`mdat`
- * pairs — says nothing about where in time each fragment sits. The only thing
- * that does is a `sidx` box, and a stream that was cut up for adaptive delivery
- * (which is where a Dolby Atmos or ALAC download comes from) usually carries it
- * on the manifest side instead. Saved as a file, the index is simply gone.
- * Media3's `FragmentedMp4Extractor` then reports the file as unseekable: it
- * plays from the start perfectly, and every seek — the scrubber, a tap on a
- * lyric line — is ignored and playback carries on where it was.
- *
- * Rebuilding the index is cheap because the fragments describe themselves. Each
- * `moof` states its sample durations and the first one its decode time, so the
- * `sidx` is a sum over boxes already in the file. It is inserted directly after
- * `moov`; nothing in a fragmented file addresses itself by absolute offset
- * (`trun` data offsets are relative to their own `moof`), so nothing shifts.
- *
- * Anything unfamiliar — not fragmented, already indexed, more than one track,
- * a box that doesn't fit — returns the input array itself, the same "nothing
- * safe to do" signal [Mp4Tagger] uses.
  */
 object Mp4Sidx {
 
@@ -60,17 +41,12 @@ object Mp4Sidx {
             val samples = Mp4Boxes.samples(bytes, moof, trackId, trexDuration, trexSize) ?: return null
             Fragment(moof.offset, moof.end, samples.sumOf { it.duration }, decodeTime(bytes, moof))
         }
-        // A fragment runs until the next one starts, so whatever sits between a
-        // moof and the following one — its mdat, a `free` — is counted into it,
-        // and the last one runs to the end of the file.
         fragments.forEachIndexed { i, f ->
             f.end = fragments.getOrNull(i + 1)?.offset ?: bytes.size
         }
         if (fragments.any { it.ticks <= 0 || it.end - it.offset <= 0 }) return null
 
         val sidxSize = 40 + 12 * fragments.size
-        // Measured from the end of the sidx, which sits where moov ended: the
-        // first moof moves by the sidx's own length and so does that anchor.
         val firstOffset = (fragments.first().offset - moov.end).toLong()
         val out = ByteArray(sidxSize)
         writeU32(out, 0, sidxSize.toLong())
@@ -86,7 +62,6 @@ object Mp4Sidx {
             val at = 40 + 12 * i
             writeU32(out, at, (f.end - f.offset).toLong())
             writeU32(out, at + 4, f.ticks)
-            // starts_with_SAP, SAP type 1: every audio frame is a sync sample.
             writeU32(out, at + 8, 0x90000000L)
         }
 
