@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -684,37 +685,42 @@ fun DetailScreen(
             fun LazyListScope.aboutItem() {
                 if (!showAbout) return
                 item(key = "about") {
-                    // Clear of the last shelf above it.
-                    Box(Modifier.padding(top = if (isArtist) 28.dp else 0.dp)) {
-                    AboutSection(
-                        title = stringResource(
-                            if (isArtist) R.string.about_artist else R.string.about_album,
-                        ),
-                        text = description?.takeIf { it.isNotBlank() },
-                        palette = palette,
-                        horizontalPadding = if (isArtist) ARTIST_CONTENT_GUTTER else ABOUT_GUTTER,
-                        stats = if (hasStats) {
-                            {
-                                ArtistStatsRow(
-                                    subscriberCountText = page.subscriberCountText,
-                                    monthlyListenerCount = page.monthlyListenerCount,
-                                    palette = palette,
-                                )
-                            }
-                        } else {
-                            null
-                        },
-                        footer = aboutSignature?.let { sig ->
-                            {
-                                AboutSignature(
-                                    signature = sig,
-                                    name = page.title,
-                                    palette = palette,
-                                    horizontalPadding = ARTIST_CONTENT_GUTTER,
-                                )
-                            }
-                        },
-                    )
+                    if (isArtist) {
+                        ArtistAboutCard(
+                            title = stringResource(R.string.about_artist),
+                            text = description?.takeIf { it.isNotBlank() },
+                            stats = if (hasStats) {
+                                {
+                                    ArtistStatsRow(
+                                        subscriberCountText = page.subscriberCountText,
+                                        monthlyListenerCount = page.monthlyListenerCount,
+                                        palette = palette,
+                                    )
+                                }
+                            } else null,
+                            footer = aboutSignature?.let { sig ->
+                                {
+                                    AboutSignature(
+                                        signature = sig,
+                                        name = page.title,
+                                        palette = palette,
+                                        horizontalPadding = 0.dp,
+                                    )
+                                }
+                            },
+                            palette = palette,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = ARTIST_CONTENT_GUTTER)
+                                .padding(top = 28.dp, bottom = 28.dp),
+                        )
+                    } else {
+                        AboutSection(
+                            title = stringResource(R.string.about_album),
+                            text = description?.takeIf { it.isNotBlank() },
+                            palette = palette,
+                            horizontalPadding = ABOUT_GUTTER,
+                        )
                     }
                 }
             }
@@ -1839,15 +1845,12 @@ private fun ArtistStatsRow(
     subscriberCountText: String?,
     monthlyListenerCount: String?,
     palette: ArtworkPalette,
+    modifier: Modifier = Modifier,
 ) {
-    // Stacked and left-aligned with the text under it, since this now sits in
-    // the About section rather than across the header.
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = ARTIST_CONTENT_GUTTER, end = ARTIST_CONTENT_GUTTER, bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        horizontalAlignment = Alignment.Start,
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         // YouTube's own count text already reads "1.2M subscribers" in full,
         // so only the number is kept and the label re-said in the app's own
@@ -1877,21 +1880,23 @@ private fun StatChip(icon: ImageVector, text: String, palette: ArtworkPalette) {
         modifier = Modifier
             .lightweightLiquidGlass(
                 shape = CircleShape,
-                fallbackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                fallbackColor = palette.onBackground.copy(alpha = 0.08f),
             )
+            .border(0.5.dp, palette.onBackground.copy(alpha = 0.14f), CircleShape)
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = palette.onBackgroundVariant,
+            tint = palette.accent,
             modifier = Modifier.size(15.dp),
         )
         Spacer(Modifier.width(6.dp))
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
-            color = palette.onBackgroundVariant,
+            fontWeight = FontWeight.Medium,
+            color = palette.onBackground,
         )
     }
 }
@@ -1974,6 +1979,74 @@ private fun AboutSignature(
                 .aspectRatio(aspect),
         )
         if (loaded) SignedByCaption(name = name, palette = palette, textAlign = TextAlign.Start)
+    }
+}
+
+/**
+ * The artist page's "About the artist" section enclosed within a clean card at the bottom of the page.
+ */
+@Composable
+private fun ArtistAboutCard(
+    title: String,
+    text: String?,
+    stats: (@Composable () -> Unit)?,
+    footer: (@Composable () -> Unit)?,
+    palette: ArtworkPalette,
+    modifier: Modifier = Modifier,
+) {
+    val shape = remember { RoundedCornerShape(20.dp).continuous() }
+    var expanded by remember(text) { mutableStateOf(false) }
+    var clipped by remember(text) { mutableStateOf(false) }
+
+    Column(
+        modifier = modifier
+            .clip(shape)
+            .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), shape)
+            .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), shape)
+            .padding(20.dp),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = palette.onBackground,
+        )
+
+        if (stats != null) {
+            Spacer(Modifier.height(14.dp))
+            stats()
+        }
+
+        if (text != null) {
+            Spacer(Modifier.height(if (stats != null) 14.dp else 12.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = palette.onBackgroundVariant,
+                lineHeight = 22.sp,
+                maxLines = if (expanded) Int.MAX_VALUE else 3,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { result -> if (!expanded) clipped = result.hasVisualOverflow },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize()
+                    .let { m -> if (clipped || expanded) m.clickable { expanded = !expanded } else m },
+            )
+            if (clipped || expanded) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = stringResource(if (expanded) R.string.less else R.string.more),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = palette.accent,
+                    modifier = Modifier
+                        .clickable { expanded = !expanded }
+                        .padding(vertical = 4.dp),
+                )
+            }
+        }
+
+        footer?.invoke()
     }
 }
 
