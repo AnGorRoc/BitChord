@@ -5,8 +5,6 @@ import com.music.bitchord.data.AppleCatalogue
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.model.DetailPage
 import com.music.bitchord.data.model.UiState
-import androidx.compose.ui.graphics.Color
-import com.music.bitchord.ui.theme.ArtworkKeyColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,8 +38,7 @@ data class AppleArtistArt(
     val keyColor: Int?,
 )
 
-/** Apple's colours for this artist, in the form the palette takes. */
-fun AppleArtistArt.keyColors() = ArtworkKeyColors(Color(background), Color(accent))
+
 
 /**
  * Finds [AppleArtistArt] from nothing but an artist's name.

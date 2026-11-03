@@ -76,6 +76,8 @@ data class ArtworkPalette(
 @Immutable
 data class ArtworkKeyColors(val background: Color, val accent: Color)
 
+fun com.music.bitchord.data.canvas.AppleArtistArt.keyColors() = ArtworkKeyColors(Color(background), Color(accent))
+
 /**
  * Pulls [ArtworkPalette] out of the artwork at [imageUrl], or out of
  * [keyColors] when the source already supplied them and there is nothing to

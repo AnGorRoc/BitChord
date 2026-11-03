@@ -55,6 +55,37 @@ internal object DesktopPlayerHost : PlayerHost {
 
     override val settings: DesktopPlayerSettings = DesktopPlayerSettings
 
+    override val lyricsShareAvailable: Boolean get() = true
+
+    @Composable
+    override fun LyricsShareSheet(
+        hazeState: dev.chrisbanes.haze.HazeState,
+        request: com.music.bitchord.ui.player.LyricsShareRequest,
+        onDismiss: () -> Unit,
+    ) {
+        DesktopLyricsShareDialog(request = request, onDismiss = onDismiss)
+    }
+
+    override val musicVideoSupported: Boolean get() = true
+    override val musicVideoAspect: StateFlow<Float> get() = DesktopMusicVideoEngine.aspect
+    override val musicVideoQuality: StateFlow<com.music.bitchord.ui.player.MusicVideoQualityUi> get() = DesktopMusicVideoEngine.quality
+    override fun setMusicVideoQuality(height: Int?) = DesktopMusicVideoEngine.setQuality(height)
+
+    @Composable
+    override fun MusicVideo(
+        videoId: String,
+        fit: Boolean,
+        onRenderedChanged: (Boolean) -> Unit,
+        modifier: Modifier,
+    ) {
+        DesktopMusicVideoView(
+            videoId = videoId,
+            fit = fit,
+            onRenderedChanged = onRenderedChanged,
+            modifier = modifier,
+        )
+    }
+
     override fun cachedCanvas(song: Song): CanvasArtwork? = DesktopCanvasClient.cached(song)?.toShared()
 
     override suspend fun canvasFor(song: Song): CanvasArtwork? =

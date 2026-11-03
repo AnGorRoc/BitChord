@@ -35,7 +35,34 @@ class DesktopPersistence {
             com.music.bitchord.data.stats.ArtistFacts.replayGenresEnabledProvider = { true }
             com.music.bitchord.data.stats.ArtistFacts.init(baseDir.resolve("artist_facts").toFile())
         } catch (_: Throwable) {}
+        try {
+            com.music.bitchord.data.lyrics.PaxSenix.apiKey = paxSenixApiKey()
+        } catch (_: Throwable) {}
     }
+
+    fun artistSignaturesEnabled(): Boolean = boolean("artist_signatures_enabled", false)
+    fun saveArtistSignaturesEnabled(enabled: Boolean) = saveBoolean("artist_signatures_enabled", enabled)
+
+    fun artistSignaturesApiEndpoint(): String = string("artist_signatures_api_endpoint", "")
+    fun saveArtistSignaturesApiEndpoint(url: String) = saveString("artist_signatures_api_endpoint", url.trim())
+
+    fun prioritizeSpotifyCanvas(): Boolean = boolean("prioritize_spotify_canvas", false)
+    fun savePrioritizeSpotifyCanvas(enabled: Boolean) = saveBoolean("prioritize_spotify_canvas", enabled)
+
+    fun spotifyCanvasAutoHide(): Boolean = boolean("spotify_canvas_auto_hide", true)
+    fun saveSpotifyCanvasAutoHide(enabled: Boolean) = saveBoolean("spotify_canvas_auto_hide", enabled)
+
+    fun paxSenixApiKey(): String = string("paxsenix_api_key", "")
+    fun savePaxSenixApiKey(key: String) {
+        saveString("paxsenix_api_key", key.trim())
+        com.music.bitchord.data.lyrics.PaxSenix.apiKey = key.trim()
+    }
+
+    fun prioritizeSyllableSync(): Boolean = boolean("prioritize_syllable_sync", true)
+    fun savePrioritizeSyllableSync(enabled: Boolean) = saveBoolean("prioritize_syllable_sync", enabled)
+
+    fun lyricAboveScrubber(): Boolean = boolean("lyric_above_scrubber", true)
+    fun saveLyricAboveScrubber(enabled: Boolean) = saveBoolean("lyric_above_scrubber", enabled)
 
     fun exportPrefs(): Map<String, Any?> = runCatching {
         preferences.keys().associateWith { k -> preferences.get(k, null) }

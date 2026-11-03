@@ -27,11 +27,10 @@ object PaxSenix {
     private val cachedAppleToken = AtomicReference<String?>(null)
 
     @Volatile
-    private var apiKey: String = ""
-
-    fun setApiKey(value: String) {
-        apiKey = normalizePaxSenixApiKey(value)
-    }
+    var apiKey: String = ""
+        set(value) {
+            field = normalizePaxSenixApiKey(value)
+        }
 
     /** The original keyless Apple Music provider used by the existing source id. */
     suspend fun lyrics(

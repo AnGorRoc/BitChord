@@ -173,6 +173,7 @@ import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.NorthWest
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Person
@@ -7940,6 +7941,133 @@ private fun DesktopSettingsScreen(
                             hideVolumeBar,
                             DesktopAppearanceSettings::setHideVolumeBar,
                         )
+
+                        var prioritizeCanvas by remember { mutableStateOf(DesktopPersistence().prioritizeSpotifyCanvas()) }
+                        SettingsToggle(
+                            "Prioritize Spotify Canvas",
+                            "Show looping video canvas over artist backdrops when available",
+                            prioritizeCanvas,
+                            {
+                                prioritizeCanvas = it
+                                DesktopPersistence().savePrioritizeSpotifyCanvas(it)
+                            },
+                        )
+
+                        var autoHideCanvas by remember { mutableStateOf(DesktopPersistence().spotifyCanvasAutoHide()) }
+                        SettingsToggle(
+                            "Auto-hide Canvas on Pause",
+                            "Hide canvas video and restore album artwork when playback is paused",
+                            autoHideCanvas,
+                            {
+                                autoHideCanvas = it
+                                DesktopPersistence().saveSpotifyCanvasAutoHide(it)
+                            },
+                        )
+
+                        var prioritizeSyllables by remember { mutableStateOf(DesktopPersistence().prioritizeSyllableSync()) }
+                        SettingsToggle(
+                            "Prioritize syllable-synced lyrics",
+                            "Prefer word-by-word and karaoke timestamps over full-line timings",
+                            prioritizeSyllables,
+                            {
+                                prioritizeSyllables = it
+                                DesktopPersistence().savePrioritizeSyllableSync(it)
+                            },
+                        )
+
+                        var signaturesEnabled by remember { mutableStateOf(DesktopPersistence().artistSignaturesEnabled()) }
+                        var signaturesUrl by remember { mutableStateOf(DesktopPersistence().artistSignaturesApiEndpoint()) }
+                        var editingSignaturesUrl by remember { mutableStateOf(false) }
+
+                        SettingsToggle(
+                            "Artist signatures",
+                            if (signaturesUrl.isNotBlank()) "Handwritten signatures enabled ($signaturesUrl)" else "Show handwritten artist signatures from custom API",
+                            signaturesEnabled,
+                            {
+                                signaturesEnabled = it
+                                DesktopPersistence().saveArtistSignaturesEnabled(it)
+                            },
+                        )
+                        if (signaturesEnabled) {
+                            SettingsRow(
+                                Icons.Rounded.Edit,
+                                "Signatures API URL",
+                                signaturesUrl.ifBlank { "Set custom artist-signature API endpoint" },
+                            ) {
+                                editingSignaturesUrl = true
+                            }
+                        }
+
+                        var paxKey by remember { mutableStateOf(DesktopPersistence().paxSenixApiKey()) }
+                        var editingPaxKey by remember { mutableStateOf(false) }
+
+                        SettingsRow(
+                            Icons.Rounded.Lock,
+                            "PaxSenix API Key",
+                            if (paxKey.isNotBlank()) "Key configured (••••••••)" else "Not configured (optional for PaxSenix Spotify / Musixmatch)",
+                        ) {
+                            editingPaxKey = true
+                        }
+
+                        if (editingSignaturesUrl) {
+                            var draftUrl by remember { mutableStateOf(signaturesUrl) }
+                            AlertDialog(
+                                onDismissRequest = { editingSignaturesUrl = false },
+                                title = { Text("Artist Signatures API") },
+                                text = {
+                                    Column {
+                                        Text("Enter your custom artist-signature API URL:")
+                                        Spacer(Modifier.height(8.dp))
+                                        OutlinedTextField(
+                                            value = draftUrl,
+                                            onValueChange = { draftUrl = it },
+                                            singleLine = true,
+                                            placeholder = { Text("https://...") },
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = {
+                                        signaturesUrl = draftUrl.trim()
+                                        DesktopPersistence().saveArtistSignaturesApiEndpoint(draftUrl)
+                                        editingSignaturesUrl = false
+                                    }) { Text("Save") }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { editingSignaturesUrl = false }) { Text("Cancel") }
+                                },
+                            )
+                        }
+
+                        if (editingPaxKey) {
+                            var draftKey by remember { mutableStateOf(paxKey) }
+                            AlertDialog(
+                                onDismissRequest = { editingPaxKey = false },
+                                title = { Text("PaxSenix API Key") },
+                                text = {
+                                    Column {
+                                        Text("Enter your PaxSenix API token for Spotify & Musixmatch lyrics:")
+                                        Spacer(Modifier.height(8.dp))
+                                        OutlinedTextField(
+                                            value = draftKey,
+                                            onValueChange = { draftKey = it },
+                                            singleLine = true,
+                                            placeholder = { Text("Token...") },
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = {
+                                        paxKey = draftKey.trim()
+                                        DesktopPersistence().savePaxSenixApiKey(draftKey)
+                                        editingPaxKey = false
+                                    }) { Text("Save") }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { editingPaxKey = false }) { Text("Cancel") }
+                                },
+                            )
+                        }
                     }
                 }
 
