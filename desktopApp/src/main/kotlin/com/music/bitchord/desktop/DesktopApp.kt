@@ -4703,6 +4703,46 @@ private fun DesktopTopBar(
 }
 
 /**
+ * BotÃ³n para la cÃ¡psula del reproductor: sin fondo/halo gris al hacer hover,
+ * con respuesta limpia de opacidad y clic sin indicaciÃ³n gris.
+ */
+@Composable
+private fun DesktopCapsuleButton(
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    size: Dp = 32.dp,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val alpha by animateFloatAsState(
+        targetValue = when {
+            !enabled -> 0.35f
+            hovered -> 1f
+            else -> 0.85f
+        },
+        animationSpec = tween(120),
+        label = "capsuleButtonAlpha",
+    )
+    Box(
+        modifier
+            .size(size)
+            .clip(CircleShape)
+            .clickable(
+                enabled = enabled,
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            )
+            .graphicsLayer { this.alpha = alpha },
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
+    }
+}
+
+/**
  * Apple Music's player on a wide window: no bar across the top, just a floating capsule at the
  * foot of the page carrying transport, the now-playing card and the utilities.
  */
@@ -4727,7 +4767,7 @@ private fun DesktopPlayerCapsule(
     onOpenLyrics: () -> Unit,
     onOpenQueue: () -> Unit,
     sidePanel: DesktopSidePanel?,
-    onOpenSongMenu: ((Song) -> Unit)? = null,
+    songContextMenu: (@Composable (Song, onDismiss: () -> Unit) -> Unit)? = null,
 ) {
     val currentProgress by rememberUpdatedState(progress)
     val shape = RoundedCornerShape(percent = 50)
@@ -4741,24 +4781,24 @@ private fun DesktopPlayerCapsule(
         Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        val showTransportExtras = maxWidth >= 580.dp
+        val showTransportExtras = maxWidth >= 540.dp
         Row(
             Modifier
-                .widthIn(max = 920.dp)
+                .widthIn(max = 660.dp)
                 .fillMaxWidth()
                 .height(54.dp)
                 .clip(shape)
                 .desktopBarGlass(shape)
                 .border(1.dp, Color.White.copy(alpha = 0.10f), shape)
-                .padding(horizontal = 14.dp),
+                .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Transport controls (Left)
             if (showTransportExtras) {
-                DesktopToolbarButton(
+                DesktopCapsuleButton(
                     onClick = { onShuffleChange(!shuffle) },
                     enabled = song != null,
-                    size = 32.dp,
+                    size = 30.dp,
                 ) {
                     Icon(
                         BitChordIcons.Shuffle,
@@ -4768,26 +4808,26 @@ private fun DesktopPlayerCapsule(
                             shuffle -> DesktopAccent
                             else -> activeSecondaryColor
                         },
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(17.dp),
                     )
                 }
             }
-            DesktopToolbarButton(
+            DesktopCapsuleButton(
                 onClick = onPrevious,
                 enabled = song != null && previousEnabled,
-                size = 34.dp,
+                size = 32.dp,
             ) {
                 Icon(
                     Icons.Rounded.FastRewind,
                     DesktopStrings["widget_previous", "Previous"],
                     tint = if (song != null && previousEnabled) Color.White else inactiveColor,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             }
-            DesktopToolbarButton(
+            DesktopCapsuleButton(
                 onClick = onPlayPause,
                 enabled = song != null,
-                size = 38.dp,
+                size = 36.dp,
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
@@ -4800,27 +4840,27 @@ private fun DesktopPlayerCapsule(
                         if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         if (isPlaying) "Pause" else "Play",
                         tint = if (song != null) Color.White else inactiveColor,
-                        modifier = Modifier.size(26.dp),
+                        modifier = Modifier.size(24.dp),
                     )
                 }
             }
-            DesktopToolbarButton(
+            DesktopCapsuleButton(
                 onClick = onNext,
                 enabled = song != null,
-                size = 34.dp,
+                size = 32.dp,
             ) {
                 Icon(
                     Icons.Rounded.FastForward,
                     DesktopStrings["widget_next", "Next"],
                     tint = if (song != null) Color.White else inactiveColor,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             }
             if (showTransportExtras) {
-                DesktopToolbarButton(
+                DesktopCapsuleButton(
                     onClick = { onRepeatModeChange(repeatMode.next()) },
                     enabled = song != null,
-                    size = 32.dp,
+                    size = 30.dp,
                 ) {
                     val tint = when {
                         song == null -> inactiveColor
@@ -4840,17 +4880,17 @@ private fun DesktopPlayerCapsule(
                             BitChordIcons.Repeat,
                             "Repeat ${repeatMode.label()}",
                             tint = tint,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(17.dp),
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(8.dp))
 
             // Center: Now Playing / Logo
             if (song == null) {
-                // Inactive state (Image 2): Centered subtle brand mark
+                // Inactive state: Centered subtle brand mark
                 Box(
                     Modifier
                         .weight(1f)
@@ -4865,16 +4905,18 @@ private fun DesktopPlayerCapsule(
                     )
                 }
             } else {
-                // Active playing state (Image 1): Artwork + Progress bar underneath + Title / Artist + 'Â·Â·Â·'
+                // Active playing state: Artwork + Scrubber + Title / Artist filling space + 'Â·Â·Â·' always on the right
                 Row(
                     Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(onClick = onOpenNowPlaying)
-                        .padding(horizontal = 8.dp),
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onOpenNowPlaying,
+                        )
+                        .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
                 ) {
                     // Artwork with progress bar directly beneath
                     Column(
@@ -4906,9 +4948,9 @@ private fun DesktopPlayerCapsule(
 
                     Spacer(Modifier.width(10.dp))
 
-                    // Title and Artist - Album
+                    // Title and Artist - Album occupying all available free space
                     Column(
-                        Modifier.widthIn(max = 280.dp),
+                        Modifier.weight(1f),
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Text(
@@ -4933,29 +4975,35 @@ private fun DesktopPlayerCapsule(
                         )
                     }
 
-                    // Context menu button 'Â·Â·Â·'
+                    // Context menu button 'Â·Â·Â·' always on the right side of the track area
                     Spacer(Modifier.width(6.dp))
-                    DesktopToolbarButton(
-                        onClick = { onOpenSongMenu?.invoke(song) },
-                        size = 28.dp,
-                    ) {
-                        Icon(
-                            Icons.Rounded.MoreHoriz,
-                            DesktopStrings["more", "More"],
-                            tint = activeSecondaryColor,
-                            modifier = Modifier.size(18.dp),
-                        )
+                    Box {
+                        var menuOpen by remember(song.videoId) { mutableStateOf(false) }
+                        DesktopCapsuleButton(
+                            onClick = { menuOpen = true },
+                            size = 28.dp,
+                        ) {
+                            Icon(
+                                Icons.Rounded.MoreHoriz,
+                                DesktopStrings["more", "More"],
+                                tint = activeSecondaryColor,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                        if (menuOpen && songContextMenu != null) {
+                            songContextMenu(song) { menuOpen = false }
+                        }
                     }
                 }
             }
 
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(8.dp))
 
             // Right side buttons: [Lyrics] [Queue] [Volume]
-            DesktopToolbarButton(
+            DesktopCapsuleButton(
                 onClick = onOpenLyrics,
                 enabled = song != null,
-                size = 32.dp,
+                size = 30.dp,
             ) {
                 Icon(
                     BitChordIcons.LyricsQuote,
@@ -4968,9 +5016,9 @@ private fun DesktopPlayerCapsule(
                     modifier = Modifier.size(18.dp),
                 )
             }
-            DesktopToolbarButton(
+            DesktopCapsuleButton(
                 onClick = onOpenQueue,
-                size = 32.dp,
+                size = 30.dp,
             ) {
                 Icon(
                     BitChordIcons.Queue,
@@ -4984,7 +5032,7 @@ private fun DesktopPlayerCapsule(
                 )
             }
 
-            // Volume control with expandable hover slider
+            // Volume control with expandable hover slider without gray wash
             Row(
                 Modifier.hoverable(volumeInteraction),
                 verticalAlignment = Alignment.CenterVertically,
@@ -5002,7 +5050,7 @@ private fun DesktopPlayerCapsule(
                         modifier = Modifier.width(68.dp).padding(end = 4.dp),
                     )
                 }
-                DesktopToolbarButton(
+                DesktopCapsuleButton(
                     onClick = {
                         if (volume > 0f) {
                             onVolumeChange(0f)
@@ -5010,7 +5058,7 @@ private fun DesktopPlayerCapsule(
                             onVolumeChange(0.8f)
                         }
                     },
-                    size = 32.dp,
+                    size = 30.dp,
                 ) {
                     val volumeIcon = when {
                         volume <= 0.001f -> Icons.AutoMirrored.Rounded.VolumeOff
@@ -5021,13 +5069,14 @@ private fun DesktopPlayerCapsule(
                         volumeIcon,
                         DesktopStrings["d_volume", "Volume"],
                         tint = if (song == null && volume <= 0f) inactiveColor else activeSecondaryColor,
-                        modifier = Modifier.size(19.dp),
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
         }
     }
 }
+
 @Composable
 internal fun DesktopToolbarButton(
     onClick: () -> Unit,
