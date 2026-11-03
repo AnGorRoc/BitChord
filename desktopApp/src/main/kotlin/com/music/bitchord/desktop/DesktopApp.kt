@@ -2195,7 +2195,7 @@ fun BitChordDesktopApp() {
         }
     }
     LaunchedEffect(statsRevision) {
-        replaySummary = withContext(Dispatchers.IO) { DesktopListeningStats.summary(replayPeriod) }
+        replaySummary = withContext(Dispatchers.IO) { DesktopListeningStats.loadSummary(replayPeriod) }
     }
     DisposableEffect(playbackEngine) {
         onDispose { playbackEngine.release() }
@@ -2929,7 +2929,7 @@ fun BitChordDesktopApp() {
 
     // The charts are period-filtered at read time, so a different period is a different read.
     LaunchedEffect(replayPeriod) {
-        replaySummary = withContext(Dispatchers.IO) { DesktopListeningStats.summary(replayPeriod) }
+        replaySummary = withContext(Dispatchers.IO) { DesktopListeningStats.loadSummary(replayPeriod) }
     }
 
     // Re-scanned when the filter or the folder changes, never on first composition.
@@ -7866,6 +7866,42 @@ private fun DesktopSettingsScreen(
                             icon = Icons.Rounded.BarChart,
                             onClick = onOpenReplay,
                         )
+                        var backupStatus by remember { mutableStateOf<String?>(null) }
+                        val coroutineScope = rememberCoroutineScope()
+
+                        SettingsRow(
+                            Icons.Rounded.Cloud,
+                            DesktopStrings["export_data", "Export backup"],
+                            backupStatus ?: DesktopStrings["export_data_desc", "Save listening history and settings to a BitChord backup file (.json)"],
+                        ) {
+                            coroutineScope.launch {
+                                val file = DesktopBackup.promptExportFile()
+                                if (file != null) {
+                                    DesktopBackup.exportToFile(file).fold(
+                                        onSuccess = { months -> backupStatus = "Exported $months months of listening" },
+                                        onFailure = { backupStatus = "Export failed: ${it.message}" },
+                                    )
+                                }
+                            }
+                        }
+
+                        SettingsRow(
+                            Icons.Rounded.Folder,
+                            DesktopStrings["import_data", "Restore backup"],
+                            DesktopStrings["import_data_desc", "Restore listening history and settings from a BitChord backup file"],
+                        ) {
+                            coroutineScope.launch {
+                                val file = DesktopBackup.promptImportFile()
+                                if (file != null) {
+                                    DesktopBackup.importFromFile(file).fold(
+                                        onSuccess = { summary ->
+                                            backupStatus = "Restored ${summary.months} months from ${summary.from}"
+                                        },
+                                        onFailure = { backupStatus = "Import failed: ${it.message}" },
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 

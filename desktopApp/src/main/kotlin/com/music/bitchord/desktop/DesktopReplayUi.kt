@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,6 +81,27 @@ internal fun DesktopReplayPage(
     onOpenArtist: (String) -> Unit,
     contentPadding: PaddingValues,
 ) {
+    var showStories by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    if (showStories && !summary.isEmpty) {
+        DesktopReplayStoriesDialog(
+            summary = summary,
+            holder = holder,
+            memberSince = summary.memberSince(),
+            onDismiss = { showStories = false },
+            onPlaySong = onPlaySong,
+            onSharePoster = {
+                val poster = DesktopReplayPoster.renderPoster(summary, holder, summary.memberSince())
+                val target = DesktopReplayPoster.promptSaveFile(suggestedName = "bitchord-replay-${summary.period.name.lowercase()}.png")
+                if (target != null) {
+                    DesktopReplayPoster.saveToFile(poster, target)
+                } else {
+                    DesktopReplayPoster.copyToClipboard(poster)
+                }
+            },
+        )
+    }
+
     // The mesh behind this page is painted by the frame, so the chrome is tinted by it too.
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
@@ -102,7 +124,71 @@ internal fun DesktopReplayPage(
                             color = Color.White.copy(alpha = 0.6f),
                         )
                         Spacer(Modifier.height(14.dp))
-                        PeriodPicker(period, onPeriodChange)
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            PeriodPicker(period, onPeriodChange)
+
+                            if (!summary.isEmpty) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        Modifier
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Color.White.copy(alpha = 0.12f))
+                                            .clickable { showStories = true }
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Icon(
+                                            androidx.compose.material.icons.Icons.Rounded.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            "Stories",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                        )
+                                    }
+
+                                    Row(
+                                        Modifier
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Color.White.copy(alpha = 0.12f))
+                                            .clickable {
+                                                val poster = DesktopReplayPoster.renderPoster(summary, holder, summary.memberSince())
+                                                val target = DesktopReplayPoster.promptSaveFile(suggestedName = "bitchord-replay-${summary.period.name.lowercase()}.png")
+                                                if (target != null) {
+                                                    DesktopReplayPoster.saveToFile(poster, target)
+                                                } else {
+                                                    DesktopReplayPoster.copyToClipboard(poster)
+                                                }
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Icon(
+                                            androidx.compose.material.icons.Icons.Rounded.Schedule,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            "Poster",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         Spacer(Modifier.height(18.dp))
                     }
                 }
@@ -149,6 +235,15 @@ internal fun DesktopReplayPage(
                 rows = summary.albumRows(CHART_LENGTH),
                 onClick = {},
             )
+
+            if (summary.genres.isNotEmpty()) {
+                chart(
+                    key = "genres",
+                    title = "Top Genres",
+                    rows = summary.genreRows(CHART_LENGTH),
+                    onClick = {},
+                )
+            }
 
             item("habits") { Habits(summary) }
             item("tail") { Spacer(Modifier.height(32.dp)) }
@@ -445,6 +540,9 @@ internal fun DesktopReplaySummary.songRows(limit: Int): List<DesktopReplayRow> =
 
 internal fun DesktopReplaySummary.artistRows(limit: Int): List<DesktopReplayRow> =
     artists.take(limit).mapIndexed { index, entry -> entry.toRow(index) }
+
+internal fun DesktopReplaySummary.genreRows(limit: Int): List<DesktopReplayRow> =
+    genres.take(limit).mapIndexed { index, entry -> entry.toRow(index) }
 
 internal fun DesktopReplaySummary.albumRows(limit: Int): List<DesktopReplayRow> =
     albums.take(limit).mapIndexed { index, entry -> entry.toRow(index) }

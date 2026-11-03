@@ -179,7 +179,11 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         // both live in this process — one owner, one directory.
         ListeningStats.init(this)
         // After AppSettings, whose switch decides whether half of it runs.
+        ArtistFacts.apiKeyProvider = { BuildConfig.LASTFM_API_KEY }
+        ArtistFacts.replayGenresEnabledProvider = { com.music.bitchord.data.settings.AppSettings.replayGenres.value }
+        ArtistFacts.userAgentProvider = { "BitChord/${BuildConfig.VERSION_NAME}" }
         ArtistFacts.init(this)
+        com.music.bitchord.data.stats.initAndroidBackup()
         // One cache directory can only be opened once per process, and
         // PlaybackService shares this one — so it's opened here, not there.
         AudioCache.init(this)

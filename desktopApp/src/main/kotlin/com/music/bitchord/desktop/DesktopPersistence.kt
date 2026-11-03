@@ -24,6 +24,29 @@ class DesktopPersistence {
             write = { saveString("tidal_manual_json", it) },
         )
         syncNetworkAuth()
+        try {
+            val baseDir = DesktopMediaCache.directory.parent
+            com.music.bitchord.data.stats.ListeningStats.init(baseDir.resolve("listening").toFile())
+            com.music.bitchord.data.stats.ArtistFacts.apiKeyProvider = {
+                string("lastfm_api_key", "").ifBlank {
+                    System.getenv("BITCHORD_LASTFM_API_KEY") ?: ""
+                }
+            }
+            com.music.bitchord.data.stats.ArtistFacts.replayGenresEnabledProvider = { true }
+            com.music.bitchord.data.stats.ArtistFacts.init(baseDir.resolve("artist_facts").toFile())
+        } catch (_: Throwable) {}
+    }
+
+    fun exportPrefs(): Map<String, Any?> = runCatching {
+        preferences.keys().associateWith { k -> preferences.get(k, null) }
+    }.getOrDefault(emptyMap())
+
+    fun importPrefs(values: Map<String, Any?>) {
+        values.forEach { (k, v) ->
+            if (v != null) {
+                preferences.put(k, v.toString())
+            }
+        }
     }
 
     fun likedIds(): Set<String> = readLines(KEY_LIKED_IDS).toSet()

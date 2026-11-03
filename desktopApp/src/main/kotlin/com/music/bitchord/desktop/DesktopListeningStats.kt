@@ -29,12 +29,28 @@ data class DesktopRankedEntry(
 
 /** The stretches a Replay can cover. Months and years, because that is how the listening is kept. */
 enum class DesktopReplayPeriod(val chip: String) {
+    THIS_WEEK("This week"),
     THIS_MONTH("This month"),
     THIS_YEAR("This year"),
     ALL_TIME("All time"),
     ;
 
+    fun toShared(): com.music.bitchord.data.stats.ReplayPeriod = when (this) {
+        THIS_WEEK -> com.music.bitchord.data.stats.ReplayPeriod.THIS_WEEK
+        THIS_MONTH -> com.music.bitchord.data.stats.ReplayPeriod.THIS_MONTH
+        THIS_YEAR -> com.music.bitchord.data.stats.ReplayPeriod.THIS_YEAR
+        ALL_TIME -> com.music.bitchord.data.stats.ReplayPeriod.ALL_TIME
+    }
+
     fun covers(month: String, today: LocalDate): Boolean = when (this) {
+        THIS_WEEK -> {
+            val monday = today.minusDays(((today.dayOfWeek.value + 6) % 7).toLong())
+            val sunday = monday.plusDays(6)
+            val m = runCatching { YearMonth.parse(month) }.getOrNull() ?: return false
+            val start = m.atDay(1)
+            val end = m.atEndOfMonth()
+            !(end < monday || start > sunday)
+        }
         // Anything migrated from the store that predates monthly buckets.
         THIS_MONTH -> month == YearMonth.from(today).toString()
         THIS_YEAR -> month.startsWith("${today.year}-")
@@ -50,6 +66,7 @@ data class DesktopReplaySummary(
     val songs: List<DesktopReplayEntry> = emptyList(),
     val artists: List<DesktopRankedEntry> = emptyList(),
     val albums: List<DesktopRankedEntry> = emptyList(),
+    val genres: List<DesktopRankedEntry> = emptyList(),
     val hourOfDay: List<Long> = List(24) { 0L },
     /** `YYYY-MM-DD` of the day with the most listening. */
     val busiestDay: String? = null,
@@ -91,6 +108,9 @@ object DesktopListeningStats {
 
     fun record(song: Song, playedMs: Long, countsAsPlay: Boolean) {
         if (song.videoId.isBlank() || (playedMs <= 0L && !countsAsPlay)) return
+        runCatching {
+            com.music.bitchord.data.stats.ListeningStats.record(song, playedMs, countsAsPlay)
+        }
         val at = Instant.now().atZone(ZoneId.systemDefault())
         synchronized(lock) {
             val buckets = read().associateByTo(LinkedHashMap(), Bucket::month)
@@ -108,6 +128,71 @@ object DesktopListeningStats {
             bucket.days[day] = (bucket.days[day] ?: 0L) + added
             write(buckets.values.toList())
         }
+    }
+
+    suspend fun loadSummary(period: DesktopReplayPeriod): DesktopReplaySummary =
+        runCatching {
+            val shared = com.music.bitchord.data.stats.ListeningStats.summary(period.toShared())
+            fromShared(shared, period)
+        }.getOrElse {
+            summary(period)
+        }
+
+    fun fromShared(shared: com.music.bitchord.data.stats.ReplaySummary, period: DesktopReplayPeriod): DesktopReplaySummary {
+        val songs = shared.songs.map { entry ->
+            DesktopReplayEntry(
+                song = entry.song,
+                listenedMs = entry.ms,
+                plays = entry.plays,
+            )
+        }
+        val artists = shared.artists.map { entry ->
+            DesktopRankedEntry(
+                title = entry.title,
+                subtitle = entry.subtitle,
+                artworkUrl = entry.artworkUrl,
+                browseId = entry.browseId,
+                ms = entry.ms,
+                plays = entry.plays,
+            )
+        }
+        val albums = shared.albums.map { entry ->
+            DesktopRankedEntry(
+                title = entry.title,
+                subtitle = entry.subtitle,
+                artworkUrl = entry.artworkUrl,
+                browseId = entry.browseId,
+                ms = entry.ms,
+                plays = entry.plays,
+            )
+        }
+        val genres = shared.genres.map { entry ->
+            DesktopRankedEntry(
+                title = entry.title,
+                subtitle = entry.subtitle,
+                artworkUrl = entry.artworkUrl,
+                browseId = entry.browseId,
+                ms = entry.ms,
+                plays = entry.plays,
+            )
+        }
+        return DesktopReplaySummary(
+            period = period,
+            label = shared.label.ifBlank { period.chip },
+            totalMs = shared.totalMs,
+            totalPlays = shared.totalPlays,
+            songs = songs,
+            artists = artists,
+            albums = albums,
+            genres = genres,
+            hourOfDay = shared.hourOfDay,
+            busiestDay = shared.busiestDay,
+            busiestDayMs = shared.busiestDayMs,
+            distinctSongs = shared.distinctSongs,
+            distinctArtists = shared.distinctArtists,
+            distinctAlbums = shared.distinctAlbums,
+            since = shared.since,
+        )
     }
 
     fun summary(period: DesktopReplayPeriod = DesktopReplayPeriod.ALL_TIME): DesktopReplaySummary =
@@ -192,6 +277,7 @@ object DesktopListeningStats {
         .sortedByDescending(DesktopRankedEntry::ms)
 
     private fun labelFor(period: DesktopReplayPeriod, today: LocalDate): String = when (period) {
+        DesktopReplayPeriod.THIS_WEEK -> "This week"
         DesktopReplayPeriod.THIS_MONTH ->
             today.month.name.lowercase(Locale.ROOT).replaceFirstChar(Char::uppercase)
         DesktopReplayPeriod.THIS_YEAR -> today.year.toString()

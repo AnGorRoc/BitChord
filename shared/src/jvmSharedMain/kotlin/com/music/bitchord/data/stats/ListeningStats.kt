@@ -1,7 +1,5 @@
 package com.music.bitchord.data.stats
 
-import android.content.Context
-import android.util.Log
 import com.music.bitchord.data.model.Song
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -106,14 +104,28 @@ object ListeningStats {
         val summary: ReplaySummary,
     )
 
-    fun init(context: Context) {
-        directory = File(context.filesDir, DIRECTORY)
-        // Opening a month means reading and parsing it, and the first thing to
-        // ask for one is the playback sampler — on the main thread, a few
-        // seconds into the first track. Done here instead, it has happened long
-        // before anything is playing.
+    var logWarning: (String, Throwable?) -> Unit = { msg, tr ->
+        System.err.println("ListeningStats: " + msg)
+        tr?.printStackTrace()
+    }
+
+    fun init(baseDir: File) {
+        directory = baseDir
+        directory.mkdirs()
         writer.launch { synchronized(lock) { bucketFor(YearMonth.now()) } }
     }
+
+    fun init(context: Any) {
+        if (context is File) {
+            init(context)
+        } else {
+            val getFilesDir = context.javaClass.getMethod("getFilesDir")
+            val filesDir = getFilesDir.invoke(context) as File
+            init(File(filesDir, DIRECTORY))
+        }
+    }
+
+
 
     private val ready: Boolean get() = this::directory.isInitialized
 
@@ -287,7 +299,7 @@ object ListeningStats {
                 if (file.delete() && temporary.renameTo(file)) Unit else temporary.delete()
             }
             version++
-        }.onFailure { Log.w(TAG, "Could not write listening bucket $key", it) }
+        }.onFailure { logWarning( "Could not write listening bucket $key", it) }
     }
 
     /** The bucket for [month], loading or creating it and retiring the last one. */
@@ -365,7 +377,7 @@ object ListeningStats {
         val file = File(directory, "$key.json")
         if (!file.exists()) return null
         return runCatching { json.decodeFromString(StoredBucket.serializer(), file.readText()) }
-            .onFailure { Log.w(TAG, "Discarding unreadable listening bucket $key", it) }
+            .onFailure { logWarning( "Discarding unreadable listening bucket $key", it) }
             .getOrNull()
     }
 
@@ -456,7 +468,7 @@ object ListeningStats {
                 runCatching {
                     File(directory, "$key.json")
                         .writeText(json.encodeToString(StoredBucket.serializer(), bucket))
-                }.onFailure { Log.w(TAG, "Could not import bucket $key", it) }
+                }.onFailure { logWarning( "Could not import bucket $key", it) }
             }
         }
     }
@@ -819,7 +831,7 @@ object ListeningStats {
     )
 
     private const val TAG = "BitChordListening"
-    private const val DIRECTORY = "listening"
+    const val DIRECTORY = "listening"
 
     /** How far down the artist chart a page opening will send lookups for. */
     private const val ARTISTS_TO_RESOLVE = 15
@@ -1084,3 +1096,4 @@ data class ReplaySummary(
         .maxByOrNull { it.value }
         ?.index
 }
+

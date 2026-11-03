@@ -66,6 +66,25 @@ object TidalInstances {
     private var healthAt = 0L
     private val lock = Any()
 
+    fun init(context: Any) {
+        try {
+            val getSharedPreferences = context.javaClass.getMethod("getSharedPreferences", String::class.java, Int::class.javaPrimitiveType)
+            val prefs = getSharedPreferences.invoke(context, "bitchord_settings", 0)
+            val getString = prefs.javaClass.getMethod("getString", String::class.java, String::class.java)
+            val edit = prefs.javaClass.getMethod("edit")
+            init(
+                read = { getString.invoke(prefs, "tidal_instances_manual", null) as? String },
+                write = { value ->
+                    val editor = edit.invoke(prefs)
+                    val putString = editor.javaClass.getMethod("putString", String::class.java, String::class.java)
+                    putString.invoke(editor, "tidal_instances_manual", value)
+                    val apply = editor.javaClass.getMethod("apply")
+                    apply.invoke(editor)
+                }
+            )
+        } catch (_: Exception) {}
+    }
+
     fun init(read: () -> String?, write: (String) -> Unit) {
         synchronized(lock) {
             readStore = read

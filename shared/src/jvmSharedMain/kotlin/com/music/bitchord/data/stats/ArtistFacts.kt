@@ -1,14 +1,11 @@
 package com.music.bitchord.data.stats
 
-import android.content.Context
-import android.net.Uri
-import android.util.Log
-import com.music.bitchord.BuildConfig
+import java.net.URLEncoder
+
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
-import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -101,29 +98,44 @@ object ArtistFacts {
     private val _revision = MutableStateFlow(0)
     val revision: StateFlow<Int> = _revision.asStateFlow()
 
-    fun init(context: Context) {
-        file = File(context.filesDir, FILE_NAME)
+    fun init(baseDir: File) {
+        file = File(baseDir, FILE_NAME)
         scope.launch {
             load()
             worker()
         }
-        // Writes are on a timer rather than one per answer. The cache holds
-        // every artist ever played, so rewriting it after each lookup meant a
-        // few hundred kilobytes per artist during a backfill — for a file that
-        // is only read once, at launch.
         scope.launch {
             while (true) {
                 delay(SAVE_INTERVAL_MS)
-                save()
+                if (dirty) save()
             }
         }
     }
 
+    fun init(context: Any) {
+        if (context is File) {
+            init(context)
+        } else {
+            val getFilesDir = context.javaClass.getMethod("getFilesDir")
+            val filesDir = getFilesDir.invoke(context) as File
+            init(filesDir)
+        }
+    }
+
+
     private val ready: Boolean get() = this::file.isInitialized
+
+    var apiKeyProvider: () -> String = { "" }
+    var replayGenresEnabledProvider: () -> Boolean = { true }
+    var userAgentProvider: () -> String = { "BitChord/1.9.1" }
+    var logWarning: (String, Throwable?) -> Unit = { msg, tr ->
+        System.err.println("ArtistFacts: " + msg)
+        tr?.printStackTrace()
+    }
 
     /** Whether a genre chart can be drawn at all on this build and these settings. */
     val genresAvailable: Boolean
-        get() = AppSettings.replayGenres.value && BuildConfig.LASTFM_API_KEY.isNotBlank()
+        get() = replayGenresEnabledProvider() && apiKeyProvider().isNotBlank()
 
     // ── Reading ─────────────────────────────────────────────────────────────
     //
@@ -187,11 +199,11 @@ object ArtistFacts {
             val existing = known[key(name)]
             if (existing?.browseId == null) {
                 runCatching { fetchCard(name) }
-                    .onFailure { Log.w(TAG, "Artist lookup failed for $name", it) }
+                    .onFailure { logWarning( "Artist lookup failed for $name", it) }
             }
             if (genresAvailable && existing?.genres.isNullOrEmpty()) {
                 runCatching { fetchGenres(name) }
-                    .onFailure { Log.w(TAG, "Genre lookup failed for $name", it) }
+                    .onFailure { logWarning( "Genre lookup failed for $name", it) }
             }
             // Published straight away so an open Replay picks the answer up;
             // the disk copy follows on its own timer, above.
@@ -230,8 +242,8 @@ object ArtistFacts {
 
     private fun fetchGenres(name: String) {
         val url = "https://ws.audioscrobbler.com/2.0/?method=artist.gettoptags" +
-            "&artist=${Uri.encode(name)}" +
-            "&api_key=${Uri.encode(BuildConfig.LASTFM_API_KEY)}" +
+            "&artist=${URLEncoder.encode(name, "UTF-8")}" +
+            "&api_key=${URLEncoder.encode(apiKeyProvider(), "UTF-8")}" +
             "&autocorrect=1&format=json"
         val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
         val body = Http.client.newCall(request).execute().use { response ->
@@ -286,7 +298,7 @@ object ArtistFacts {
         }.onSuccess { stored ->
             stored.artists.forEach { known[it.key] = it }
         }.onFailure {
-            Log.w(TAG, "Discarding unreadable artist cache", it)
+            logWarning( "Discarding unreadable artist cache", it)
             file.delete()
         }
     }
@@ -301,7 +313,7 @@ object ArtistFacts {
                     .take(MAX_ARTISTS),
             )
             file.writeText(json.encodeToString(Stored.serializer(), stored))
-        }.onFailure { Log.w(TAG, "Could not write artist cache", it) }
+        }.onFailure { logWarning( "Could not write artist cache", it) }
     }
 
     @Serializable
@@ -319,7 +331,7 @@ object ArtistFacts {
 
     private const val TAG = "BitChordArtists"
     private const val FILE_NAME = "artist_facts.json"
-    private const val USER_AGENT = "BitChord/${BuildConfig.VERSION_NAME}"
+    private val USER_AGENT get() = userAgentProvider()
     private const val MAX_NAME_LENGTH = 120
     private const val MAX_GENRES_PER_ARTIST = 2
     private const val MAX_ARTISTS = 4_000
