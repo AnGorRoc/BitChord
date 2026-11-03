@@ -41,6 +41,9 @@ internal object DesktopWindowsFrame {
     @Volatile
     var snapLayoutsAllowed: Boolean = true
 
+    @Volatile
+    var isNowPlaying: Boolean = false
+
     private var fullscreenActive = false
     private var fullscreenStyle = 0
     private val fullscreenRect = WinDef.RECT()
@@ -116,43 +119,61 @@ internal object DesktopWindowsFrame {
                     WM_NCHITTEST -> {
                         val extra = User32Extra.INSTANCE
                         val zoomed = extra?.IsZoomed(hWnd) ?: false
-                        if (!zoomed && !fullscreenActive) {
+                        if (!fullscreenActive) {
                             val x = (lParam.toLong() and 0xFFFF).toShort().toInt()
                             val y = ((lParam.toLong() shr 16) and 0xFFFF).toShort().toInt()
                             val rect = WinDef.RECT()
                             User32.INSTANCE.GetWindowRect(hWnd, rect)
 
                             val dpi = runCatching { extra?.GetDpiForWindow(hWnd) }.getOrNull()?.takeIf { it > 0 } ?: 96
-                            val borderX = ((extra?.GetSystemMetricsForDpi(32 /* SM_CXFRAME */, dpi) ?: 8) +
-                                (extra?.GetSystemMetricsForDpi(92 /* SM_CXPADDEDBORDER */, dpi) ?: 0)).coerceAtLeast(6)
-                            val borderY = ((extra?.GetSystemMetricsForDpi(33 /* SM_CYFRAME */, dpi) ?: 8) +
-                                (extra?.GetSystemMetricsForDpi(92 /* SM_CXPADDEDBORDER */, dpi) ?: 0)).coerceAtLeast(6)
+                            val scale = dpi.toFloat() / 96f
 
-                            val left = x < rect.left + borderX
-                            val right = x >= rect.right - borderX
-                            val top = y < rect.top + borderY
-                            val bottom = y >= rect.bottom - borderY
+                            // Resize borders (only active when not maximized)
+                            if (!zoomed) {
+                                val borderX = ((extra?.GetSystemMetricsForDpi(32 /* SM_CXFRAME */, dpi) ?: 8) +
+                                    (extra?.GetSystemMetricsForDpi(92 /* SM_CXPADDEDBORDER */, dpi) ?: 0)).coerceAtLeast(6)
+                                val borderY = ((extra?.GetSystemMetricsForDpi(33 /* SM_CYFRAME */, dpi) ?: 8) +
+                                    (extra?.GetSystemMetricsForDpi(92 /* SM_CXPADDEDBORDER */, dpi) ?: 0)).coerceAtLeast(6)
 
-                            if (top && left) return@WindowProcCallback LRESULT(HTTOPLEFT.toLong())
-                            if (top && right) return@WindowProcCallback LRESULT(HTTOPRIGHT.toLong())
-                            if (bottom && left) return@WindowProcCallback LRESULT(HTBOTTOMLEFT.toLong())
-                            if (bottom && right) return@WindowProcCallback LRESULT(HTBOTTOMRIGHT.toLong())
-                            if (left) return@WindowProcCallback LRESULT(HTLEFT.toLong())
-                            if (right) return@WindowProcCallback LRESULT(HTRIGHT.toLong())
-                            if (top) return@WindowProcCallback LRESULT(HTTOP.toLong())
-                            if (bottom) return@WindowProcCallback LRESULT(HTBOTTOM.toLong())
+                                val left = x < rect.left + borderX
+                                val right = x >= rect.right - borderX
+                                val top = y < rect.top + borderY
+                                val bottom = y >= rect.bottom - borderY
 
-                            if (snapLayoutsAllowed) {
-                                val scale = dpi.toFloat() / 96f
-                                val btnWidth = (46f * scale).toInt()
-                                val captionHeight = (32f * scale).toInt()
-                                if (y in rect.top until (rect.top + captionHeight)) {
-                                    val maxLeft = rect.right - (btnWidth * 2)
-                                    val maxRight = rect.right - btnWidth
-                                    if (x in maxLeft until maxRight) {
-                                        return@WindowProcCallback LRESULT(HTMAXBUTTON.toLong())
+                                if (top && left) return@WindowProcCallback LRESULT(HTTOPLEFT.toLong())
+                                if (top && right) return@WindowProcCallback LRESULT(HTTOPRIGHT.toLong())
+                                if (bottom && left) return@WindowProcCallback LRESULT(HTBOTTOMLEFT.toLong())
+                                if (bottom && right) return@WindowProcCallback LRESULT(HTBOTTOMRIGHT.toLong())
+                                if (left) return@WindowProcCallback LRESULT(HTLEFT.toLong())
+                                if (right) return@WindowProcCallback LRESULT(HTRIGHT.toLong())
+                                if (top) return@WindowProcCallback LRESULT(HTTOP.toLong())
+                                if (bottom) return@WindowProcCallback LRESULT(HTBOTTOM.toLong())
+                            }
+
+                            // Caption / Title bar hit testing
+                            val captionHeight = (32f * scale).toInt()
+                            if (y in rect.top until (rect.top + captionHeight) && !isNowPlaying) {
+                                val actionButtonsWidth = (142f * scale).toInt()
+                                val inActionButtons = x >= rect.right - actionButtonsWidth
+
+                                if (inActionButtons) {
+                                    if (snapLayoutsAllowed) {
+                                        val maxLeft = rect.right - ((46f * 2) * scale).toInt()
+                                        val maxRight = rect.right - (46f * scale).toInt()
+                                        if (x in maxLeft until maxRight) {
+                                            return@WindowProcCallback LRESULT(HTMAXBUTTON.toLong())
+                                        }
                                     }
+                                    return@WindowProcCallback LRESULT(HTCLIENT.toLong())
                                 }
+
+                                // Sidebar back button: roughly 160dp to 215dp from left
+                                val inBackButton = x in (rect.left + (160f * scale).toInt()) until (rect.left + (215f * scale).toInt())
+                                if (inBackButton) {
+                                    return@WindowProcCallback LRESULT(HTCLIENT.toLong())
+                                }
+
+                                return@WindowProcCallback LRESULT(HTCAPTION.toLong())
                             }
                         }
                     }
@@ -179,6 +200,7 @@ internal object DesktopWindowsFrame {
                 SWP_FRAMECHANGED or SWP_NOMOVE or SWP_NOSIZE or SWP_NOZORDER or SWP_NOACTIVATE,
             )
 
+            DesktopTrackLog.log("DesktopWindowsFrame: successfully installed native frame on hwnd $hwnd")
             installed = true
             true
         }.getOrElse {
@@ -205,13 +227,7 @@ internal object DesktopWindowsFrame {
         val user32 = User32.INSTANCE
         val extra = User32Extra.INSTANCE
         extra?.ReleaseCapture()
-        user32.DefWindowProc(hwnd, WM_SYSCOMMAND, WPARAM(SC_DRAGMOVE.toLong()), LPARAM(0))
-        val point = WinDef.POINT()
-        if (user32.GetCursorPos(point)) {
-            extra?.ScreenToClient(hwnd, point)
-            val lparam = ((point.y and 0xFFFF) shl 16) or (point.x and 0xFFFF)
-            user32.PostMessage(hwnd, 0x0202 /* WM_LBUTTONUP */, WPARAM(0), LPARAM(lparam.toLong()))
-        }
+        user32.SendMessage(hwnd, WM_NCLBUTTONDOWN, WPARAM(HTCAPTION.toLong()), LPARAM(0))
         return true
     }
 
@@ -342,12 +358,11 @@ internal object DesktopWindowsFrame {
 
     private const val WM_NCCALCSIZE = 0x0083
     private const val WM_NCHITTEST = 0x0084
+    private const val WM_NCLBUTTONDOWN = 0x00A1
     private const val WM_NCDESTROY = 0x0082
-    private const val WM_SYSCOMMAND = 0x0112
 
-    private const val SC_MOVE = 0xF010
-    private const val SC_DRAGMOVE = SC_MOVE or 0x0002 // HTCAPTION
-
+    private const val HTCLIENT = 1
+    private const val HTCAPTION = 2
     private const val HTMAXBUTTON = 9
     private const val HTLEFT = 10
     private const val HTRIGHT = 11

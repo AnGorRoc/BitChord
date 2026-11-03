@@ -5098,6 +5098,7 @@ private fun DesktopSidebar(
                 Modifier.fillMaxSize().padding(start = 12.dp, end = 12.dp, top = if (DesktopPlatform.isMac && inlineCaption) 4.dp else 14.dp, bottom = 12.dp),
             ) {
                 // Apple Music opens its sidebar with the wordmark; here, the mark and the way back.
+                DesktopTitleBarDragArea(Modifier.fillMaxWidth()) {
                 Row(
                     Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 18.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -5124,6 +5125,7 @@ private fun DesktopSidebar(
                             modifier = Modifier.size(18.dp),
                         )
                     }
+                }
                 }
                 // Search is a destination like the others, as in Apple Music: the page carries its
                 // own field, so the sidebar has no box to type into.
@@ -5661,6 +5663,7 @@ private fun DesktopFrame(
                 SideEffect {
                     if (DesktopPlatform.isWindows) {
                         DesktopWindowsFrame.snapLayoutsAllowed = (!isNowPlaying || captionHovered)
+                        DesktopWindowsFrame.isNowPlaying = isNowPlaying
                     }
                 }
                 val targetAlpha = if (isNowPlaying) {
