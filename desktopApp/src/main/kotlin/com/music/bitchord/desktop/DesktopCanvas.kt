@@ -222,8 +222,11 @@ internal object DesktopCanvasCache {
         DesktopMediaCache.existing(url, "mp4")?.let { return it }
         return runCatching {
             val target = DesktopMediaCache.pathFor(url, "mp4")
+            val mediaUrl = if (isManifest(url)) resolveManifestToMp4(url) ?: url else url
+            if (isManifest(mediaUrl)) return null // Cannot download raw manifest file as MP4
+
             val response = client.send(
-                HttpRequest.newBuilder(URI.create(url))
+                HttpRequest.newBuilder(URI.create(mediaUrl))
                     .timeout(Duration.ofSeconds(30))
                     .header("User-Agent", DESKTOP_CANVAS_UA)
                     .header("Accept", "*/*")
@@ -238,6 +241,47 @@ internal object DesktopCanvasCache {
             target
         }.onFailure { DesktopTrackLog.log("canvas: could not fetch the clip — ${it.message}") }.getOrNull()
     }
+
+    /** Resolves an HLS manifest to a direct MP4 URL if available (e.g. Apple Music motion artwork). */
+    private fun resolveManifestToMp4(m3u8Url: String): String? = runCatching {
+        val request = HttpRequest.newBuilder(URI.create(m3u8Url))
+            .timeout(Duration.ofSeconds(10))
+            .header("User-Agent", DESKTOP_CANVAS_UA)
+            .GET()
+            .build()
+        val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+        if (response.statusCode() !in 200..299) return null
+        val text = response.body()
+
+        if (text.contains("#EXT-X-STREAM-INF:")) {
+            val variants = mutableListOf<Pair<Int, String>>()
+            val lines = text.lines()
+            for (i in lines.indices) {
+                val line = lines[i]
+                if (line.startsWith("#EXT-X-STREAM-INF:")) {
+                    val resMatch = Regex("""RESOLUTION=(\d+)x(\d+)""").find(line)
+                    val w = resMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val nextLine = lines.getOrNull(i + 1)?.trim().orEmpty()
+                    if (nextLine.isNotEmpty() && !nextLine.startsWith("#")) {
+                        val fullUri = URI.create(m3u8Url).resolve(nextLine).toString()
+                        variants.add(w to fullUri)
+                    }
+                }
+            }
+            if (variants.isNotEmpty()) {
+                variants.sortBy { kotlin.math.abs(it.first - 540) }
+                return resolveManifestToMp4(variants.first().second)
+            }
+        }
+
+        val mapMatch = Regex("""#EXT-X-MAP:URI="([^"]+)"""").find(text)
+        if (mapMatch != null) {
+            val mp4Rel = mapMatch.groupValues[1]
+            return URI.create(m3u8Url).resolve(mp4Rel).toString()
+        }
+
+        null
+    }.getOrNull()
 }
 
 /** The motion artwork, drawn as frames rather than played by a native child. */
@@ -254,61 +298,93 @@ fun DesktopCanvasView(
 
     LaunchedEffect(url, fallbackUrl, isPlaying) {
         if (!isPlaying) return@LaunchedEffect
-        // Round and round until the track ends or the player is closed. A canvas is a few seconds
-        // long, so one pass through it is not the feature — and the decoder cannot be relied on to
-        // rewind itself: its own seek does not take on an HLS manifest, which is what Apple serves,
-        // and the clip then stopped dead on its last frame for the rest of the song.
-        while (isActive) {
-            val decoder = DesktopCanvasDecoder()
-            val opened = withContext(Dispatchers.IO) {
-                var last: Result<Unit> = Result.failure(IllegalStateException("the clip could not be fetched"))
-                for (candidate in listOfNotNull(url, fallbackUrl)) {
-                    // A manifest names its segments relative to the host it came from, so saving the
-                    // playlist to disk and opening that leaves FFmpeg with nothing it can resolve.
-                    // Apple's motion artwork is HLS, which is how "could not open the clip" happened.
-                    val source = if (isManifest(candidate)) {
-                        candidate
-                    } else {
-                        DesktopCanvasCache.fileFor(candidate)?.toAbsolutePath()?.toString() ?: continue
-                    }
-                    last = decoder.open(source)
-                    if (last.isSuccess) break
-                }
-                last
+        val decoder = DesktopCanvasDecoder()
+        val opened = withContext(Dispatchers.IO) {
+            var last: Result<Unit> = Result.failure(IllegalStateException("the clip could not be fetched"))
+            for (candidate in listOfNotNull(url, fallbackUrl)) {
+                val source = DesktopCanvasCache.fileFor(candidate)?.toAbsolutePath()?.toString()
+                    ?: if (isManifest(candidate)) candidate else null
+                    ?: continue
+                last = decoder.open(source)
+                if (last.isSuccess) break
             }
-            if (opened.isFailure) {
-                DesktopTrackLog.log("canvas: ${opened.exceptionOrNull()?.message}")
-                withContext(Dispatchers.IO) { decoder.close() }
-                return@LaunchedEffect
-            }
-            var shown = 0
-            try {
-                val pixels = ByteArray(decoder.width * decoder.height * 4)
-                val info = ImageInfo.makeN32(decoder.width, decoder.height, ColorAlphaType.OPAQUE)
-                while (isActive) {
-                    val started = System.currentTimeMillis()
+            last
+        }
+        if (opened.isFailure) {
+            DesktopTrackLog.log("canvas: ${opened.exceptionOrNull()?.message}")
+            withContext(Dispatchers.IO) { decoder.close() }
+            return@LaunchedEffect
+        }
+
+        val cachedFrames = ArrayList<ImageBitmap>()
+        var allFramesLoaded = false
+        var frameIndex = 0
+        var decoderClosed = false
+        val frameIntervalNanos = decoder.frameIntervalMillis * 1_000_000L
+        var nextFrameTimeNanos = System.nanoTime()
+
+        try {
+            val pixels = ByteArray(decoder.width * decoder.height * 4)
+            val info = ImageInfo.makeN32(decoder.width, decoder.height, ColorAlphaType.OPAQUE)
+            while (isActive) {
+                val currentBmp: ImageBitmap? = if (allFramesLoaded) {
+                    if (cachedFrames.isEmpty()) break
+                    val bmp = cachedFrames[frameIndex]
+                    frameIndex = (frameIndex + 1) % cachedFrames.size
+                    bmp
+                } else {
                     val decoded = withContext(Dispatchers.IO) { decoder.nextFrame(pixels) }
-                    if (!decoded) break
-                    shown++
-                    // `pixels` is handed to Skia rather than copied into it, so the array cannot be
-                    // the one the decoder writes the next frame into.
-                    val next = Image.makeRaster(info, pixels.copyOf(), decoder.width * 4).toComposeImageBitmap()
-                    frame = next
-                    // The backdrop reads the first frame and holds it: re-meshing every frame would
-                    // be a full resample twenty-five times a second for a wash nobody is watching
-                    // closely, and the clip's palette does not change much across it anyway.
-                    if (shown == 1) DesktopCanvasBackdrop.publish(url, next)
-                    val spent = System.currentTimeMillis() - started
-                    delay((decoder.frameIntervalMillis - spent).coerceAtLeast(0L))
+                    if (decoded) {
+                        val bmp = Image.makeRaster(info, pixels.copyOf(), decoder.width * 4).toComposeImageBitmap()
+                        cachedFrames.add(bmp)
+                        if (cachedFrames.size == 1) {
+                            DesktopCanvasBackdrop.publish(url, bmp)
+                        }
+                        frameIndex++
+                        if (cachedFrames.size >= 300) {
+                            allFramesLoaded = true
+                            frameIndex = 0
+                            withContext(NonCancellable + Dispatchers.IO) {
+                                decoder.close()
+                                decoderClosed = true
+                            }
+                        }
+                        bmp
+                    } else {
+                        withContext(NonCancellable + Dispatchers.IO) {
+                            decoder.close()
+                            decoderClosed = true
+                        }
+                        if (cachedFrames.isEmpty()) break
+                        allFramesLoaded = true
+                        frameIndex = 0
+                        val bmp = cachedFrames[0]
+                        frameIndex = (frameIndex + 1) % cachedFrames.size
+                        bmp
+                    }
                 }
-            } finally {
-                withContext(NonCancellable + Dispatchers.IO) { decoder.close() }
+
+                frame = currentBmp
+
+                nextFrameTimeNanos += frameIntervalNanos
+                val nowNanos = System.nanoTime()
+                val sleepNanos = nextFrameTimeNanos - nowNanos
+
+                if (sleepNanos > 0L) {
+                    val sleepMs = sleepNanos / 1_000_000L
+                    if (sleepMs > 2L) {
+                        delay(sleepMs - 1L)
+                    }
+                    while (System.nanoTime() < nextFrameTimeNanos) {
+                        Thread.yield()
+                    }
+                } else if (nowNanos - nextFrameTimeNanos > frameIntervalNanos * 3L) {
+                    nextFrameTimeNanos = nowNanos
+                }
             }
-            // A pass that drew nothing would spin: reopening cannot fix a clip that has no frames
-            // in it, and retrying immediately is a busy loop over the network.
-            if (shown == 0) {
-                DesktopTrackLog.log("canvas: the clip decoded no frames; not looping it")
-                return@LaunchedEffect
+        } finally {
+            if (!decoderClosed) {
+                withContext(NonCancellable + Dispatchers.IO) { decoder.close() }
             }
         }
     }

@@ -79,6 +79,9 @@ internal class DesktopCanvasDecoder {
             )
         }
         av_dict_set(options, "rw_timeout", "15000000", 0)
+        av_dict_set(options, "probesize", "262144", 0)
+        av_dict_set(options, "analyzeduration", "1000000", 0)
+        av_dict_set(options, "http_persistent", "1", 0)
 
         val opened = AVFormatContext(null)
         check(avformat_open_input(opened, url, null, options) >= 0) { "could not open the clip" }
@@ -106,7 +109,9 @@ internal class DesktopCanvasDecoder {
         width = ((sourceWidth * scale).toInt() / 2) * 2
         height = ((sourceHeight * scale).toInt() / 2) * 2
 
-        val rate = stream.avg_frame_rate()
+        val avgRate = stream.avg_frame_rate()
+        val rRate = stream.r_frame_rate()
+        val rate = if (avgRate.num() > 0 && avgRate.den() > 0) avgRate else rRate
         if (rate.num() > 0 && rate.den() > 0) {
             // Never faster than [MIN_INTERVAL_MS]: a sleeve does not need sixty frames a second,
             // and the cost of one is a bitmap.
@@ -126,19 +131,16 @@ internal class DesktopCanvasDecoder {
         frame = av_frame_alloc()
     }.onFailure { close() }
 
-    /** The next frame as BGRA bytes, looping at the end. */
+    /** The next frame as BGRA bytes. Returns false when the clip reaches EOF. */
     fun nextFrame(into: ByteArray): Boolean {
         val container = format ?: return false
         val context = codec ?: return false
         val pkt = packet ?: return false
         val decoded = frame ?: return false
-        var looped = false
         while (true) {
             if (avcodec_receive_frame(context, decoded) == 0) {
                 val converter = scalerFor(decoded.format()) ?: return false
                 sws_scale(converter, decoded.data(), decoded.linesize(), 0, sourceHeight, planes, strides)
-                // Read through an explicit NIO view rewound each time rather than through the
-                // pointer's own `get`, whose starting offset is its position.
                 view?.let { pixels ->
                     pixels.rewind()
                     pixels.get(into, 0, minOf(into.size, width * height * 4))
@@ -146,11 +148,18 @@ internal class DesktopCanvasDecoder {
                 return true
             }
             if (av_read_frame(container, pkt) < 0) {
-                if (looped) return false
-                looped = true
-                av_seek_frame(container, streamIndex, 0, AVSEEK_FLAG_BACKWARD)
-                avcodec_flush_buffers(context)
-                continue
+                // Drain any buffered frames left in the decoder
+                avcodec_send_packet(context, null)
+                if (avcodec_receive_frame(context, decoded) == 0) {
+                    val converter = scalerFor(decoded.format()) ?: return false
+                    sws_scale(converter, decoded.data(), decoded.linesize(), 0, sourceHeight, planes, strides)
+                    view?.let { pixels ->
+                        pixels.rewind()
+                        pixels.get(into, 0, minOf(into.size, width * height * 4))
+                    }
+                    return true
+                }
+                return false
             }
             if (pkt.stream_index() == streamIndex) avcodec_send_packet(context, pkt)
             av_packet_unref(pkt)

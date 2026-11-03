@@ -61,56 +61,94 @@ internal fun DesktopCanvasVideo(spec: CanvasVideoSpec, modifier: Modifier) {
     val presentationAlpha by rememberUpdatedState(spec.presentationAlpha)
 
     LaunchedEffect(canvas) {
-        // Round and round for as long as the clip is mounted: a canvas is a few
-        // seconds long, and the decoder cannot be relied on to rewind an HLS
-        // manifest itself, so each pass reopens it.
-        while (isActive) {
-            val decoder = DesktopCanvasDecoder()
-            val opened = withContext(Dispatchers.IO) {
-                var last: Result<Unit> = Result.failure(IllegalStateException("the clip could not be fetched"))
-                for (candidate in listOfNotNull(canvas.url, canvas.fallbackUrl)) {
-                    val source = if (isManifest(candidate)) {
-                        candidate
-                    } else {
-                        DesktopCanvasCache.fileFor(candidate)?.toAbsolutePath()?.toString() ?: continue
-                    }
-                    last = decoder.open(source)
-                    if (last.isSuccess) break
-                }
-                last
+        val decoder = DesktopCanvasDecoder()
+        val opened = withContext(Dispatchers.IO) {
+            var last: Result<Unit> = Result.failure(IllegalStateException("the clip could not be fetched"))
+            for (candidate in listOfNotNull(canvas.url, canvas.fallbackUrl)) {
+                val source = DesktopCanvasCache.fileFor(candidate)?.toAbsolutePath()?.toString()
+                    ?: if (isManifest(candidate)) candidate else null
+                    ?: continue
+                last = decoder.open(source)
+                if (last.isSuccess) break
             }
-            if (opened.isFailure) {
-                DesktopTrackLog.log("canvas: ${opened.exceptionOrNull()?.message}")
-                withContext(Dispatchers.IO) { decoder.close() }
-                return@LaunchedEffect
-            }
-            reportAspect(decoder.width.toFloat() / decoder.height.coerceAtLeast(1))
-            var shown = 0
-            try {
-                val pixels = ByteArray(decoder.width * decoder.height * 4)
-                val info = ImageInfo.makeN32(decoder.width, decoder.height, ColorAlphaType.OPAQUE)
-                while (isActive) {
-                    // Paused with the track, or for the length of the sleeve's
-                    // collapse: the last frame stays up, nothing is decoded.
-                    snapshotFlow { running }.first { it }
-                    val started = System.currentTimeMillis()
+            last
+        }
+        if (opened.isFailure) {
+            DesktopTrackLog.log("canvas: ${opened.exceptionOrNull()?.message}")
+            withContext(Dispatchers.IO) { decoder.close() }
+            return@LaunchedEffect
+        }
+        reportAspect(decoder.width.toFloat() / decoder.height.coerceAtLeast(1))
+
+        val cachedFrames = ArrayList<ImageBitmap>()
+        var allFramesLoaded = false
+        var frameIndex = 0
+        var decoderClosed = false
+        val frameIntervalNanos = decoder.frameIntervalMillis * 1_000_000L
+        var nextFrameTimeNanos = System.nanoTime()
+
+        try {
+            val pixels = ByteArray(decoder.width * decoder.height * 4)
+            val info = ImageInfo.makeN32(decoder.width, decoder.height, ColorAlphaType.OPAQUE)
+
+            while (isActive) {
+                snapshotFlow { running }.first { it }
+
+                val currentBmp: ImageBitmap? = if (allFramesLoaded) {
+                    if (cachedFrames.isEmpty()) break
+                    val bmp = cachedFrames[frameIndex]
+                    frameIndex = (frameIndex + 1) % cachedFrames.size
+                    bmp
+                } else {
                     val decoded = withContext(Dispatchers.IO) { decoder.nextFrame(pixels) }
-                    if (!decoded) break
-                    shown++
-                    // Handed to Skia rather than copied, so the next frame
-                    // cannot be decoded into the same array.
-                    frame = Image.makeRaster(info, pixels.copyOf(), decoder.width * 4).toComposeImageBitmap()
-                    val spent = System.currentTimeMillis() - started
-                    delay((decoder.frameIntervalMillis - spent).coerceAtLeast(0L))
+                    if (decoded) {
+                        val bmp = Image.makeRaster(info, pixels.copyOf(), decoder.width * 4).toComposeImageBitmap()
+                        cachedFrames.add(bmp)
+                        frameIndex++
+                        if (cachedFrames.size >= 300) {
+                            allFramesLoaded = true
+                            frameIndex = 0
+                            withContext(NonCancellable + Dispatchers.IO) {
+                                decoder.close()
+                                decoderClosed = true
+                            }
+                        }
+                        bmp
+                    } else {
+                        withContext(NonCancellable + Dispatchers.IO) {
+                            decoder.close()
+                            decoderClosed = true
+                        }
+                        if (cachedFrames.isEmpty()) break
+                        allFramesLoaded = true
+                        frameIndex = 0
+                        val bmp = cachedFrames[0]
+                        frameIndex = (frameIndex + 1) % cachedFrames.size
+                        bmp
+                    }
                 }
-            } finally {
-                withContext(NonCancellable + Dispatchers.IO) { decoder.close() }
+
+                frame = currentBmp
+
+                nextFrameTimeNanos += frameIntervalNanos
+                val nowNanos = System.nanoTime()
+                val sleepNanos = nextFrameTimeNanos - nowNanos
+
+                if (sleepNanos > 0L) {
+                    val sleepMs = sleepNanos / 1_000_000L
+                    if (sleepMs > 2L) {
+                        delay(sleepMs - 1L)
+                    }
+                    while (System.nanoTime() < nextFrameTimeNanos) {
+                        Thread.yield()
+                    }
+                } else if (nowNanos - nextFrameTimeNanos > frameIntervalNanos * 3L) {
+                    nextFrameTimeNanos = nowNanos
+                }
             }
-            // A pass that drew nothing would spin: reopening cannot fix a clip
-            // with no frames in it.
-            if (shown == 0) {
-                DesktopTrackLog.log("canvas: the clip decoded no frames; not looping it")
-                return@LaunchedEffect
+        } finally {
+            if (!decoderClosed) {
+                withContext(NonCancellable + Dispatchers.IO) { decoder.close() }
             }
         }
     }
