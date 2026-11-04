@@ -350,7 +350,6 @@ class DesktopPersistence {
             DesktopTrackLog.log("stored sources could not be read; leaving them untouched")
             return listOf(
                 DesktopSourceConfig("tidal", DesktopSourceKind.TIDAL, enabled = sourceEnabled("tidal", default = false)),
-                DesktopSourceConfig("monochrome", DesktopSourceKind.MONOCHROME, baseUrl = DesktopMonochromeSource.DEFAULT_URL, enabled = sourceEnabled("monochrome", default = false)),
                 DesktopSourceConfig("jiosaavn", DesktopSourceKind.JIOSAAVN, enabled = sourceEnabled("jiosaavn")),
                 DesktopSourceConfig("youtube", DesktopSourceKind.YOUTUBE),
             )
@@ -358,7 +357,7 @@ class DesktopPersistence {
         // A build-seeded module index is no longer carried, and the one this app used to ship has
         // been withdrawn — it answers HTTP 404 now.
         val initial = (stored ?: migrateLegacySources())
-            .filterNot { it.kind == DesktopSourceKind.MODULE }
+            .filterNot { it.kind == DesktopSourceKind.MODULE || it.kind == DesktopSourceKind.MONOCHROME }
         val withBuiltIns = initial.toMutableList().apply {
             if (none { it.kind == DesktopSourceKind.TIDAL }) {
                 add(
@@ -369,16 +368,7 @@ class DesktopPersistence {
                     ),
                 )
             }
-            if (none { it.kind == DesktopSourceKind.MONOCHROME }) {
-                add(
-                    DesktopSourceConfig(
-                        "monochrome",
-                        DesktopSourceKind.MONOCHROME,
-                        baseUrl = DesktopMonochromeSource.DEFAULT_URL,
-                        enabled = sourceEnabled("monochrome", default = false),
-                    ),
-                )
-            }
+
             if (none { it.kind == DesktopSourceKind.JIOSAAVN }) {
                 add(
                     DesktopSourceConfig(

@@ -87,7 +87,7 @@ internal enum class DesktopAudioQuality(
     LOW(64, "Low", "~64 kbps · smallest download"),
     MEDIUM(Int.MAX_VALUE, "Medium", "Best available · ~171 kbps Opus"),
     HIGH(Int.MAX_VALUE, "High", "JioSaavn up to 320kbps, YouTube fallback"),
-    LOSSLESS(Int.MAX_VALUE, "Lossless", "Your addons + JioSaavn, bit-exact where available"),
+    LOSSLESS(Int.MAX_VALUE, "Lossless", "Monochrome FLAC + your addons, bit-exact where available"),
     ;
 
     /** Whether a stream started under this ceiling may be served by [kind]. */

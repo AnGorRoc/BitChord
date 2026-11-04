@@ -7072,9 +7072,14 @@ private fun DesktopSettingsScreen(
                 )
             }
             CompositionLocalProvider(LocalSettingsQuery provides settingsQuery.trim()) {
+            val activeListState = if (category == null || searching) {
+                listState
+            } else {
+                remember(category) { LazyListState() }
+            }
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                state = listState,
+                state = activeListState,
                 contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp),
             ) {
                 if (category == null && !searching) {
@@ -7097,10 +7102,12 @@ private fun DesktopSettingsScreen(
                     item {
                         SettingsGroup(DesktopStrings["audio_quality", "Audio quality"]) {
                             val sourcesHeading = DesktopStrings["sources_order_header", "Sources · tried in this order"]
-                            val userAddedIds = sourceConfigs.inSourceOrder()
+                            val visibleConfigs = sourceConfigs.inSourceOrder()
+                                .filterNot { it.kind == DesktopSourceKind.MONOCHROME }
+                            val userAddedIds = visibleConfigs
                                 .filter(DesktopSourceConfig::isUserAdded)
                                 .map(DesktopSourceConfig::id)
-                            sourceConfigs.inSourceOrder().forEachIndexed { index, config ->
+                            visibleConfigs.forEachIndexed { index, config ->
                                 if (!settingsRowVisible(sourcesHeading, config.displayName)) return@forEachIndexed
                                 DesktopSourceSettingsRow(
                                     position = index + 1,
