@@ -3505,16 +3505,10 @@ fun BitChordDesktopApp() {
         val ambientArtworkUrl = replaySummary.songs.firstOrNull()?.song?.thumbnailUrl
             .takeIf { overlays.replay }
             ?: selectedSong?.thumbnailUrl.takeIf { ambientBackdrop }
-        val artworkPalette = rememberDesktopArtworkPalette(ambientArtworkUrl)
         val windowScope = LocalDesktopWindowScope.current
-        LaunchedEffect(windowScope?.window, ambientArtworkUrl, artworkPalette, ambientBackdrop) {
+        LaunchedEffect(windowScope?.window) {
             val window = windowScope?.window ?: return@LaunchedEffect
-            val targetColor = if (ambientBackdrop && ambientArtworkUrl != null) {
-                artworkPalette.primary
-            } else {
-                DesktopBackground
-            }
-            DesktopWindowsTheme.updateTitleBar(window, targetColor)
+            DesktopWindowsTheme.updateTitleBar(window, DesktopBackground)
         }
         val windowActions = LocalDesktopWindowActions.current
         CompositionLocalProvider(
@@ -6136,7 +6130,7 @@ private fun DesktopFrame(
             modifier
                 .fillMaxSize()
                 .then(if (roundCorners) Modifier.clip(RoundedCornerShape(10.dp)) else Modifier)
-                .then(if (glass) Modifier else Modifier.background(containerColor)),
+                .then(if (glass && materialBehindApp) Modifier else Modifier.background(containerColor)),
         ) {
             // Both sources of the same state: the chrome blurs the backdrop behind it, and the
             // floating bottom bar blurs the page scrolling under it.
@@ -6151,7 +6145,10 @@ private fun DesktopFrame(
                     Column(Modifier.weight(1f).fillMaxHeight()) {
                         if (DesktopPlatform.drawsOwnWindowFrame && !DesktopPlatform.isMac) {
                             DesktopTitleBarDragArea(
-                                Modifier.fillMaxWidth().height(WINDOW_CAPTION_HEIGHT),
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(WINDOW_CAPTION_HEIGHT)
+                                    .desktopWindowGlass(DesktopChromeEdge.NONE),
                             )
                         }
                         // Apple Music has no top bar on a wide window: the player is the floating capsule below.
@@ -6222,6 +6219,7 @@ private fun DesktopFrame(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .size(width = 142.dp, height = WINDOW_CAPTION_HEIGHT)
+                        .desktopWindowGlass(DesktopChromeEdge.NONE)
                         .hoverable(interactionSource),
                     contentAlignment = Alignment.TopEnd,
                 ) {
@@ -6247,7 +6245,12 @@ private fun DesktopPageBackdrop(artworkUrl: String?, transparentBase: Boolean) {
             .fillMaxSize()
             .then(if (transparentBase) Modifier else Modifier.background(DesktopBackground)),
     ) {
-        if (artworkUrl == null) return@Box
+        if (artworkUrl == null) {
+            if (transparentBase) {
+                Box(Modifier.fillMaxSize().background(DesktopBackground))
+            }
+            return@Box
+        }
         DesktopMesh(artworkUrl)
         Box(
             Modifier.fillMaxSize().background(
