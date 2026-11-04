@@ -6130,7 +6130,7 @@ private fun DesktopFrame(
             modifier
                 .fillMaxSize()
                 .then(if (roundCorners) Modifier.clip(RoundedCornerShape(10.dp)) else Modifier)
-                .then(if (glass && materialBehindApp) Modifier else Modifier.background(containerColor)),
+                .then(if (glass) Modifier else Modifier.background(containerColor)),
         ) {
             // Both sources of the same state: the chrome blurs the backdrop behind it, and the
             // floating bottom bar blurs the page scrolling under it.
@@ -6145,10 +6145,7 @@ private fun DesktopFrame(
                     Column(Modifier.weight(1f).fillMaxHeight()) {
                         if (DesktopPlatform.drawsOwnWindowFrame && !DesktopPlatform.isMac) {
                             DesktopTitleBarDragArea(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(WINDOW_CAPTION_HEIGHT)
-                                    .desktopWindowGlass(DesktopChromeEdge.NONE),
+                                Modifier.fillMaxWidth().height(WINDOW_CAPTION_HEIGHT),
                             )
                         }
                         // Apple Music has no top bar on a wide window: the player is the floating capsule below.
@@ -6219,7 +6216,6 @@ private fun DesktopFrame(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .size(width = 142.dp, height = WINDOW_CAPTION_HEIGHT)
-                        .desktopWindowGlass(DesktopChromeEdge.NONE)
                         .hoverable(interactionSource),
                     contentAlignment = Alignment.TopEnd,
                 ) {
