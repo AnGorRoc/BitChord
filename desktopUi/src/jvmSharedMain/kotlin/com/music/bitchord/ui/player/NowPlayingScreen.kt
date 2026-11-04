@@ -1955,6 +1955,7 @@ fun NowPlayingScreen(
                         queueOpen -> PlayerPane.Queue
                         else -> PlayerPane.Main
                     },
+                    hasLyrics = lyricsTranslation.displayedLyrics.isNotEmpty(),
                     background = { backgroundModifier ->
                         // The whole screen is the sheets' frost source: there is
                         // no full-bleed banner here to be it instead.

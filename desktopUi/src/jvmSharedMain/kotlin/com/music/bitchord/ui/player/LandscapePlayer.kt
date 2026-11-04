@@ -7,6 +7,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -114,6 +116,12 @@ private const val LANDSCAPE_PANE_FADE_IN_MS = 220
 private const val LANDSCAPE_PANE_FADE_IN_DELAY_MS = 90
 private const val LANDSCAPE_PANE_FADE_OUT_MS = 140
 
+/**
+ * How long the desktop player takes to glide between its centered layout (no lyrics loaded)
+ * and its split layout (lyrics or queue side-by-side).
+ */
+private const val DESKTOP_SPLIT_ANIMATION_MS = 400
+
 /** Which of its three things the player's content column is showing. */
 internal enum class PlayerPane { Main, Lyrics, Queue }
 
@@ -176,6 +184,7 @@ internal fun LandscapePlayerLayout(
     /** The lyric sheet. [compact] is a phone-height window. */
     lyricsPane: @Composable (compact: Boolean) -> Unit,
     queuePane: @Composable () -> Unit,
+    hasLyrics: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -192,37 +201,27 @@ internal fun LandscapePlayerLayout(
             val compact = maxHeight < LANDSCAPE_COMPACT_HEIGHT
             val gutter = if (compact) LANDSCAPE_GUTTER_COMPACT else PLAYER_GUTTER
 
-            // On a desktop window the transport sits under the sleeve in the
-            // left column, so the main state shows the lyric sheet here rather
-            // than the controls — words fill this space, as in Apple Music. The
-            // queue still toggles over it. A phone-height window is untouched:
-            // its main pane is the transport, exactly as before.
-            val shown = if (!compact && pane == PlayerPane.Main) PlayerPane.Lyrics else pane
-
-            Row(
-                modifier = Modifier
-                    .widthIn(max = LANDSCAPE_PLAYER_MAX_WIDTH)
-                    .fillMaxSize()
-                    .padding(
-                        top = LANDSCAPE_HANDLE_STRIP,
-                        bottom = if (compact) 8.dp else 20.dp,
-                    ),
-            ) {
-                Column(
+            if (compact) {
+                // A phone-height window keeps its traditional 2-column layout
+                // where the controls live on the right column by default.
+                val shown = pane
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .padding(horizontal = gutter),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = if (compact) Arrangement.Top else Arrangement.Center,
+                        .widthIn(max = LANDSCAPE_PLAYER_MAX_WIDTH)
+                        .fillMaxSize()
+                        .padding(
+                            top = LANDSCAPE_HANDLE_STRIP,
+                            bottom = 8.dp,
+                        ),
                 ) {
-                    if (compact) {
-                        // The sleeve is square and takes whichever of the two
-                        // axes runs out first once the row below has had its
-                        // height — the column's width on a big tablet, the
-                        // height on anything shorter. Measured here rather than
-                        // estimated, so the row under it can never be pushed off
-                        // the bottom.
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(horizontal = gutter),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Top,
+                    ) {
                         BoxWithConstraints(
                             modifier = Modifier
                                 .weight(1f)
@@ -233,77 +232,143 @@ internal fun LandscapePlayerLayout(
                         }
                         Spacer(Modifier.height(12.dp))
                         actions()
-                    } else {
-                        // On a desktop window the transport lives here, right
-                        // under the sleeve and always on screen, the way Apple
-                        // Music lays the fullscreen player out. The sleeve is
-                        // capped to [LANDSCAPE_DESKTOP_CONTROLS_RESERVE] less
-                        // than the column so there is room under it, and the box
-                        // wraps that square exactly — no slack left below the
-                        // cover to shove the controls back down to the foot.
-                        BoxWithConstraints(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            artwork(
-                                Modifier.size(
-                                    minOf(maxWidth, maxHeight - LANDSCAPE_DESKTOP_CONTROLS_RESERVE),
+                    }
+
+                    AnimatedContent(
+                        targetState = shown,
+                        transitionSpec = {
+                            fadeIn(
+                                tween(
+                                    LANDSCAPE_PANE_FADE_IN_MS,
+                                    delayMillis = LANDSCAPE_PANE_FADE_IN_DELAY_MS,
                                 ),
-                                true,
-                            )
+                            ) togetherWith fadeOut(tween(LANDSCAPE_PANE_FADE_OUT_MS))
+                        },
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        label = "landscapePane",
+                    ) { paneShown ->
+                        when (paneShown) {
+                            PlayerPane.Main -> Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = gutter),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                controls(compact)
+                            }
+                            PlayerPane.Lyrics -> Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = PLAYER_GUTTER),
+                            ) {
+                                lyricsPane(compact)
+                            }
+                            PlayerPane.Queue -> Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = PLAYER_GUTTER),
+                            ) {
+                                queuePane()
+                            }
                         }
-                        Spacer(Modifier.height(24.dp))
-                        controls(false)
-                        // The volume bar and the lyrics/output/queue row are
-                        // folded into the player's overflow, which the song
-                        // menu's "More…" opens — so the sleeve and the
-                        // transport are all this column shows.
                     }
                 }
+            } else {
+                // Desktop window: when lyrics are not yet loaded (and queue is closed),
+                // the player column (sleeve + controls) stays cleanly centered without
+                // showing any placeholder. Once lyrics load (or queue opens), it smoothly
+                // glides to the left half to give way to the right pane.
+                val showRightPane = pane == PlayerPane.Queue || hasLyrics
+                val shown = if (pane == PlayerPane.Queue) PlayerPane.Queue else PlayerPane.Lyrics
 
-                AnimatedContent(
-                    targetState = shown,
-                    transitionSpec = {
-                        fadeIn(
-                            tween(
-                                LANDSCAPE_PANE_FADE_IN_MS,
-                                delayMillis = LANDSCAPE_PANE_FADE_IN_DELAY_MS,
-                            ),
-                        ) togetherWith fadeOut(tween(LANDSCAPE_PANE_FADE_OUT_MS))
-                    },
-                    contentAlignment = Alignment.Center,
+                val splitProgress by animateFloatAsState(
+                    targetValue = if (showRightPane) 1f else 0f,
+                    animationSpec = tween(
+                        durationMillis = DESKTOP_SPLIT_ANIMATION_MS,
+                        easing = FastOutSlowInEasing,
+                    ),
+                    label = "desktopSplitProgress",
+                )
+
+                BoxWithConstraints(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
-                    label = "landscapePane",
-                ) { paneShown ->
-                    when (paneShown) {
-                        PlayerPane.Main -> Box(
+                        .widthIn(max = LANDSCAPE_PLAYER_MAX_WIDTH)
+                        .fillMaxSize()
+                        .padding(
+                            top = LANDSCAPE_HANDLE_STRIP,
+                            bottom = 20.dp,
+                        ),
+                ) {
+                    val totalWidth = maxWidth
+                    val colWidth = totalWidth / 2
+                    val centerOffset = totalWidth / 4
+                    val playerOffsetX = centerOffset * (1f - splitProgress)
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(colWidth)
+                            .offset(x = playerOffsetX),
+                    ) {
+                        Column(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(horizontal = gutter),
-                            contentAlignment = Alignment.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
                         ) {
-                            controls(compact)
+                            BoxWithConstraints(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                artwork(
+                                    Modifier.size(
+                                        minOf(maxWidth, maxHeight - LANDSCAPE_DESKTOP_CONTROLS_RESERVE),
+                                    ),
+                                    true,
+                                )
+                            }
+                            Spacer(Modifier.height(24.dp))
+                            controls(false)
                         }
-                        // The lyric sheet and the queue both reach back across
-                        // [PLAYER_GUTTER] on their own (see
-                        // [bleedHorizontally]), so that is the padding they
-                        // get: their scroll areas then run exactly to the
-                        // column's edges.
-                        PlayerPane.Lyrics -> Box(
-                            Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = PLAYER_GUTTER),
+                    }
+
+                    if (splitProgress > 0f) {
+                        val slideOffset = 28.dp * (1f - splitProgress)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(colWidth)
+                                .offset(x = colWidth + slideOffset)
+                                .graphicsLayer {
+                                    alpha = splitProgress.coerceIn(0f, 1f)
+                                },
                         ) {
-                            lyricsPane(compact)
-                        }
-                        PlayerPane.Queue -> Box(
-                            Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = PLAYER_GUTTER),
-                        ) {
-                            queuePane()
+                            AnimatedContent(
+                                targetState = shown,
+                                transitionSpec = {
+                                    fadeIn(
+                                        tween(
+                                            LANDSCAPE_PANE_FADE_IN_MS,
+                                            delayMillis = LANDSCAPE_PANE_FADE_IN_DELAY_MS,
+                                        ),
+                                    ) togetherWith fadeOut(tween(LANDSCAPE_PANE_FADE_OUT_MS))
+                                },
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = PLAYER_GUTTER),
+                                label = "landscapePane",
+                            ) { paneShown ->
+                                when (paneShown) {
+                                    PlayerPane.Main,
+                                    PlayerPane.Lyrics -> lyricsPane(false)
+                                    PlayerPane.Queue -> queuePane()
+                                }
+                            }
                         }
                     }
                 }
