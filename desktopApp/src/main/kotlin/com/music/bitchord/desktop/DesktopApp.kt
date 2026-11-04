@@ -7091,6 +7091,7 @@ private fun DesktopSettingsScreen(
                                 icon = Icons.Rounded.Person,
                                 onClick = onOpenIntegrations,
                             )
+                            SettingsDivider(indent = 36.dp)
                             SettingsNavigationRow(
                                 title = DesktopStrings["listen_together", "Listen together"],
                                 subtitle = DesktopStrings["listen_together_create_subtitle", "Start a party and share the code."],
@@ -7259,7 +7260,8 @@ private fun DesktopSettingsScreen(
                     }
                     item {
                         SettingsGroup {
-                            DesktopSettingsCategory.entries.forEach { cat ->
+                            DesktopSettingsCategory.entries.forEachIndexed { index, cat ->
+                                if (index > 0) SettingsDivider(indent = 36.dp)
                                 SettingsNavigationRow(
                                     title = cat.title(),
                                     icon = cat.icon,
@@ -9496,33 +9498,39 @@ private fun DesktopEmptyPage(icon: androidx.compose.ui.graphics.vector.ImageVect
     }
 }
 
-/** A titled block of settings rows. */
+/** A titled block of settings rows styled as an inset rounded card, mirroring Android's grouped settings. */
 @Composable
 private fun SettingsGroup(title: String? = null, content: @Composable () -> Unit) {
     val query = LocalSettingsQuery.current
-    // A group whose own name matches shows whole; otherwise only its matching rows do, and the
-    // heading goes with them when none are left.
     val wholeGroup = query.isBlank() || (title != null && title.contains(query, ignoreCase = true))
     val matched = remember(query) { androidx.compose.runtime.mutableStateListOf<String>() }
     val visible = wholeGroup || matched.isNotEmpty()
-    // The gap belongs to the group, not to the list: as list spacing, every filtered-out group
-    // still left its 18dp behind and the surviving ones sat under a band of empty space.
-    Column(if (visible) Modifier.padding(bottom = 20.dp) else Modifier) {
-        if (visible && title != null) {
+    if (!visible) return
+
+    Column(Modifier.fillMaxWidth().padding(bottom = 22.dp)) {
+        if (title != null) {
             Text(
                 title.uppercase(),
                 color = DesktopSecondary,
                 style = MaterialTheme.typography.labelSmall,
-                // In line with the rows' own text, now that no card sets them in.
-                modifier = Modifier.padding(top = 10.dp, bottom = 4.dp),
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 8.dp),
             )
         }
-        Column {
-            CompositionLocalProvider(
-                LocalSettingsQuery provides if (wholeGroup) "" else query,
-                LocalSettingsMatches provides matched,
-            ) {
-                content()
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 16.dp, vertical = 2.dp),
+        ) {
+            Column(Modifier.fillMaxWidth()) {
+                CompositionLocalProvider(
+                    LocalSettingsQuery provides if (wholeGroup) "" else query,
+                    LocalSettingsMatches provides matched,
+                ) {
+                    content()
+                }
             }
         }
     }
@@ -9551,6 +9559,15 @@ private fun settingsRowVisible(title: String, subtitle: String = ""): Boolean {
     return hit
 }
 
+@Composable
+internal fun SettingsDivider(modifier: Modifier = Modifier, indent: Dp = 0.dp) {
+    HorizontalDivider(
+        modifier = modifier.padding(start = indent),
+        thickness = 0.5.dp,
+        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+    )
+}
+
 /** A settings row that opens something rather than toggling it. */
 @Composable
 private fun SettingsNavigationRow(
@@ -9564,24 +9581,28 @@ private fun SettingsNavigationRow(
         Modifier
             .fillMaxWidth()
             .desktopRowClickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+            .padding(vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
             Icon(
                 icon,
                 null,
-                tint = DesktopSecondary,
+                tint = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.size(22.dp),
             )
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(14.dp))
         }
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
             if (!subtitle.isNullOrBlank()) {
                 Text(
                     subtitle,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = DesktopSecondary,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -9592,8 +9613,8 @@ private fun SettingsNavigationRow(
         Icon(
             BitChordIcons.ChevronRight,
             null,
-            tint = DesktopSecondary,
-            modifier = Modifier.size(18.dp),
+            tint = DesktopSecondary.copy(alpha = 0.7f),
+            modifier = Modifier.size(19.dp),
         )
     }
 }
@@ -9650,8 +9671,17 @@ private fun SettingsToggle(title: String, subtitle: String, checked: Boolean, on
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(subtitle, color = DesktopSecondary, style = MaterialTheme.typography.bodyMedium, maxLines = 3)
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                subtitle,
+                color = DesktopSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 3,
+            )
         }
         Spacer(Modifier.width(18.dp))
         Switch(checked = checked, onCheckedChange = onCheckedChange, colors = desktopSwitchColors())
@@ -9670,23 +9700,37 @@ private fun SettingsRow(
         Modifier
             .fillMaxWidth()
             .desktopRowClickable(enabled = onClick != null) { onClick?.invoke() }
-            .padding(vertical = 14.dp),
+            .padding(vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Color.White.copy(alpha = 0.08f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(icon, null, tint = DesktopAccent, modifier = Modifier.size(19.dp))
-        }
+        Icon(
+            icon,
+            null,
+            tint = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.size(22.dp),
+        )
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(subtitle, color = DesktopSecondary, style = MaterialTheme.typography.bodyMedium, maxLines = 3)
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                subtitle,
+                color = DesktopSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 3,
+            )
         }
         if (onClick != null) {
             Spacer(Modifier.width(10.dp))
-            Icon(BitChordIcons.ChevronRight, null, tint = DesktopSecondary, modifier = Modifier.size(18.dp))
+            Icon(
+                BitChordIcons.ChevronRight,
+                null,
+                tint = DesktopSecondary.copy(alpha = 0.7f),
+                modifier = Modifier.size(19.dp),
+            )
         }
     }
 }
