@@ -6041,7 +6041,7 @@ internal fun DesktopSearchField(
     onFocusChanged: (Boolean) -> Unit = {},
     placeholder: String = "Search",
 ) {
-    val searchShape = RoundedCornerShape(7.dp)
+    val searchShape = RoundedCornerShape(percent = 50)
     Box(
         modifier
             .fillMaxWidth()

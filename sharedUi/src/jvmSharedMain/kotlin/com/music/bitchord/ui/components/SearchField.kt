@@ -79,9 +79,11 @@ fun SearchField(
                     Modifier.fillMaxHeight()
                 } else {
                     // Fixed height prevents the row from growing when text is entered
+                    val searchShape = RoundedCornerShape(percent = 50)
                     Modifier
                         .height(46.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(11.dp))
+                        .clip(searchShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                 },
             )
             // Asymmetric: the magnifier is a button now and wants a real touch

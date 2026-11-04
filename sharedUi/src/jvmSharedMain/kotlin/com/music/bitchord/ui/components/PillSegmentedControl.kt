@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
@@ -70,17 +71,19 @@ fun PillSegmentedControl(
     val style = MaterialTheme.typography.labelMedium
     val measurer = rememberTextMeasurer()
     val light = MaterialTheme.colorScheme.surface.luminance() > 0.5f
-    val trackColor = TRACK_FILL.copy(alpha = if (light) LIGHT_TRACK_ALPHA else DARK_TRACK_ALPHA)
-    val pillColor = if (light) Color.White else DARK_PILL
-    val labelColor = if (light) Color.Black else Color.White
+    val trackColor = if (light) Color.Black.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.06f)
+    val trackBorderColor = if (light) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.10f)
+    val pillColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+    val selectedTextColor = MaterialTheme.colorScheme.primary
+    val unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f)
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
     val selected = selectedIndex.takeIf { it in options.indices }
 
     BoxWithConstraints(
         modifier = modifier
-            .fillMaxWidth()
             .clip(TrackShape)
-            .background(trackColor),
+            .background(trackColor)
+            .border(0.5.dp, trackBorderColor, TrackShape),
     ) {
         val inset = with(density) { TRACK_PADDING.toPx() }
         val labelPadding = with(density) { LABEL_PADDING.toPx() }
@@ -176,7 +179,7 @@ fun PillSegmentedControl(
                         Text(
                             text = label,
                             style = style,
-                            color = labelColor,
+                            color = if (index == selected) selectedTextColor else unselectedTextColor,
                             maxLines = 1,
                             softWrap = false,
                         )
@@ -204,9 +207,9 @@ private const val LIGHT_TRACK_ALPHA = 0.12f
 /** The selected segment on dark, Apple's lifted grey; on light it is white. */
 private val DARK_PILL = Color(0xFF636366)
 
-private val TRACK_PADDING = 4.dp
+private val TRACK_PADDING = 3.dp
 /** Air either side of a label: past this a segment reads as a word, not a cramped tab. */
-private val LABEL_PADDING = 18.dp
-private val LABEL_VERTICAL_PADDING = 9.dp
+private val LABEL_PADDING = 14.dp
+private val LABEL_VERTICAL_PADDING = 5.dp
 private val EDGE_FADE = 28.dp
 private const val PILL_DAMPING = 0.8f
