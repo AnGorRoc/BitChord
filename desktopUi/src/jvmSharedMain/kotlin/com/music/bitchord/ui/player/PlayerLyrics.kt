@@ -249,8 +249,8 @@ private val GLOW_ROOM = 10.dp
  * Small enough to be read as a second voice at a glance and no smaller —
  * these are the words of the song, not a caption.
  */
-private val BACKING_FONT_SIZE = 23.sp
-private val BACKING_LINE_HEIGHT = 29.sp
+private val BACKING_FONT_SIZE = 26.sp
+private val BACKING_LINE_HEIGHT = 33.sp
 private const val BACKING_ALPHA = 0.72f
 
 /**
@@ -284,10 +284,10 @@ private const val BACKING_FADE_LEAD = 1.6f
  * way Apple Music prints pronunciation under the lyric, and tucked up into the
  * lead's glow inset so the two read as one line rather than two rows.
  */
-private val SUB_LYRIC_FONT_SIZE = 20.sp
-private val SUB_LYRIC_LINE_HEIGHT = 25.sp
-private val SUB_BACKING_FONT_SIZE = 16.sp
-private val SUB_BACKING_LINE_HEIGHT = 21.sp
+private val SUB_LYRIC_FONT_SIZE = 22.sp
+private val SUB_LYRIC_LINE_HEIGHT = 28.sp
+private val SUB_BACKING_FONT_SIZE = 18.sp
+private val SUB_BACKING_LINE_HEIGHT = 24.sp
 private const val SUB_LYRIC_ALPHA = 0.85f
 private val SUB_LYRIC_TUCK = 6.dp
 private const val SUB_LYRIC_OPEN_MS = 460
@@ -1890,23 +1890,21 @@ internal fun LyricsPanel(
     )
 
     val currentLine by rememberUpdatedState(focusLine)
-    val activeOnScreen by remember(listState) {
+    val activeNearCenter by remember(listState, currentLine) {
         derivedStateOf {
-            listState.layoutInfo.visibleItemsInfo.any { it.index == currentLine }
+            val visible = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentLine }
+                ?: return@derivedStateOf false
+            val viewportCenter = (listState.layoutInfo.viewportStartOffset + listState.layoutInfo.viewportEndOffset) / 2
+            val itemCenter = visible.offset + visible.size / 2
+            val tolerance = (listState.layoutInfo.viewportSize.height * 0.28f).toInt().coerceAtLeast(visible.size)
+            abs(itemCenter - viewportCenter) <= tolerance
         }
     }
-    // Paused, there is no song to follow back to, so a hand scroll should sit
-    // wherever it was left rather than snapping back on these timers.
-    LaunchedEffect(browsingByDrag, activeOnScreen, listState.isScrollInProgress, panelPlaying) {
-        if (panelPlaying && browsingByDrag && activeOnScreen && !listState.isScrollInProgress) {
-            delay(600)
-            browsingByDrag = false
-        }
-    }
-
-    LaunchedEffect(browsingByDrag, listState.isScrollInProgress, panelPlaying) {
-        if (panelPlaying && browsingByDrag && !listState.isScrollInProgress) {
-            delay(5_000)
+    // Spotify-style reconnection: reconnects when the active lyric passes near the viewport center.
+    // If the user scrolled far away, auto-scroll remains disconnected until the song reaches the visible area/center.
+    LaunchedEffect(browsingByDrag, activeNearCenter, listState.isScrollInProgress, panelPlaying) {
+        if (panelPlaying && browsingByDrag && activeNearCenter && !listState.isScrollInProgress) {
+            delay(250)
             browsingByDrag = false
         }
     }
@@ -2124,6 +2122,8 @@ internal fun LyricsPanel(
                     // Reading by hand is not following along: the stack flattens
                     // to one brightness so no row is being pointed at.
                     browsing -> BROWSING_ALPHA
+                    // Lines that have already been sung remain legible rather than fading away.
+                    offset < 0 -> (falloff[step] * 1.15f).coerceIn(0.68f, 0.92f)
                     else -> falloff[step]
                 },
                 animationSpec = tween(LYRIC_SETTLE_MS, easing = LYRIC_EASING),
@@ -2218,15 +2218,15 @@ internal fun LyricsPanel(
                 val alignEnd = duet && line.alignment == LyricAlignment.End
                 val style = if (isSynced) {
                     MaterialTheme.typography.headlineLarge.copy(
-                        fontSize = 34.sp,
-                        lineHeight = 41.sp,
+                        fontSize = 38.sp,
+                        lineHeight = 46.sp,
                         fontWeight = FontWeight.ExtraBold,
                         textAlign = if (alignEnd) TextAlign.End else TextAlign.Start,
                     )
                 } else {
                     MaterialTheme.typography.headlineMedium.copy(
-                        fontSize = 30.sp,
-                        lineHeight = 38.sp,
+                        fontSize = 33.sp,
+                        lineHeight = 42.sp,
                         fontWeight = FontWeight.ExtraBold,
                         textAlign = if (alignEnd) TextAlign.End else TextAlign.Start,
                     )
