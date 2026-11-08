@@ -20,8 +20,8 @@ People whose work is part of this codebase, from the original BitChord and from 
 
 <!-- BEGIN CONTRIBUTORS -->
 - [@kushagrasinghx](https://github.com/kushagrasinghx)
-- [@Galaxyyss](https://github.com/Galaxyyss)
 - [@AnGorRoc](https://github.com/AnGorRoc)
+- [@Galaxyyss](https://github.com/Galaxyyss)
 - [@KabirSinghBhatia](https://github.com/KabirSinghBhatia)
 - [@claude](https://github.com/claude)
 - [@Rudraksh88](https://github.com/Rudraksh88)
@@ -61,6 +61,7 @@ People whose work is part of this codebase, from the original BitChord and from 
 - [@avishekrezal](https://github.com/avishekrezal)
 - [@aryasarukkai](https://github.com/aryasarukkai)
 - [@AniXDex](https://github.com/AniXDex)
+- [@prakhar3030s](https://github.com/prakhar3030s)
 - [@pranavsh1408](https://github.com/pranavsh1408)
 - [@SHUBH-snippet](https://github.com/SHUBH-snippet)
 - [@Sourabhnamdev9981](https://github.com/Sourabhnamdev9981)
@@ -73,9 +74,8 @@ People whose work is part of this codebase, from the original BitChord and from 
 - [@peledson11](https://github.com/peledson11)
 - [@steeben](https://github.com/steeben)
 - [@yxyydev](https://github.com/yxyydev)
-- [@prakhar3030s](https://github.com/prakhar3030s)
 - [@impin2rex](https://github.com/impin2rex)
-- [@Omc725](https://github.com/Omc725)
+- [@stuntsnakee](https://github.com/stuntsnakee)
 - [@Om-anand-0](https://github.com/Om-anand-0)
 - [@nimalanrao](https://github.com/nimalanrao)
 - [@Nishad-Amit](https://github.com/Nishad-Amit)
